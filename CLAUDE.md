@@ -166,17 +166,41 @@ Articles are tagged by clinical topic (not hierarchical — an article can have 
 
 ---
 
-## Translation Workflow
+## Article Workflow
 
-Process one article completely before moving to the next:
+**CRITICAL: One article at a time. Complete it fully. No batching.**
 
-1. **Select** next untranslated article from database
-2. **Assign** primary + secondary categories
-3. **Assign** keywords for searchability
-4. **Translate** summary (always)
-5. **Translate** full paper (if open access)
-6. **Save** to database
-7. **Move** to next article
+Do NOT:
+- Classify all articles, then translate all articles
+- Do summaries first, then full papers
+- Any form of batch processing
+
+DO:
+- Pick one article
+- Do ALL the work for that article (classify + translate + save)
+- Only then move to the next
+
+### Steps for Each Article
+
+1. **Select** — Pick the next unprocessed article
+2. **Read** — Read the English summary (already in database)
+3. **Research** — If needed, check the source URL to determine peer_reviewed status
+4. **Classify** — Assign method, voice, peer_reviewed, categories, keywords
+5. **Translate** — Translate the summary to French
+6. **Save** — Write classification to `articles` table, translation to `translations` table
+7. **Done** — Move to next article
+
+### What "Complete" Means
+
+An article is complete when it has:
+- [ ] method assigned (empirical/synthesis/theoretical/lived_experience)
+- [ ] voice assigned (academic/practitioner/organization/individual)
+- [ ] peer_reviewed flag set (true/false)
+- [ ] categories assigned (1 or more from taxonomy.yaml)
+- [ ] keywords assigned (for searchability)
+- [ ] French title translated
+- [ ] French summary translated
+- [ ] Saved to database
 
 ### Translation Quality Requirements
 
