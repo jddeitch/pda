@@ -88,7 +88,8 @@ See `docs/schema.md` for full schema reference.
 │   └── categories.yaml                # Legacy — superseded by taxonomy.yaml
 ├── docs/
 │   ├── decisions.md                   # Architecture and workflow decisions
-│   └── design-system.html             # Complete visual reference (fonts, colors, components)
+│   ├── design-system.html             # Complete visual reference (fonts, colors, components)
+│   └── translation-process.md         # Deterministic translation pipeline (7 steps)
 ├── training/
 │   ├── philippe_contejean_2018.md     # Reference French PDA paper — GOLD STANDARD
 │   ├── has_terminology_2017.md        # HAS guidelines terminology
@@ -170,25 +171,21 @@ Articles are tagged by clinical topic (not hierarchical — an article can have 
 
 **CRITICAL: One article at a time. Complete it fully. No batching.**
 
-Do NOT:
-- Classify all articles, then translate all articles
-- Do summaries first, then full papers
-- Any form of batch processing
+See `docs/translation-process.md` for the complete deterministic pipeline with decision trees for every step.
 
-DO:
-- Pick one article
-- Do ALL the work for that article (classify + translate + save)
-- Only then move to the next
+### Pipeline Summary
 
-### Steps for Each Article
+```
+SELECT → ACCESS → READ → CLASSIFY → TRANSLATE → SAVE → LOG
+```
 
-1. **Select** — Pick the next unprocessed article
-2. **Read summary** — Read the English summary (already in database)
-3. **Read article** — Fetch the source URL, read the full article
-4. **Translate** — Translate summary to French (while content is fresh)
-5. **Classify** — Assign method, voice, peer_reviewed, categories, keywords
-6. **Save** — Write classification to `articles` table, translation to `translations` table
-7. **Done** — Move to next article
+1. **SELECT** — Pick next unprocessed article (by ID ascending)
+2. **ACCESS** — Fetch source URL, search for open access if paywalled
+3. **READ** — Extract content, verify metadata, detect tables/figures
+4. **CLASSIFY** — Assign method, voice, peer_reviewed, categories, keywords
+5. **TRANSLATE** — Section-by-section with paragraph attention
+6. **SAVE** — Write to all tables in single transaction
+7. **LOG** — Update processing_status, processing_flags, processing_notes
 
 ### What "Complete" Means
 
@@ -196,20 +193,23 @@ An article is complete when it has:
 - [ ] method assigned (empirical/synthesis/theoretical/lived_experience)
 - [ ] voice assigned (academic/practitioner/organization/individual)
 - [ ] peer_reviewed flag set (true/false)
-- [ ] categories assigned (1 or more from taxonomy.yaml)
-- [ ] keywords assigned (for searchability)
+- [ ] categories assigned (1-3 from taxonomy.yaml, one marked primary)
+- [ ] keywords assigned (5-15 for searchability)
 - [ ] French title translated
 - [ ] French summary translated
+- [ ] Full text translated (if open_access = 1)
+- [ ] processing_status set to 'translated'
+- [ ] processing_flags contains any flag codes
 - [ ] Saved to database
 
 ### Classification
 
-Read `data/taxonomy.yaml` before classifying. It contains:
-- Valid values for method, voice, categories
-- Signals to help choose between values
-- Notes on ambiguous cases (e.g., academic vs practitioner)
+Read `data/taxonomy.yaml` before classifying. Key rules:
+- `lived_experience` trumps all other methods (first-person narrative = lived_experience + individual)
+- If academic doing clinical guidance, use `practitioner`
+- Default `peer_reviewed` to FALSE if uncertain
 
-**When uncertain:** Flag for human review rather than guessing.
+**When uncertain:** Make best guess AND flag for human review (don't skip).
 
 ### Translation Quality Requirements
 
@@ -307,7 +307,8 @@ When starting ANY work on this project:
 3. `training/style_notes.md` — human feedback and corrections
 
 When starting translation work, also:
-4. Query database for untranslated articles
+4. `docs/translation-process.md` — deterministic pipeline with decision trees
+5. Query database for untranslated articles (`processing_status = 'pending'`)
 
 ---
 
@@ -324,7 +325,10 @@ When starting translation work, also:
   - Categories as tags, not hierarchy
   - Controlled keyword vocabulary
 - [x] Canonical taxonomy file created (`data/taxonomy.yaml`) with EN/FR labels
-- [x] SQLite schema migrated (added `method`, `voice`, `peer_reviewed` columns)
+- [x] SQLite schema migrated
+  - Added `method`, `voice`, `peer_reviewed` columns
+  - Added `source` column (NOT NULL), dropped `journal` column
+  - Added processing fields: `processing_status`, `processing_flags`, `processing_notes`, `processed_at`
 - [x] Complete Astro site with full i18n support
   - Tailwind CSS v4 styling
   - Language detection middleware (cookie → Accept-Language → French default)
@@ -347,6 +351,12 @@ When starting translation work, also:
   - Card typography hierarchy locked in
   - Complete visual reference at `docs/design-system.html`
 - [x] Site deployed to Vercel (pda.expert)
+- [x] Deterministic translation pipeline documented (`docs/translation-process.md`)
+  - 7-step pipeline: SELECT → ACCESS → READ → CLASSIFY → TRANSLATE → SAVE → LOG
+  - Decision trees for method, voice, peer_reviewed classification
+  - Flag coding system (16 codes for content, access, relevance, translation, classification)
+  - SQL templates for all database operations
+  - Processing status tracked per article in database
 
 ### Article Progress
 
