@@ -202,33 +202,12 @@ An article is complete when it has:
 - [ ] French summary translated
 - [ ] Saved to database
 
-### Classification Signals
+### Classification
 
-These are initial heuristics. Refine as we learn from each article.
-
-**Method** — What type of work is this?
-| Value | Signals |
-|-------|---------|
-| `empirical` | "N participants", "sample", "survey", "interviews conducted", "data collected", "findings" |
-| `synthesis` | "review", "meta-analysis", "literature search", "N studies examined" |
-| `theoretical` | "argues", "proposes", "framework", "critique", "conceptual model" |
-| `lived_experience` | First-person narrative, "my child", "as a parent", "my experience" |
-
-**Voice** — What perspective is this written from? (Not just author's job title)
-| Value | Signals |
-|-------|---------|
-| `academic` | University affiliation, research framing, "this study", scholarly apparatus |
-| `practitioner` | Clinical framing, "in my practice", guidance for professionals, case studies |
-| `organization` | Published by charity/society, "commissioned by", institutional voice |
-| `individual` | Personal narrative, no institutional framing, speaking for self/family |
-
-**⚠️ Academic vs Practitioner ambiguity:** Many authors are both (e.g., clinical psychologist doing PhD research). Ask: *What perspective does the piece take?* A clinician writing up research → academic. A researcher offering clinical guidance → practitioner.
-
-**Peer-reviewed** — Check for:
-- Journal name in header/footer
-- DOI
-- "Published in [Journal]"
-- Volume/issue numbers
+Read `data/taxonomy.yaml` before classifying. It contains:
+- Valid values for method, voice, categories
+- Signals to help choose between values
+- Notes on ambiguous cases (e.g., academic vs practitioner)
 
 **When uncertain:** Flag for human review rather than guessing.
 

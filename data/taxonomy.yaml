@@ -8,36 +8,97 @@ method:
     en: Empirical
     fr: Empirique
     definition: Original data collection — surveys, interviews, clinical observations, experiments, case series
+    signals:
+      - "N participants"
+      - "sample"
+      - "survey"
+      - "interviews conducted"
+      - "data collected"
+      - "findings"
+      - "study explored"
+      - "qualitative study"
+      - "quantitative analysis"
   synthesis:
     en: Synthesis
     fr: Synthèse
     definition: Reviewing/analyzing existing work — systematic reviews, meta-analyses, literature reviews
+    signals:
+      - "review"
+      - "meta-analysis"
+      - "literature search"
+      - "N studies examined"
+      - "reviewed the evidence"
+      - "systematic review"
   theoretical:
     en: Theoretical
     fr: Théorique
     definition: Conceptual argument or critique — no new data, working with ideas
+    signals:
+      - "argues"
+      - "proposes"
+      - "framework"
+      - "critique"
+      - "conceptual model"
+      - "commentary"
+      - "editorial"
   lived_experience:
     en: Lived Experience
     fr: Expérience vécue
     definition: First-hand personal or family experience
+    signals:
+      - first-person narrative
+      - "my child"
+      - "as a parent"
+      - "my experience"
+      - "our family"
+      - personal account
 
 voice:
   academic:
     en: Academic
     fr: Académique
     definition: Researchers, scholars, university-affiliated
+    signals:
+      - university affiliation
+      - "Department of..."
+      - research framing
+      - "this study"
+      - scholarly apparatus (references, methods section)
+      - PhD, professor
+    note: "If author is clinician doing research, ask: is this written as research or clinical guidance?"
   practitioner:
     en: Practitioner
     fr: Praticien
     definition: Clinicians, educators, healthcare professionals
+    signals:
+      - clinical framing
+      - "in my practice"
+      - "clinical implications"
+      - guidance for professionals
+      - case study presentation
+      - hospital/clinic affiliation
+    note: "If author is researcher offering clinical guidance, this takes precedence over academic"
   organization:
     en: Organization
     fr: Organisation
     definition: Charities, societies, institutions
+    signals:
+      - published by charity/society
+      - "commissioned by"
+      - institutional voice
+      - "PDA Society"
+      - "Cerebra"
+      - no individual author attribution
   individual:
     en: Individual
     fr: Individuel
     definition: Person or family speaking for themselves
+    signals:
+      - personal narrative
+      - no institutional framing
+      - speaking for self/family
+      - blog post
+      - personal essay
 
 categories:
   fondements:
@@ -74,7 +135,18 @@ flags:
     en: Peer Reviewed
     fr: Évalué par les pairs
     definition: Published in a peer-reviewed venue
+    signals:
+      - journal name in header/footer
+      - DOI present
+      - "Published in [Journal]"
+      - volume/issue numbers
+      - ISSN
   open_access:
     en: Open Access
     fr: Accès libre
     definition: Full text freely available for translation
+    signals:
+      - PDF available without paywall
+      - "Open Access" label
+      - Creative Commons license
+      - hosted on institutional repository
