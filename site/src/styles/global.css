@@ -1,9 +1,65 @@
+/* Google Fonts - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&display=swap');
+
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme {
-  /* Theme colors - to be defined in color scheme session */
-  --color-primary: #1e40af;
-  --color-secondary: #475569;
-  --color-accent: #0891b2;
+  /* Primary: Deep Blue — trust, authority, actions */
+  --color-primary-50: #E8EEF5;
+  --color-primary-100: #C5D5E8;
+  --color-primary-200: #9BB8D6;
+  --color-primary-300: #719BC4;
+  --color-primary-400: #4A7BAA;
+  --color-primary-500: #285589;
+  --color-primary-600: #214771;
+  --color-primary-700: #1A3859;
+  --color-primary-800: #132A41;
+  --color-primary-900: #0C1B29;
+
+  /* Accent: Teal — highlights, trust signals */
+  --color-accent-50: #E6F7F8;
+  --color-accent-100: #B8EAEC;
+  --color-accent-200: #7CDFDD;
+  --color-accent-300: #5CC5CE;
+  --color-accent-400: #46B0B9;
+  --color-accent-500: #369AA3;
+  --color-accent-600: #2A8A91;
+  --color-accent-700: #1F6B71;
+  --color-accent-800: #164D51;
+  --color-accent-900: #0D2F32;
+
+  /* Stone: text, borders, metadata (warm neutral) */
+  --color-stone-50: #F5F5F4;
+  --color-stone-100: #E7E5E4;
+  --color-stone-200: #D6D3D1;
+  --color-stone-300: #A8A29E;
+  --color-stone-400: #8C857F;
+  --color-stone-500: #78716C;
+  --color-stone-600: #57534E;
+  --color-stone-700: #44403C;
+  --color-stone-800: #292524;
+  --color-stone-900: #1C1917;
+
+  /* Cream: warm backgrounds */
+  --color-cream-50: #FDFCFB;
+  --color-cream-100: #FAF8F5;
+  --color-cream-200: #F4EEE8;
+  --color-cream-300: #EBE6E0;
+  --color-cream-400: #E0D9D1;
+
+  /* Dark: footer */
+  --color-dark: #241E1E;
+  --color-dark-light: #2C2626;
+
+  /* Font families */
+  --font-lexend: 'Lexend', system-ui, sans-serif;
+  --font-literata: 'Literata', Georgia, serif;
+}
+
+/* Base styles */
+@layer base {
+  body {
+    font-family: var(--font-lexend);
+  }
 }

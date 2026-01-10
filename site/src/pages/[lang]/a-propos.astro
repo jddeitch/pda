@@ -30,16 +30,16 @@ const alternateUrls = {
 >
   <article class="py-12">
     <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-      <h1 class="text-3xl font-bold tracking-tight text-gray-900">
+      <h1 class="font-literata text-3xl font-bold tracking-tight text-stone-900">
         {translations.about.title}
       </h1>
 
       <!-- Why This Exists -->
       <section class="mt-8">
-        <h2 class="text-xl font-semibold text-gray-900">
+        <h2 class="text-xl font-semibold text-stone-900">
           {translations.about.whyThisExists}
         </h2>
-        <div class="prose prose-gray mt-4 max-w-none">
+        <div class="mt-4 max-w-none font-literata text-stone-700 leading-relaxed space-y-4">
           {
             lang === "fr" ? (
               <>
@@ -90,15 +90,15 @@ const alternateUrls = {
 
       <!-- Methodology -->
       <section class="mt-8">
-        <h2 class="text-xl font-semibold text-gray-900">
+        <h2 class="text-xl font-semibold text-stone-900">
           {translations.about.methodology}
         </h2>
-        <div class="prose prose-gray mt-4 max-w-none">
+        <div class="mt-4 max-w-none font-literata text-stone-700 leading-relaxed space-y-4">
           {
             lang === "fr" ? (
               <>
                 <p>Nous traduisons :</p>
-                <ul>
+                <ul class="list-disc pl-6 space-y-1">
                   <li>
                     <strong>Les résumés</strong> de tous les articles
                     scientifiques sur le PDA
@@ -122,7 +122,7 @@ const alternateUrls = {
             ) : (
               <>
                 <p>We translate:</p>
-                <ul>
+                <ul class="list-disc pl-6 space-y-1">
                   <li>
                     <strong>Summaries</strong> of all scientific articles on PDA
                   </li>
@@ -147,26 +147,26 @@ const alternateUrls = {
       </section>
 
       <!-- Stats -->
-      <section class="mt-8 rounded-lg bg-gray-50 p-6">
-        <h2 class="text-lg font-semibold text-gray-900">
+      <section class="mt-8 rounded-xl bg-stone-50 p-6">
+        <h2 class="text-lg font-semibold text-stone-900">
           {lang === "fr" ? "État du projet" : "Project Status"}
         </h2>
         <div class="mt-4 grid grid-cols-3 gap-4 text-center">
           <div>
-            <p class="text-2xl font-bold text-gray-900">{stats.total}</p>
-            <p class="text-sm text-gray-500">
+            <p class="text-2xl font-bold text-stone-900">{stats.total}</p>
+            <p class="text-sm text-stone-500">
               {lang === "fr" ? "Articles recensés" : "Articles catalogued"}
             </p>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{stats.translated}</p>
-            <p class="text-sm text-gray-500">
+            <p class="text-2xl font-bold text-stone-900">{stats.translated}</p>
+            <p class="text-sm text-stone-500">
               {lang === "fr" ? "Traduits" : "Translated"}
             </p>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{stats.pending}</p>
-            <p class="text-sm text-gray-500">
+            <p class="text-2xl font-bold text-stone-900">{stats.pending}</p>
+            <p class="text-sm text-stone-500">
               {lang === "fr" ? "En attente" : "Pending"}
             </p>
           </div>
