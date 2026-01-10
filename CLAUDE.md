@@ -182,13 +182,31 @@ When starting translation work:
 - [x] SQLite database with articles, categories, keywords
 - [x] Astro site scaffolding with DB query layer
 - [x] Architecture decisions documented
+- [x] Vercel deployment (pda.expert, Paris region)
 
-### In Progress
-- [ ] Categorize articles (primary + secondary)
-- [ ] Translate articles (1 of 52 in progress)
+### Next Session — Open Items
+
+**1. Data structure decisions:**
+- Finalize article YAML/DB schema (what fields do we need?)
+- Keywords: free-form or controlled vocabulary?
+- How to handle articles without open access?
+
+**2. Translation workflow:**
+- Define step-by-step process for translating an article
+- How does Claude read training materials before translating?
+- Where do translations get saved? (directly to DB vs staging)
+- Human review process
+
+**3. Site structure:**
+- Landing page content (French intro to PDA)
+- Category pages layout
+- Individual article page layout
+- Navigation structure
+- Search integration (Pagefind)
 
 ### Not Started
 - [ ] Site pages and styling
 - [ ] Pagefind search integration
-- [ ] Vercel deployment
+- [ ] Categorize articles (primary + secondary)
+- [ ] Translate articles (1 of 52 needs revision)
 - [ ] Discovery agent for new research
