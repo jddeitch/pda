@@ -4,11 +4,13 @@
 
 This project creates an authoritative French-language resource on Pathological Demand Avoidance (PDA), a behavioral profile within autism that is virtually unknown in France. The goal is to make the English-language research literature accessible to French clinicians (psychiatrists, pediatricians, psychologists) who would otherwise never encounter it.
 
+**Domain:** pda.expert
+
 ### Why This Matters
 
 - There is ONE peer-reviewed French article on PDA (Philippe & Contejean, 2018)
 - French clinicians searching in French find almost nothing
-- Children with PDA in France are being misdiagnosed or not helped in part because the professionals don't know PDA exists, in part because the profession's roots through psychoanalysis means that doctors are ill- or un-equipped, and in part because professional arrogance, and in part because of the "blame-the-parents" issues that traumatizes parents the world around. 
+- Children with PDA in France are being misdiagnosed or not helped in part because the professionals don't know PDA exists, in part because the profession's roots through psychoanalysis means that doctors are ill- or un-equipped, and in part because professional arrogance, and in part because of the "blame-the-parents" issues that traumatizes parents the world around.
 - The project owner has a son with PDA and lives in France
 
 ### Success Criteria
@@ -25,6 +27,60 @@ This project creates an authoritative French-language resource on Pathological D
 
 ---
 
+## Architecture
+
+### Tech Stack
+
+```
+SQLite (data/pda.db)     ← articles, translations, categories, keywords
+        ↓
+Astro (site/)            ← reads DB at build time, generates static HTML
+        ↓
+Pagefind                 ← indexes the HTML for client-side search
+        ↓
+Vercel                   ← hosts static files at pda.expert
+```
+
+### Data Model
+
+**SQLite tables:**
+- `articles` — source material (title, authors, year, URL, summary)
+- `translations` — one per article per target language (fr, es, etc.)
+- `categories` — clinical utility groupings (7 categories)
+- `article_categories` — junction table (primary + secondary)
+- `keywords` — searchable tags
+- `article_keywords` — junction table
+
+### Project Structure
+
+```
+/Users/jd/Projects/pda/
+├── CLAUDE.md                          # This file — project instructions
+├── data/
+│   ├── pda.db                         # SQLite database (source of truth)
+│   ├── pda_research.yaml              # Original import data (archived)
+│   ├── categories.yaml                # Category definitions
+│   └── glossary.yaml                  # EN→FR terminology reference
+├── docs/
+│   └── decisions.md                   # Architecture and workflow decisions
+├── training/
+│   ├── philippe_contejean_2018.md     # Reference French PDA paper — GOLD STANDARD
+│   ├── has_terminology_2017.md        # HAS guidelines terminology
+│   └── style_notes.md                 # Human feedback on translations
+├── external/
+│   └── pda/                           # Collection of PDA research PDFs
+├── scripts/
+│   ├── init_db.py                     # Database schema initialization
+│   ├── migrate_yaml_to_db.py          # YAML→SQLite migration
+│   └── parse_pda_research.py          # HTML parser for PDA Society
+└── site/                              # Astro static site
+    └── src/
+        └── lib/
+            └── db.ts                  # Database query layer
+```
+
+---
+
 ## Target Audience
 
 **Primary:** French-speaking clinicians who have never heard of PDA
@@ -38,177 +94,64 @@ This project creates an authoritative French-language resource on Pathological D
 
 ---
 
-## Content Strategy
+## Content Categories
 
-### Source Material
+Articles are organized by clinical utility (see `data/categories.yaml`):
 
-1. **PDA Society Research Overviews** — 52 papers with summaries (captured in `data/pda_research.yaml`)
-2. **Full papers** — PDFs from open access sources, translated in full
-3. **New research** — monitored and added as published
+| ID | French | Purpose |
+|----|--------|---------|
+| fondements | Fondements | What is PDA? Core definitions, history |
+| evaluation | Évaluation | Screening tools, assessment |
+| presentation_clinique | Présentation clinique | Behavioral profiles, case studies |
+| etiologie | Étiologie et mécanismes | Neurobiological underpinnings |
+| prise_en_charge | Prise en charge | Treatment, educational strategies |
+| comorbidites | Comorbidités | Anxiety, ADHD overlap |
+| trajectoire | Trajectoire développementale | Children, adolescents, adults |
 
-### Translation Approach
-
-- Translate ONE piece fully (summary + full paper if available) before moving to the next
-- Quality bar: Must read as authentic French academic/clinical writing
-- A French clinician should not suspect it was translated
-
-### Translation Workflow
-
-1. Select next untranslated item from `data/pda_research.yaml`
-2. Read training materials (glossary, style guide, reference texts)
-3. Translate summary first
-4. If open access, fetch and translate full paper
-5. Save translations to YAML
-6. Update progress tracking
-7. Human spot-checks periodically
+Articles have one **primary** category and optional **secondary** categories.
 
 ---
 
-## Project Structure
+## Translation Workflow
 
-```
-/Users/jd/Projects/pda/
-├── CLAUDE.md                          # This file — project instructions
-├── data/
-│   ├── pda_research.yaml              # Source of truth: 52 resources with EN summaries
-│   ├── glossary.yaml                  # EN→FR terminology reference
-│   └── progress.yaml                  # Translation progress (TODO)
-├── training/
-│   ├── philippe_contejean_2018.md     # Reference French PDA paper — GOLD STANDARD
-│   ├── french_autism_terminology.md   # HAS guidelines terminology (TODO)
-│   └── style_notes.md                 # Human feedback on translations (TODO)
-├── external/
-│   ├── pda/                           # Collection of PDA research PDFs
-│   ├── Research overviews - PDA Society.html
-│   ├── Research overviews - PDA Society.webarchive
-│   └── research_overviews_extracted.html
-├── scripts/
-│   └── parse_pda_research.py          # HTML parser for PDA Society
-└── site/                              # Static site output (TODO)
-```
+Process one article completely before moving to the next:
 
----
+1. **Select** next untranslated article from database
+2. **Assign** primary + secondary categories
+3. **Assign** keywords for searchability
+4. **Translate** summary (always)
+5. **Translate** full paper (if open access)
+6. **Save** to database
+7. **Move** to next article
 
-## Translation Quality Requirements
+### Translation Quality Requirements
 
-### Register
-
+**Register:**
 - Academic/clinical French, formal but accessible
-- Match the register of French psychiatric literature (e.g., Neuropsychiatrie de l'enfance et de l'adolescence)
-- Use conventions from HAS (Haute Autorité de Santé) autism guidelines
+- Match French psychiatric literature register
+- Use HAS (Haute Autorité de Santé) conventions
 
-### Terminology Consistency
+**Terminology:** See `data/glossary.yaml` for consistent translations.
 
-All translations must use consistent terminology. Key terms (see `data/glossary.yaml` when created):
-
-| English | French |
-|---------|--------|
-| Pathological Demand Avoidance (PDA) | Syndrome d'évitement pathologique des demandes (PDA) |
-| Autism Spectrum Disorder (ASD) | Trouble du spectre de l'autisme (TSA) |
-| Extreme Demand Avoidance (EDA) | Évitement extrême des demandes (EED) |
-| demand avoidance | évitement des demandes |
-| anxiety-driven | lié à l'anxiété / motivé par l'anxiété |
-| meltdown | crise / effondrement |
-| masking | camouflage |
-
-### Style Rules
-
-- Longer sentences are acceptable in French academic writing
-- Use appropriate hedging ("il semblerait que", "les données suggèrent")
-- Preserve nuance — never oversimplify for translation convenience
-- Author names stay as-is; do not translate
-- Preserve all citations and references
-- Rigid adherence to the text
-- Never summarize: every translation must have 100% fidelity to the articles' language, structure and tone
-
-### Anti-Patterns — What NOT to Do
-
-**NEVER:**
-- Add explanatory notes or editorial commentary ("Note du traducteur: ...")
-- "Improve" or "clarify" the original — translate exactly what's there, even if awkward
-- Use informal register even if the English is slightly casual
-- Simplify complex sentences — if the original is dense, the translation should be dense
-- Add transitions or connectors not present in the original
-- Omit anything, including repetition or redundancy in the source
-- Use machine-translation artifacts ("en termes de", overuse of "cela")
-- Translate idioms literally when a French equivalent exists
-- Use anglicisms when proper French terms exist (see glossary)
-
-**IF a term has no established French equivalent:**
-- Keep the English term
-- On first use, provide French explanation in parentheses
-- Example: "l'approche dite « low-demand » (à faible niveau d'exigence)"
-
-**IF the original contains an error:**
-- Translate the error faithfully
-- Do NOT correct it silently
+**Anti-Patterns — What NOT to Do:**
+- Add translator notes or editorial commentary
+- "Improve" or "clarify" the original
+- Use informal register
+- Simplify complex sentences
+- Omit anything, even redundancy
+- Use machine-translation artifacts
 
 ---
 
-## MCP Server (TODO)
+## Key Decisions
 
-An MCP server will be built to support translation workflow:
+See `docs/decisions.md` for rationale. Summary:
 
-### Planned Tools
-
-- `get_translation_context()` — returns glossary, style rules, current progress
-- `get_next_untranslated()` — returns the next piece to translate
-- `save_translation(id, summary_fr, full_text_fr)` — writes translation to YAML
-- `fetch_paper(url)` — retrieves full paper content for translation
-
-### Discovery Agent (TODO)
-
-An agent that monitors:
-- PDA Society for new research additions
-- PubMed for new PDA papers
-- Flags new material for translation queue
-
----
-
-## Current State
-
-### Completed
-- [x] Captured 52 resources from PDA Society research overviews
-- [x] Parsed into structured YAML format (`data/pda_research.yaml`)
-- [x] Identified open access status (41 open, 9 paywall, 2 unknown)
-- [x] Extracted Philippe & Contejean 2018 as training reference (`training/philippe_contejean_2018.md`)
-- [x] Built glossary from French reference materials (`data/glossary.yaml`)
-- [x] Documented anti-patterns and style rules
-- [x] Extracted HAS 2017 autism guidelines terminology (`training/has_terminology_2017.md`)
-- [x] Expanded glossary with ~200 terms across 18 categories
-- [x] First translation completed: Nawaz & Speer 2025
-
-### In Progress
-- [ ] Define scope/inclusion criteria for sources
-- [ ] Static site generator (French-only clearing house)
-
-### Not Started
-- [ ] MCP server for translation workflow
-- [ ] Deployment
-- [ ] Discovery agent for new research
-
----
-
-## Site Vision: French PDA Clearing House
-
-**Concept:** A curated French-language library of translated PDA research summaries.
-
-**Structure:**
-```
-/
-├── index.html           # French landing page
-├── ressources/
-│   ├── nawaz-speer-2025.html
-│   └── ...
-├── glossaire.html       # Terminology reference (from glossary.yaml)
-└── a-propos.html        # About, methodology, sources
-```
-
-**Open question:** What sources to include?
-- Option A: PDA Society research overviews only (52 resources, curated)
-- Option B: Expand to peer-reviewed PDA literature more broadly
-- Option C: Include HAS/French governmental autism resources
-- Decision needed on inclusion criteria before scaling translation effort
+1. **Link to originals, don't host** — copyright clean, original gets credit
+2. **Article-by-article workflow** — keeps context tight, nothing half-done
+3. **Multi-language support** — French now, structure supports Spanish/German later
+4. **SQLite over YAML at scale** — queryable, handles relationships
+5. **Static site** — no runtime, fast, cheap hosting
 
 ---
 
@@ -216,15 +159,36 @@ An agent that monitors:
 
 When working on this project:
 
-- **"Let's translate"** — Start or continue translation work. Read training materials, check progress, translate next item.
-- **"Check progress"** — Show translation status across all resources
-- **"Add source [URL]"** — Add a new paper/resource to the queue
+- **"Let's translate"** — Start or continue translation work
+- **"Check progress"** — Show translation status
+- **"Add source [URL]"** — Add a new paper to the database
 
 ---
 
 ## Key Files to Read
 
-When starting translation work, always read:
+When starting translation work:
 1. `data/glossary.yaml` — terminology consistency
 2. `training/style_notes.md` — human feedback and corrections
-3. `data/progress.yaml` — what's been done, what's next
+3. Query database for untranslated articles
+
+---
+
+## Current State
+
+### Completed
+- [x] Captured 52 resources from PDA Society research overviews
+- [x] Built glossary with ~200 terms across 18 categories
+- [x] SQLite database with articles, categories, keywords
+- [x] Astro site scaffolding with DB query layer
+- [x] Architecture decisions documented
+
+### In Progress
+- [ ] Categorize articles (primary + secondary)
+- [ ] Translate articles (1 of 52 in progress)
+
+### Not Started
+- [ ] Site pages and styling
+- [ ] Pagefind search integration
+- [ ] Vercel deployment
+- [ ] Discovery agent for new research

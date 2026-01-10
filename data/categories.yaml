@@ -1,0 +1,79 @@
+# PDA Resource Categories
+# Organized by clinical utility for French clinicians encountering PDA for the first time
+#
+# Structure mirrors how a clinician thinks:
+#   "What is this thing?" → "How do I recognize it?" → "What do I do about it?"
+#
+# OVERLAP HANDLING:
+#   Resources often span multiple categories. Each resource gets:
+#   - primary_category: main classification, determines where it appears in navigation
+#   - secondary_categories: additional relevant categories (optional, list)
+#
+#   On the site, resources appear in their primary category's section,
+#   with cross-references or tags indicating secondary categories.
+#   Search/filter can surface resources by any of their categories.
+
+categories:
+  fondements:
+    label_fr: "Fondements"
+    label_en: "Foundations"
+    description: >
+      What is PDA? Core definitions, diagnostic criteria, history of the concept.
+      Start here for clinicians with no prior PDA knowledge.
+    url_slug: fondements
+    priority: 1
+
+  evaluation:
+    label_fr: "Évaluation"
+    label_en: "Assessment"
+    description: >
+      Screening tools, assessment instruments, differential diagnosis guidance,
+      case identification strategies.
+    url_slug: evaluation
+    priority: 2
+
+  presentation_clinique:
+    label_fr: "Présentation clinique"
+    label_en: "Clinical Presentation"
+    description: >
+      Phenomenology, behavioral profiles, case studies, what PDA looks like
+      in practice across different contexts.
+    url_slug: presentation-clinique
+    priority: 3
+
+  etiologie:
+    label_fr: "Étiologie et mécanismes"
+    label_en: "Etiology & Mechanisms"
+    description: >
+      Neurobiological underpinnings, psychological mechanisms, theoretical
+      models explaining PDA.
+    url_slug: etiologie-mecanismes
+    priority: 4
+
+  prise_en_charge:
+    label_fr: "Prise en charge"
+    label_en: "Intervention"
+    description: >
+      Treatment approaches, educational strategies, family support,
+      practical guidance for helping individuals with PDA.
+    url_slug: prise-en-charge
+    priority: 5
+
+  comorbidites:
+    label_fr: "Comorbidités"
+    label_en: "Comorbidities"
+    description: >
+      Anxiety overlap, ADHD co-occurrence, differential diagnosis challenges,
+      distinguishing PDA from other presentations.
+    url_slug: comorbidites
+    priority: 6
+
+  trajectoire:
+    label_fr: "Trajectoire développementale"
+    label_en: "Developmental Trajectory"
+    description: >
+      How PDA presents across the lifespan. Includes research on young children
+      (early identification), adolescents (transition challenges, school),
+      and adults (outcomes, adaptation, retrospective studies).
+    url_slug: trajectoire
+    priority: 7
