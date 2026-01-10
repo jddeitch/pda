@@ -710,20 +710,20 @@
     <!-- ============================================ -->
     <section class="mb-20">
       <h2 class="text-2xl font-bold text-stone-900 mb-2">6. Cards</h2>
-      <p class="text-stone-600 mb-8">Article cards in three states. Badge containers use <code>flex flex-wrap gap-1.5</code> — badges wrap to a second line rather than compress or overflow.</p>
+      <p class="text-stone-600 mb-8">Article cards use <code>flex flex-col</code> with <code>flex-grow</code> on the description and <code>mt-auto</code> on the footer to ensure equal heights and bottom-aligned links. Badge containers use <code>flex flex-wrap gap-1.5</code>.</p>
 
       <div class="grid grid-cols-3 gap-6 bg-cream-200 p-6 rounded-xl">
 
         <!-- Standard Card -->
-        <div class="bg-white rounded-xl p-6 border border-stone-200">
+        <div class="bg-white rounded-xl p-6 border border-stone-200 flex flex-col">
           <div class="flex flex-wrap gap-1.5 mb-3">
             <span class="badge bg-primary-500 text-white">Empirique</span>
             <span class="badge bg-stone-100 text-stone-800">Académique</span>
           </div>
           <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Standard Article Card</h3>
           <p class="text-sm mb-1 text-stone-500">Author et al. (2024)</p>
-          <p class="text-sm mb-4 text-stone-600">Brief description of the article content goes here...</p>
-          <div class="flex items-center justify-between">
+          <p class="text-sm mb-4 text-stone-600 flex-grow">Brief description of the article content goes here...</p>
+          <div class="flex items-center justify-between mt-auto">
             <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire la traduction
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -733,7 +733,7 @@
         </div>
 
         <!-- Card with Peer Review -->
-        <div class="bg-white rounded-xl p-6 border border-stone-200">
+        <div class="bg-white rounded-xl p-6 border border-stone-200 flex flex-col">
           <div class="flex flex-wrap gap-1.5 mb-3">
             <span class="badge bg-accent-100 text-accent-800">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -744,8 +744,8 @@
           </div>
           <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Peer-Reviewed Article Card</h3>
           <p class="text-sm mb-1 text-stone-500">Newson et al. (2003)</p>
-          <p class="text-sm mb-4 text-stone-600">The teal "Évalué par les pairs" badge indicates peer-reviewed source.</p>
-          <div class="flex items-center justify-between">
+          <p class="text-sm mb-4 text-stone-600 flex-grow">The teal "Évalué par les pairs" badge indicates peer-reviewed source.</p>
+          <div class="flex items-center justify-between mt-auto">
             <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire la traduction
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -755,7 +755,7 @@
         </div>
 
         <!-- Card with Open Access -->
-        <div class="bg-white rounded-xl p-6 border border-stone-200">
+        <div class="bg-white rounded-xl p-6 border border-stone-200 flex flex-col">
           <div class="flex flex-wrap gap-1.5 mb-3">
             <span class="badge bg-accent-100 text-accent-800">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
@@ -765,8 +765,8 @@
           </div>
           <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Open Access Article</h3>
           <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
-          <p class="text-sm mb-4 text-stone-600">The teal "Accès libre" badge indicates full text available.</p>
-          <div class="flex items-center justify-between">
+          <p class="text-sm mb-4 text-stone-600 flex-grow">The teal "Accès libre" badge indicates full text available.</p>
+          <div class="flex items-center justify-between mt-auto">
             <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire l'article
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -962,7 +962,7 @@
           <div class="grid grid-cols-2 gap-6">
 
             <!-- Card with peer review + original link -->
-            <div class="bg-white rounded-xl p-6 border border-stone-200">
+            <div class="bg-white rounded-xl p-6 border border-stone-200 flex flex-col">
               <div class="flex flex-wrap gap-1.5 mb-3">
                 <span class="badge bg-accent-100 text-accent-800">
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -973,8 +973,8 @@
               </div>
               <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Extreme Demand Avoidance: An Examination of Behavioural Features</h3>
               <p class="text-sm mb-1 text-stone-500">Newson, Le Maréchal & David (2003)</p>
-              <p class="text-sm mb-4 text-stone-600">La première description formelle du profil PDA dans la littérature scientifique.</p>
-              <div class="flex items-center justify-between">
+              <p class="text-sm mb-4 text-stone-600 flex-grow">La première description formelle du profil PDA dans la littérature scientifique.</p>
+              <div class="flex items-center justify-between mt-auto">
                 <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
                   Lire la traduction
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -984,7 +984,7 @@
             </div>
 
             <!-- Card with open access (no original link needed) -->
-            <div class="bg-white rounded-xl p-6 border border-stone-200">
+            <div class="bg-white rounded-xl p-6 border border-stone-200 flex flex-col">
               <div class="flex flex-wrap gap-1.5 mb-3">
                 <span class="badge bg-accent-100 text-accent-800">
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
@@ -995,8 +995,8 @@
               </div>
               <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Le trouble du spectre de l'autisme à expression atypique</h3>
               <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
-              <p class="text-sm mb-4 text-stone-600">Le seul article en français sur le PDA dans une revue à comité de lecture.</p>
-              <div class="flex items-center justify-between">
+              <p class="text-sm mb-4 text-stone-600 flex-grow">Le seul article en français sur le PDA dans une revue à comité de lecture.</p>
+              <div class="flex items-center justify-between mt-auto">
                 <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
                   Lire l'article
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
