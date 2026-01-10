@@ -1,0 +1,756 @@
+# PDA Translation Glossary — EN → FR
+# Source: Philippe & Contejean (2018) + HAS conventions (2017)
+#
+# USAGE: This is the authoritative terminology reference for all translations.
+# When in doubt, use the term as it appears here.
+# If a term is not listed, check philippe_contejean_2018.md for patterns.
+
+# Core PDA Terms
+core_terms:
+  - en: Pathological Demand Avoidance (PDA)
+    fr: syndrome d'évitement pathologique des demandes (PDA)
+    note: Use lowercase "syndrome" in running text, capitalize at sentence start
+
+  - en: Extreme Demand Avoidance (EDA)
+    fr: évitement extrême des demandes (EED)
+    note: Alternative term used in some UK research
+
+  - en: demand avoidance
+    fr: évitement des demandes
+
+  - en: demand avoidant
+    fr: évitant des demandes
+    note: As adjective describing a child/person
+
+  - en: PDA profile
+    fr: profil PDA
+
+  - en: PDA presentation
+    fr: présentation PDA
+
+# Autism Spectrum Terms
+autism_terms:
+  - en: Autism Spectrum Disorder (ASD)
+    fr: trouble du spectre autistique (TSA)
+    note: Philippe & Contejean also use "trouble du spectre de l'autisme"
+
+  - en: Pervasive Developmental Disorder (PDD)
+    fr: trouble envahissant du développement (TED)
+    note: Older terminology, still used in French literature
+
+  - en: Asperger syndrome
+    fr: syndrome d'Asperger
+
+  - en: atypical autism
+    fr: autisme atypique
+
+  - en: autistic psychopathy
+    fr: psychopathie autistique
+    note: Historical term from Asperger's original work
+
+  - en: autism spectrum
+    fr: spectre autistique
+
+  - en: autistic traits
+    fr: traits autistiques
+
+  - en: autistic child/person
+    fr: enfant/personne autiste
+    note: Identity-first language is acceptable in French
+
+  - en: neurodevelopmental disorders
+    fr: troubles neurodéveloppementaux
+
+# Cardinal Signs of PDA
+cardinal_signs:
+  - en: superficial sociability
+    fr: sociabilité superficielle
+
+  - en: egocentric
+    fr: égocentrique / égocentré
+    note: '"position égocentrée" or "préoccupation égocentrée"'
+
+  - en: mood lability / mood swings
+    fr: labilité de l'humeur
+
+  - en: need for control
+    fr: besoin de contrôle
+    note: Often "besoin de contrôler la relation"
+
+  - en: imaginative world / fantasy
+    fr: monde imaginaire
+
+  - en: role play
+    fr: jeux de rôle
+
+  - en: pretend play
+    fr: jeux de faire-semblant
+
+  - en: imaginary friend
+    fr: copain imaginaire
+
+# Behavioral Terms
+behavioral:
+  - en: manipulative strategies
+    fr: stratégies manipulatrices
+    note: Often qualified with "jugées" (deemed) or in quotes
+
+  - en: avoidance strategies
+    fr: stratégies d'évitement
+
+  - en: intolerable pressure
+    fr: pression intolérable
+
+  - en: everyday demands
+    fr: demandes du quotidien / exigences du quotidien
+
+  - en: obsessional resistance
+    fr: résistance obsessionnelle
+
+  - en: meltdown
+    fr: crise / effondrement
+    note: '"crise de colère" for anger-based meltdowns'
+
+  - en: tantrum
+    fr: crise de colère
+
+  - en: shutdown
+    fr: repli sur soi / effondrement
+
+  - en: masking
+    fr: camouflage
+
+  - en: challenging behavior
+    fr: comportements difficiles / comportements-défis
+
+  - en: behavioral difficulties
+    fr: difficultés comportementales
+
+  - en: oppositional behavior
+    fr: conduites d'opposition
+
+  - en: stereotypies
+    fr: stéréotypies
+
+  - en: echolalia
+    fr: écholalies
+
+  - en: routines
+    fr: routines
+
+  - en: restricted interests
+    fr: intérêts restreints
+
+# Clinical/Diagnostic Terms
+clinical:
+  - en: Oppositional Defiant Disorder (ODD)
+    fr: trouble oppositionnel avec provocation (TOP)
+
+  - en: Conduct Disorder
+    fr: trouble des conduites
+
+  - en: differential diagnosis
+    fr: diagnostics différentiels
+
+  - en: screening tool
+    fr: outil de dépistage
+
+  - en: diagnostic interview
+    fr: entretien diagnostique
+
+  - en: clinical assessment
+    fr: évaluation clinique / évaluation diagnostique
+
+  - en: clinical case
+    fr: cas clinique
+
+  - en: nosography
+    fr: nosographie
+
+  - en: symptom
+    fr: symptôme
+
+  - en: cardinal signs
+    fr: signes cardinaux
+
+  - en: behavioral phenotype
+    fr: phénotype comportemental
+
+  - en: behavioral pattern
+    fr: pattern comportemental
+    note: '"pattern" is used as-is in French clinical literature'
+
+  - en: social cognition
+    fr: cognition sociale
+
+  - en: socio-emotional reciprocity
+    fr: réciprocité socio-émotionnelle
+
+  - en: clinical observation
+    fr: observation clinique
+
+  - en: clinical examination
+    fr: examen clinique
+
+  - en: anamnesis
+    fr: anamnèse
+
+  - en: developmental history
+    fr: histoire développementale
+
+# Cognitive Terms
+cognitive:
+  - en: cognitive functioning
+    fr: fonctionnement cognitif
+
+  - en: cognitive functions
+    fr: fonctions cognitives
+
+  - en: executive functions
+    fr: fonctions exécutives
+
+  - en: mental flexibility / cognitive flexibility
+    fr: flexibilité mentale / flexibilité cognitive
+
+  - en: attention
+    fr: attention
+
+  - en: memory
+    fr: mémoire
+
+  - en: planning
+    fr: planification
+
+  - en: inhibition
+    fr: inhibition
+
+  - en: theory of mind
+    fr: théorie de l'esprit
+
+  - en: cognitive remediation
+    fr: remédiation cognitive
+
+  - en: psychoeducation
+    fr: psychoéducation
+
+# Emotional Regulation Terms
+emotional:
+  - en: emotional regulation
+    fr: régulation émotionnelle
+
+  - en: emotional dysregulation
+    fr: dysrégulation émotionnelle
+
+  - en: anxiety
+    fr: anxiété
+
+  - en: distress
+    fr: angoisse / détresse
+
+  - en: stress
+    fr: stress
+
+  - en: depression
+    fr: dépression
+
+  - en: emotions
+    fr: émotions
+
+  - en: anxiety disorders
+    fr: troubles anxieux
+
+  - en: mood disorders
+    fr: troubles de l'humeur
+
+# Prevention & Crisis Management
+prevention_crisis:
+  - en: prevention of challenging behaviors
+    fr: prévention des comportements-problèmes
+
+  - en: management of challenging behaviors
+    fr: gestion des comportements-problèmes
+
+  - en: functional analysis
+    fr: analyse fonctionnelle
+    note: Behavioral analysis methodology
+
+  - en: functional behavior assessment
+    fr: évaluation fonctionnelle du comportement
+
+  - en: antecedents
+    fr: antécédents
+    note: In ABC behavioral analysis
+
+  - en: consequences
+    fr: conséquences
+    note: In ABC behavioral analysis
+
+  - en: de-escalation
+    fr: désescalade
+
+  - en: calming / soothing
+    fr: apaisement
+
+  - en: crisis situation
+    fr: situation de crise
+
+  - en: crisis protocol
+    fr: protocole de crise
+
+  - en: intervention plan
+    fr: plan d'intervention
+
+  - en: sensory overload
+    fr: surcharge sensorielle
+
+  - en: emergency
+    fr: urgence
+
+# Environmental Adaptation Terms
+environmental:
+  - en: environment
+    fr: environnement
+
+  - en: environmental adaptation
+    fr: adaptation de l'environnement
+
+  - en: environmental factors
+    fr: facteurs environnementaux
+
+  - en: living environment
+    fr: cadre de vie / lieu de vie
+
+  - en: reasonable accommodations
+    fr: aménagements raisonnables
+
+  - en: workplace accommodations
+    fr: adaptation du poste de travail
+
+  - en: visual supports
+    fr: supports visuels
+
+  - en: visual aids
+    fr: aides visuelles
+
+  - en: pictograms
+    fr: pictogrammes
+
+  - en: visual schedule
+    fr: emploi du temps visuel
+
+  - en: temporal cues
+    fr: repères temporels
+
+  - en: spatial cues
+    fr: repères spatiaux
+
+  - en: predictability
+    fr: prévisibilité
+
+  - en: routine
+    fr: routine
+
+  - en: transitions
+    fr: transitions
+
+  - en: unexpected events / unpredictability
+    fr: imprévus
+
+  - en: change
+    fr: changement
+
+  - en: anticipation
+    fr: anticipation
+
+# Research/Academic Terms
+academic:
+  - en: literature review
+    fr: revue de littérature
+
+  - en: case study
+    fr: étude de cas
+
+  - en: qualitative research
+    fr: recherche qualitative
+
+  - en: prevalence
+    fr: prévalence
+
+  - en: validity
+    fr: validité
+
+  - en: findings
+    fr: résultats / conclusions
+
+# Intervention/Support Terms
+intervention:
+  - en: therapeutic approaches
+    fr: approches thérapeutiques
+
+  - en: educational approaches
+    fr: approches pédagogiques / axes éducatifs
+
+  - en: management / care
+    fr: prise en charge
+
+  - en: support strategies
+    fr: stratégies de soutien / stratégies d'accompagnement
+
+  - en: low-demand approach
+    fr: approche à faible niveau d'exigence
+    note: May need contextual explanation as this term is not established in French
+
+  - en: flexibility
+    fr: flexibilité / souplesse
+
+  - en: novelty
+    fr: nouveauté / imprévisibilité
+
+  - en: humor
+    fr: humour
+
+  - en: early intervention
+    fr: intervention précoce
+
+  - en: global interventions
+    fr: interventions globales
+
+  - en: educational interventions
+    fr: interventions éducatives
+
+  - en: behavioral interventions
+    fr: interventions comportementales
+
+  - en: positive reinforcement
+    fr: renforcement positif
+
+  - en: structured education
+    fr: éducation structurée
+
+  - en: social skills training
+    fr: entraînement aux habiletés sociales
+
+  - en: augmentative and alternative communication
+    fr: communication alternative et augmentée
+
+  - en: person-centered approach
+    fr: approche centrée sur la personne
+
+  - en: positive approach
+    fr: approche positive
+
+  - en: individualized approach
+    fr: approche individualisée
+
+  - en: global approach
+    fr: approche globale
+
+# Family/Parent Terms
+family:
+  - en: parents
+    fr: parents
+
+  - en: caregivers
+    fr: aidants / personnes prenant soin de l'enfant
+
+  - en: family experiences
+    fr: vécu familial / expériences familiales
+
+  - en: parenting strategies
+    fr: stratégies parentales / stratégies éducatives
+
+  - en: blame the parents
+    fr: culpabilisation des parents
+    note: 'Philippe & Contejean: "souvent culpabilisés par l''entourage"'
+
+  - en: family caregivers
+    fr: aidants familiaux
+
+  - en: close support network
+    fr: entourage
+
+  - en: siblings
+    fr: fratrie
+
+  - en: peer support
+    fr: pair-aidance
+
+  - en: mutual aid group
+    fr: groupe d'entraide mutuelle
+
+  - en: parental guidance
+    fr: guidance parentale
+
+  - en: parental support
+    fr: soutien parental
+
+# Education Terms
+education:
+  - en: school exclusion
+    fr: exclusion scolaire
+
+  - en: school attendance
+    fr: fréquentation scolaire / assiduité scolaire
+
+  - en: Education, Health and Care Plan (EHCP)
+    fr: projet personnalisé de scolarisation (PPS)
+    note: French equivalent, not direct translation
+
+  - en: special educational needs
+    fr: besoins éducatifs particuliers
+
+  - en: inclusion
+    fr: inclusion
+
+# Rights and Consent Terms
+rights_consent:
+  - en: right to dignity
+    fr: droit à la dignité
+
+  - en: right to privacy
+    fr: droit à l'intimité
+
+  - en: right to non-discrimination
+    fr: droit à la non-discrimination
+
+  - en: consent
+    fr: consentement
+
+  - en: informed consent
+    fr: consentement éclairé
+
+  - en: right to refuse care
+    fr: droit de refuser les soins
+
+  - en: person's choice
+    fr: choix de la personne
+
+  - en: preferences
+    fr: préférences
+
+  - en: participation in decisions
+    fr: participation aux décisions
+
+  - en: respect for the person
+    fr: respect de la personne
+
+  - en: accessibility
+    fr: accessibilité
+
+# Life Domains
+life_domains:
+  - en: daily life
+    fr: vie quotidienne
+
+  - en: activities of daily living
+    fr: activités de la vie quotidienne
+
+  - en: social life
+    fr: vie sociale
+
+  - en: professional life
+    fr: vie professionnelle
+
+  - en: emotional/romantic life
+    fr: vie affective
+
+  - en: life project
+    fr: projet de vie
+
+  - en: care pathway
+    fr: parcours de soins
+
+  - en: health pathway
+    fr: parcours de santé
+
+  - en: well-being
+    fr: bien-être
+
+# Comorbidities and Related Conditions
+comorbidities:
+  - en: comorbidities
+    fr: comorbidités
+
+  - en: psychiatric disorders
+    fr: troubles psychiatriques
+
+  - en: sleep disorders
+    fr: troubles du sommeil
+
+  - en: eating disorders
+    fr: troubles alimentaires
+
+  - en: intellectual disability
+    fr: déficience intellectuelle
+
+# Professional/Team Terms
+professional:
+  - en: multidisciplinary team
+    fr: équipe pluridisciplinaire
+
+  - en: coordination
+    fr: coordination
+
+  - en: partnership
+    fr: partenariat
+
+  - en: collaboration
+    fr: collaboration
+
+  - en: care network
+    fr: réseau de soins
+
+  - en: personalized project
+    fr: projet personnalisé
+
+  - en: liaison form
+    fr: fiche de liaison
+
+  - en: traceability
+    fr: traçabilité
+
+  - en: reporting
+    fr: signalement
+
+  - en: adverse event
+    fr: événement indésirable
+
+# HAS-Specific Terms (from Recommandations de bonnes pratiques)
+has_terms:
+  - en: challenging behavior / problem behavior
+    fr: comportements-problèmes
+    note: HAS official term, hyphenated
+
+  - en: personalized support plan
+    fr: projet d'accompagnement personnalisé
+    note: HAS term for individualized care planning
+
+  - en: functional assessment
+    fr: évaluation du fonctionnement
+    note: HAS uses CIF framework
+
+  - en: sensory particularities
+    fr: particularités sensorielles
+
+  - en: support / guidance
+    fr: accompagnement
+    note: Preferred over "prise en charge" in modern HAS documents
+
+  - en: autonomy
+    fr: autonomie
+
+  - en: social participation
+    fr: participation sociale
+
+  - en: quality of life
+    fr: qualité de vie
+
+  - en: formulation-based approaches / individualized understanding
+    fr: approches centrées sur une compréhension individualisée des besoins
+    note: Descriptive translation; no direct French equivalent
+
+  - en: neuro-normative lens
+    fr: prisme neuro-normatif
+
+  - en: harmful cycle
+    fr: cycle délétère
+
+  - en: unmet needs
+    fr: besoins non satisfaits
+
+  - en: self-determination
+    fr: autodétermination
+
+  - en: social skills
+    fr: habiletés sociales
+
+  - en: cognitive functioning
+    fr: fonctionnement cognitif
+
+  - en: stereotypies
+    fr: stéréotypies
+
+  - en: life pathway / life course
+    fr: parcours de vie
+
+  - en: mainstream setting
+    fr: milieu ordinaire
+    note: As opposed to specialized/institutional settings
+
+  - en: medico-social facility
+    fr: établissement médico-social
+
+  - en: legal guardian
+    fr: représentant légal
+
+  - en: personalized global interventions
+    fr: interventions globales personnalisées
+
+  - en: co-developed / co-constructed
+    fr: co-élaboré
+    note: HAS emphasizes plans made WITH the person, not FOR them
+
+  - en: sensory integration
+    fr: intégration sensorielle
+
+  - en: sensory profile
+    fr: profil sensoriel
+
+  - en: independence
+    fr: indépendance
+
+  - en: specific needs
+    fr: besoins spécifiques
+
+  - en: support needs
+    fr: besoins de soutien
+
+  - en: health needs
+    fr: besoins de santé
+
+  - en: personalized support
+    fr: accompagnement personnalisé
+
+  - en: empathy
+    fr: empathie
+
+  - en: listening
+    fr: écoute
+
+# Communication Terms
+communication:
+  - en: verbal communication
+    fr: communication verbale
+
+  - en: non-verbal communication
+    fr: communication non verbale
+
+  - en: oral language
+    fr: langage oral
+
+  - en: comprehension
+    fr: compréhension
+
+  - en: expression
+    fr: expression
+
+  - en: social skills
+    fr: compétences sociales / habiletés sociales
+
+  - en: pragmatics
+    fr: pragmatique
+
+  - en: social reciprocity
+    fr: réciprocité sociale
+
+# Terms to Keep in English
+keep_english:
+  - DSM-5
+  - ADI-R
+  - ADOS
+  - DISCO
+  - EDA-Q
+  - EDA-8
+  - WISC
+  - CIF
+  note: Standardized test names stay in English with French explanation on first use
