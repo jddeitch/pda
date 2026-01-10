@@ -1,0 +1,80 @@
+# Taxonomy — Canonical Reference
+# This file is the single source of truth for all classification terms.
+# All labels must be used exactly as written here.
+# Code loads this file; translations reference it; consistency is non-negotiable.
+
+method:
+  empirical:
+    en: Empirical
+    fr: Empirique
+    definition: Original data collection — surveys, interviews, clinical observations, experiments, case series
+  synthesis:
+    en: Synthesis
+    fr: Synthèse
+    definition: Reviewing/analyzing existing work — systematic reviews, meta-analyses, literature reviews
+  theoretical:
+    en: Theoretical
+    fr: Théorique
+    definition: Conceptual argument or critique — no new data, working with ideas
+  lived_experience:
+    en: Lived Experience
+    fr: Expérience vécue
+    definition: First-hand personal or family experience
+
+voice:
+  academic:
+    en: Academic
+    fr: Académique
+    definition: Researchers, scholars, university-affiliated
+  practitioner:
+    en: Practitioner
+    fr: Praticien
+    definition: Clinicians, educators, healthcare professionals
+  organization:
+    en: Organization
+    fr: Organisation
+    definition: Charities, societies, institutions
+  individual:
+    en: Individual
+    fr: Individuel
+    definition: Person or family speaking for themselves
+
+categories:
+  fondements:
+    en: Foundations
+    fr: Fondements
+    definition: What is PDA? Core definitions, history, conceptualization
+  evaluation:
+    en: Assessment
+    fr: Évaluation
+    definition: Screening tools, diagnostic instruments, assessment approaches
+  presentation_clinique:
+    en: Clinical Presentation
+    fr: Présentation clinique
+    definition: Behavioral profiles, how PDA presents, case descriptions
+  etiologie:
+    en: Etiology
+    fr: Étiologie et mécanismes
+    definition: Neurobiological underpinnings, anxiety mechanisms, cognitive factors
+  prise_en_charge:
+    en: Management
+    fr: Prise en charge
+    definition: Treatment approaches, educational strategies, intervention
+  comorbidites:
+    en: Comorbidities
+    fr: Comorbidités
+    definition: Anxiety, ADHD, other overlapping conditions
+  trajectoire:
+    en: Developmental Trajectory
+    fr: Trajectoire développementale
+    definition: Lifespan perspective — children, adolescents, adults
+
+flags:
+  peer_reviewed:
+    en: Peer Reviewed
+    fr: Évalué par les pairs
+    definition: Published in a peer-reviewed venue
+  open_access:
+    en: Open Access
+    fr: Accès libre
+    definition: Full text freely available for translation

@@ -43,13 +43,37 @@ Vercel                   ← hosts static files at pda.expert
 
 ### Data Model
 
-**SQLite tables:**
-- `articles` — source material (title, authors, year, URL, summary)
-- `translations` — one per article per target language (fr, es, etc.)
-- `categories` — clinical utility groupings (7 categories)
-- `article_categories` — junction table (primary + secondary)
-- `keywords` — searchable tags
-- `article_keywords` — junction table
+See `docs/schema.md` for full schema reference.
+
+**Core tables:**
+- `articles` — source material with classification
+- `translations` — one per article per target language
+- `categories` — clinical topic tags (not hierarchical)
+- `keywords` — searchable terms
+
+**Article Classification (two dimensions, both required):**
+
+| Dimension | Tags | Meaning |
+|-----------|------|---------|
+| **Method** | `empirical` | Original data collection (surveys, interviews, trials) |
+| | `synthesis` | Reviewing/analyzing existing work |
+| | `theoretical` | Conceptual argument, critique |
+| | `lived_experience` | First-hand personal or family experience |
+| **Voice** | `academic` | Researchers, scholars, university-affiliated |
+| | `practitioner` | Clinicians, educators, healthcare professionals |
+| | `organization` | Charities, societies, institutions |
+| | `individual` | Person or family speaking for themselves |
+
+**Flags:**
+- `peer_reviewed` — boolean
+- `open_access` — boolean (determines if we can translate full text)
+
+**Examples:**
+- Philippe & Contejean 2018: `synthesis` + `practitioner` + `peer_reviewed`
+- Cerebra SGT Report: `empirical` + `organization`
+- EDA-Q Development: `empirical` + `academic` + `peer_reviewed`
+- Gillberg Commentary: `theoretical` + `academic` + `peer_reviewed`
+- Parent essay: `lived_experience` + `individual`
 
 ### Project Structure
 
@@ -58,9 +82,10 @@ Vercel                   ← hosts static files at pda.expert
 ├── CLAUDE.md                          # This file — project instructions
 ├── data/
 │   ├── pda.db                         # SQLite database (source of truth)
+│   ├── taxonomy.yaml                  # CANONICAL: method, voice, categories, flags with translations
+│   ├── glossary.yaml                  # EN→FR terminology for article content
 │   ├── pda_research.yaml              # Original import data (archived)
-│   ├── categories.yaml                # Category definitions
-│   └── glossary.yaml                  # EN→FR terminology reference
+│   └── categories.yaml                # Legacy — superseded by taxonomy.yaml
 ├── docs/
 │   └── decisions.md                   # Architecture and workflow decisions
 ├── training/
@@ -96,7 +121,7 @@ Vercel                   ← hosts static files at pda.expert
 
 ## Content Categories
 
-Articles are organized by clinical utility (see `data/categories.yaml`):
+Articles are tagged by clinical topic (not hierarchical — an article can have multiple):
 
 | ID | French | Purpose |
 |----|--------|---------|
@@ -107,8 +132,6 @@ Articles are organized by clinical utility (see `data/categories.yaml`):
 | prise_en_charge | Prise en charge | Treatment, educational strategies |
 | comorbidites | Comorbidités | Anxiety, ADHD overlap |
 | trajectoire | Trajectoire développementale | Children, adolescents, adults |
-
-Articles have one **primary** category and optional **secondary** categories.
 
 ---
 
@@ -152,6 +175,23 @@ See `docs/decisions.md` for rationale. Summary:
 3. **Multi-language support** — French now, structure supports Spanish/German later
 4. **SQLite over YAML at scale** — queryable, handles relationships
 5. **Static site** — no runtime, fast, cheap hosting
+6. **Single source of truth for taxonomy** — `data/taxonomy.yaml` is canonical for all classification terms and their translations
+
+---
+
+## Consistency Rules
+
+**CRITICAL: Inconsistency will make this resource worthless.**
+
+1. **Taxonomy terms**: Always use exact values from `data/taxonomy.yaml`. Never paraphrase, abbreviate, or "improve" them.
+
+2. **Before any classification or translation work**, read:
+   - `data/taxonomy.yaml` — method, voice, category terms
+   - `data/glossary.yaml` — content terminology
+
+3. **French labels are fixed**: Use "Empirique" not "Données empiriques". Use "Synthèse" not "Revue de littérature". The YAML is law.
+
+4. **When in doubt, check the YAML**. If a term isn't there, ask before inventing one.
 
 ---
 
@@ -167,10 +207,13 @@ When working on this project:
 
 ## Key Files to Read
 
-When starting translation work:
-1. `data/glossary.yaml` — terminology consistency
-2. `training/style_notes.md` — human feedback and corrections
-3. Query database for untranslated articles
+When starting ANY work on this project:
+1. `data/taxonomy.yaml` — CANONICAL classification terms and French labels
+2. `data/glossary.yaml` — terminology for article content
+3. `training/style_notes.md` — human feedback and corrections
+
+When starting translation work, also:
+4. Query database for untranslated articles
 
 ---
 
@@ -183,30 +226,23 @@ When starting translation work:
 - [x] Astro site scaffolding with DB query layer
 - [x] Architecture decisions documented
 - [x] Vercel deployment (pda.expert, Paris region)
+- [x] Article schema defined (see `docs/schema.md`)
+  - Two-dimension classification: method (empirical/synthesis/theoretical/lived_experience) + voice (academic/practitioner/organization/individual)
+  - Categories as tags, not hierarchy
+  - Controlled keyword vocabulary
+- [x] Canonical taxonomy file created (`data/taxonomy.yaml`) with EN/FR labels
 
-### Next Session — Open Items
+### Next Session
 
-**1. Data structure decisions:**
-- Finalize article YAML/DB schema (what fields do we need?)
-- Keywords: free-form or controlled vocabulary?
-- How to handle articles without open access?
+**Sequence:**
+1. Update SQLite schema (add `method`, `voice`, `peer_reviewed` fields)
+2. Classify 3-5 test articles
+3. Translate ONE article fully (test the workflow)
+4. Build minimal site (article page template)
+5. View translation rendered on site
+6. Refine workflow based on learnings
 
-**2. Translation workflow:**
-- Define step-by-step process for translating an article
-- How does Claude read training materials before translating?
-- Where do translations get saved? (directly to DB vs staging)
-- Human review process
-
-**3. Site structure:**
-- Landing page content (French intro to PDA)
-- Category pages layout
-- Individual article page layout
-- Navigation structure
-- Search integration (Pagefind)
-
-### Not Started
-- [ ] Site pages and styling
-- [ ] Pagefind search integration
-- [ ] Categorize articles (primary + secondary)
-- [ ] Translate articles (1 of 52 needs revision)
-- [ ] Discovery agent for new research
+**Not yet:**
+- Mass classification of all 52 articles
+- Mass translation
+- Full site styling
