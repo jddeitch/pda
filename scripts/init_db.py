@@ -27,6 +27,8 @@ def init_db():
     """)
 
     # Articles table (source material)
+    # method: empirical, synthesis, theoretical, lived_experience
+    # voice: academic, practitioner, organization, individual
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS articles (
             id TEXT PRIMARY KEY,
@@ -38,6 +40,9 @@ def init_db():
             journal TEXT,
             doi TEXT,
             open_access INTEGER DEFAULT 0,
+            peer_reviewed INTEGER DEFAULT 0,
+            method TEXT,
+            voice TEXT,
             summary_original TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP

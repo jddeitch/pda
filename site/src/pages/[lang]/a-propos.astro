@@ -1,0 +1,177 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { isValidLang, type Language } from "../../i18n/config";
+import { t } from "../../i18n/translations";
+import { getStats } from "../../lib/db";
+
+export function getStaticPaths() {
+  return [{ params: { lang: "fr" } }, { params: { lang: "en" } }];
+}
+
+const { lang } = Astro.params;
+
+if (!isValidLang(lang)) {
+  return Astro.redirect("/fr", 302);
+}
+
+const translations = t(lang as Language);
+const stats = getStats();
+
+const alternateUrls = {
+  fr: "/fr/a-propos",
+  en: "/en/about",
+};
+---
+
+<BaseLayout
+  title={translations.about.title}
+  lang={lang as Language}
+  alternateUrls={alternateUrls}
+>
+  <article class="py-12">
+    <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold tracking-tight text-gray-900">
+        {translations.about.title}
+      </h1>
+
+      <!-- Why This Exists -->
+      <section class="mt-8">
+        <h2 class="text-xl font-semibold text-gray-900">
+          {translations.about.whyThisExists}
+        </h2>
+        <div class="prose prose-gray mt-4 max-w-none">
+          {
+            lang === "fr" ? (
+              <>
+                <p>
+                  Le PDA (Pathological Demand Avoidance, ou Évitement
+                  Pathologique des Demandes) est un profil comportemental au
+                  sein de l'autisme, caractérisé par un évitement anxieux des
+                  demandes ordinaires de la vie quotidienne.
+                </p>
+                <p>
+                  En France, le PDA est pratiquement inconnu. Il n'existe qu'un
+                  seul article francophone dans la littérature scientifique
+                  (Philippe & Contejean, 2018). Les cliniciens français qui
+                  cherchent des informations en français ne trouvent quasiment
+                  rien.
+                </p>
+                <p>
+                  Ce projet vise à rendre accessible en français la littérature
+                  scientifique anglophone sur le PDA, afin que les
+                  professionnels de santé français puissent reconnaître ce
+                  profil et adapter leur prise en charge.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  PDA (Pathological Demand Avoidance) is a behavioral profile
+                  within autism, characterized by anxiety-driven avoidance of
+                  ordinary everyday demands.
+                </p>
+                <p>
+                  In France, PDA is virtually unknown. There is only one
+                  French-language article in the scientific literature (Philippe
+                  & Contejean, 2018). French clinicians searching for
+                  information in French find almost nothing.
+                </p>
+                <p>
+                  This project aims to make English-language scientific
+                  literature on PDA accessible in French, so that French
+                  healthcare professionals can recognize this profile and adapt
+                  their approach.
+                </p>
+              </>
+            )
+          }
+        </div>
+      </section>
+
+      <!-- Methodology -->
+      <section class="mt-8">
+        <h2 class="text-xl font-semibold text-gray-900">
+          {translations.about.methodology}
+        </h2>
+        <div class="prose prose-gray mt-4 max-w-none">
+          {
+            lang === "fr" ? (
+              <>
+                <p>Nous traduisons :</p>
+                <ul>
+                  <li>
+                    <strong>Les résumés</strong> de tous les articles
+                    scientifiques sur le PDA
+                  </li>
+                  <li>
+                    <strong>Les textes intégraux</strong> des articles en accès
+                    libre
+                  </li>
+                </ul>
+                <p>
+                  Chaque article est classé selon sa méthode (empirique,
+                  synthèse, théorique, expérience vécue) et sa source
+                  (académique, praticien, organisation, individu).
+                </p>
+                <p>
+                  Nous utilisons le vocabulaire de la Haute Autorité de Santé
+                  (HAS) et nous alignons sur la terminologie française existante
+                  (Philippe & Contejean, 2018).
+                </p>
+              </>
+            ) : (
+              <>
+                <p>We translate:</p>
+                <ul>
+                  <li>
+                    <strong>Summaries</strong> of all scientific articles on PDA
+                  </li>
+                  <li>
+                    <strong>Full texts</strong> of open-access articles
+                  </li>
+                </ul>
+                <p>
+                  Each article is classified by method (empirical, synthesis,
+                  theoretical, lived experience) and source (academic,
+                  practitioner, organization, individual).
+                </p>
+                <p>
+                  We use vocabulary from the French Haute Autorité de Santé
+                  (HAS) and align with existing French terminology (Philippe &
+                  Contejean, 2018).
+                </p>
+              </>
+            )
+          }
+        </div>
+      </section>
+
+      <!-- Stats -->
+      <section class="mt-8 rounded-lg bg-gray-50 p-6">
+        <h2 class="text-lg font-semibold text-gray-900">
+          {lang === "fr" ? "État du projet" : "Project Status"}
+        </h2>
+        <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p class="text-2xl font-bold text-gray-900">{stats.total}</p>
+            <p class="text-sm text-gray-500">
+              {lang === "fr" ? "Articles recensés" : "Articles catalogued"}
+            </p>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-gray-900">{stats.translated}</p>
+            <p class="text-sm text-gray-500">
+              {lang === "fr" ? "Traduits" : "Translated"}
+            </p>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-gray-900">{stats.pending}</p>
+            <p class="text-sm text-gray-500">
+              {lang === "fr" ? "En attente" : "Pending"}
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </article>
+</BaseLayout>

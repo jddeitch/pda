@@ -1,0 +1,235 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import AnswerCapsule from "../../../components/AnswerCapsule.astro";
+import ClassificationBadges from "../../../components/ClassificationBadges.astro";
+import { isValidLang, type Language } from "../../../i18n/config";
+import { t } from "../../../i18n/translations";
+import { getAllArticles, getArticleWithTranslation } from "../../../lib/db";
+
+export function getStaticPaths() {
+  const articles = getAllArticles();
+  const paths = [];
+
+  for (const article of articles) {
+    for (const lang of ["fr", "en"]) {
+      paths.push({
+        params: { lang, slug: article.id },
+      });
+    }
+  }
+
+  return paths;
+}
+
+const { lang, slug } = Astro.params;
+
+if (!isValidLang(lang)) {
+  return Astro.redirect("/fr", 302);
+}
+
+const article = getArticleWithTranslation(slug, lang as Language);
+
+if (!article) {
+  return Astro.redirect(`/${lang}`, 302);
+}
+
+const translations = t(lang as Language);
+
+// Use translated content if available (for French), otherwise use original
+const displayTitle =
+  lang === "fr" && article.translated_title
+    ? article.translated_title
+    : article.source_title;
+
+const displaySummary =
+  lang === "fr" && article.translated_summary
+    ? article.translated_summary
+    : article.summary_original;
+
+const displayFullText = lang === "fr" ? article.translated_full_text : null;
+
+// For now, key findings are extracted from summary (first 2-3 sentences)
+// In the future, this could be a dedicated field
+const keyFindings: string[] = [];
+if (displaySummary) {
+  const sentences = displaySummary.split(/[.!?]+/).filter((s) => s.trim());
+  if (sentences.length >= 2) {
+    keyFindings.push(sentences[0].trim() + ".");
+    if (sentences.length >= 3) {
+      keyFindings.push(sentences[1].trim() + ".");
+    }
+  }
+}
+
+const alternateUrls = {
+  fr: `/fr/articles/${slug}`,
+  en: `/en/articles/${slug}`,
+};
+
+const hasTranslation = article.translation_status === "translated";
+---
+
+<BaseLayout
+  title={displayTitle}
+  description={displaySummary?.slice(0, 160)}
+  lang={lang as Language}
+  alternateUrls={alternateUrls}
+>
+  <article class="py-12">
+    <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+      <!-- Breadcrumb -->
+      <nav class="mb-6 text-sm">
+        <a href={`/${lang}`} class="text-gray-500 hover:text-gray-700">
+          {translations.nav.home}
+        </a>
+        <span class="mx-2 text-gray-400">/</span>
+        <span class="text-gray-900">
+          {lang === "fr" ? "Article" : "Article"}
+        </span>
+      </nav>
+
+      <!-- H1: Article Title (critical for AI discoverability) -->
+      <h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        {displayTitle}
+      </h1>
+
+      <!-- Authors and Year -->
+      <p class="mt-3 text-gray-600">
+        {article.authors}
+        {article.year && <span class="text-gray-400"> ({article.year})</span>}
+        {
+          article.journal && (
+            <span class="text-gray-400"> — {article.journal}</span>
+          )
+        }
+      </p>
+
+      <!-- Classification Badges -->
+      <div class="mt-4">
+        <ClassificationBadges
+          peerReviewed={article.peer_reviewed}
+          openAccess={article.open_access}
+          method={article.method}
+          voice={article.voice}
+          lang={lang as Language}
+        />
+      </div>
+
+      <!-- Answer Capsule (immediately after H1 for AI optimization) -->
+      {
+        keyFindings.length > 0 && (
+          <div class="mt-6">
+            <AnswerCapsule keyFindings={keyFindings} lang={lang as Language} />
+          </div>
+        )
+      }
+
+      <!-- Translation Status Banner -->
+      {
+        lang === "fr" && !hasTranslation && (
+          <div class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p class="text-sm text-amber-800">
+              Cet article n'a pas encore été traduit en français. Le contenu
+              ci-dessous est en anglais.
+            </p>
+          </div>
+        )
+      }
+
+      <!-- Summary Section -->
+      {
+        displaySummary && (
+          <section class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-900">
+              {translations.article.summary}
+            </h2>
+            <div class="prose prose-gray mt-4 max-w-none">
+              <p>{displaySummary}</p>
+            </div>
+          </section>
+        )
+      }
+
+      <!-- Full Text Section (if available) -->
+      {
+        displayFullText && (
+          <section class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-900">
+              {translations.article.fullText}
+            </h2>
+            <div class="prose prose-gray mt-4 max-w-none">
+              <Fragment set:html={displayFullText} />
+            </div>
+          </section>
+        )
+      }
+
+      <!-- Source Link -->
+      {
+        article.source_url && (
+          <section class="mt-8 border-t border-gray-200 pt-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              {translations.article.source}
+            </h2>
+            <a
+              href={article.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mt-2 inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              {translations.article.viewOriginal}
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+            </a>
+          </section>
+        )
+      }
+
+      <!-- Keywords -->
+      {
+        article.keywords && article.keywords.length > 0 && (
+          <section class="mt-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              {translations.article.keywords}
+            </h2>
+            <div class="mt-2 flex flex-wrap gap-2">
+              {article.keywords.map((keyword) => (
+                <span class="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      <!-- DOI -->
+      {
+        article.doi && (
+          <section class="mt-6 text-sm text-gray-500">
+            <span class="font-medium">DOI:</span>{" "}
+            <a
+              href={`https://doi.org/${article.doi}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-primary hover:underline"
+            >
+              {article.doi}
+            </a>
+          </section>
+        )
+      }
+    </div>
+  </article>
+</BaseLayout>

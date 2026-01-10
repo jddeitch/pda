@@ -96,12 +96,42 @@ See `docs/schema.md` for full schema reference.
 │   └── pda/                           # Collection of PDA research PDFs
 ├── scripts/
 │   ├── init_db.py                     # Database schema initialization
+│   ├── migrate_schema.py              # One-time migration for method/voice/peer_reviewed
 │   ├── migrate_yaml_to_db.py          # YAML→SQLite migration
 │   └── parse_pda_research.py          # HTML parser for PDA Society
 └── site/                              # Astro static site
+    ├── astro.config.mjs               # Astro configuration
+    ├── postcss.config.js              # PostCSS for Tailwind v4
     └── src/
-        └── lib/
-            └── db.ts                  # Database query layer
+        ├── i18n/
+        │   ├── config.ts              # Language config, supported languages
+        │   └── translations.ts        # All UI strings (FR/EN)
+        ├── layouts/
+        │   └── BaseLayout.astro       # Common layout with hreflang tags
+        ├── middleware.ts              # Language detection + redirect
+        ├── styles/
+        │   └── global.css             # Tailwind v4 imports + theme vars
+        ├── lib/
+        │   └── db.ts                  # Database query layer
+        ├── components/
+        │   ├── LanguageSwitcher.astro
+        │   ├── ICPCard.astro          # ICP audience cards
+        │   ├── CategoryCard.astro
+        │   ├── ArticleCard.astro
+        │   ├── AnswerCapsule.astro    # AI-optimized key findings
+        │   └── ClassificationBadges.astro
+        └── pages/
+            ├── index.astro            # Root redirect to /fr
+            └── [lang]/
+                ├── index.astro        # Homepage with ICP cards
+                ├── professionnels.astro
+                ├── familles.astro
+                ├── recherche.astro    # Pagefind search
+                ├── a-propos.astro
+                ├── articles/[slug].astro
+                └── categories/
+                    ├── index.astro
+                    └── [category].astro
 ```
 
 ---
@@ -223,26 +253,47 @@ When starting translation work, also:
 - [x] Captured 52 resources from PDA Society research overviews
 - [x] Built glossary with ~200 terms across 18 categories
 - [x] SQLite database with articles, categories, keywords
-- [x] Astro site scaffolding with DB query layer
 - [x] Architecture decisions documented
-- [x] Vercel deployment (pda.expert, Paris region)
+- [x] Vercel deployment configured (pda.expert, Paris region)
 - [x] Article schema defined (see `docs/schema.md`)
   - Two-dimension classification: method (empirical/synthesis/theoretical/lived_experience) + voice (academic/practitioner/organization/individual)
   - Categories as tags, not hierarchy
   - Controlled keyword vocabulary
 - [x] Canonical taxonomy file created (`data/taxonomy.yaml`) with EN/FR labels
+- [x] SQLite schema migrated (added `method`, `voice`, `peer_reviewed` columns)
+- [x] Complete Astro site with full i18n support
+  - Tailwind CSS v4 styling
+  - Language detection middleware (cookie → Accept-Language → French default)
+  - BaseLayout with hreflang tags for SEO
+  - All UI strings translated (FR/EN)
+- [x] All page templates implemented
+  - Homepage with ICP audience cards
+  - ICP landing pages (/fr/professionnels, /fr/familles)
+  - Category index and category detail pages
+  - Article pages with answer capsules (AI citation optimized)
+  - Classification badges (method, voice, peer-reviewed, open access)
+  - About page
+- [x] Pagefind search integration
+  - Build script runs indexer after Astro build
+  - Search UI at /fr/recherche and /en/search
+- [x] Test articles classified and translated
+  - Haire et al. 2023 (empirical, academic, peer-reviewed)
+  - Stuart et al. 2020 (empirical, academic, peer-reviewed)
+- [x] Build verified: 131 pages generated, 3098 words indexed
 
 ### Next Session
 
-**Sequence:**
-1. Update SQLite schema (add `method`, `voice`, `peer_reviewed` fields)
-2. Classify 3-5 test articles
-3. Translate ONE article fully (test the workflow)
-4. Build minimal site (article page template)
-5. View translation rendered on site
-6. Refine workflow based on learnings
+**Priority:**
+1. Deploy to Vercel and verify live site
+2. Design work (fonts, colors) — handled in separate session
+3. Classify more articles (50 remaining)
+4. Translate more articles
+
+**Design decisions pending:**
+- Color scheme (being worked on separately)
+- Font selection (to be provided)
 
 **Not yet:**
 - Mass classification of all 52 articles
 - Mass translation
-- Full site styling
+- Final design polish

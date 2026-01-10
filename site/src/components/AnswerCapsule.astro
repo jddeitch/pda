@@ -1,0 +1,38 @@
+---
+/**
+ * Answer Capsule Component
+ *
+ * Optimized for AI citation and discoverability.
+ * Placed immediately after H1 for maximum LLM visibility.
+ * Uses H2→bullet structure (40% more likely to be cited).
+ */
+
+import type { Language } from "../i18n/config";
+import { t } from "../i18n/translations";
+
+interface Props {
+  keyFindings: string[];
+  lang: Language;
+}
+
+const { keyFindings, lang } = Astro.props;
+const translations = t(lang);
+---
+
+{
+  keyFindings && keyFindings.length > 0 && (
+    <div class="rounded-lg border-l-4 border-primary bg-blue-50 p-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-primary">
+        {translations.article.keyFindings}
+      </h2>
+      <ul class="mt-2 space-y-1">
+        {keyFindings.map((finding) => (
+          <li class="flex items-start gap-2 text-gray-700">
+            <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+            <span>{finding}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

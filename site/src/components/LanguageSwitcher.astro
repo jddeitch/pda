@@ -1,0 +1,31 @@
+---
+import { languages, getAlternateLang, type Language } from "../i18n/config";
+import { t } from "../i18n/translations";
+
+interface Props {
+  lang: Language;
+  alternateUrls?: {
+    fr: string;
+    en: string;
+  };
+}
+
+const { lang, alternateUrls } = Astro.props;
+const alternateLang = getAlternateLang(lang);
+const translations = t(lang);
+
+// Determine the URL to switch to
+const switchUrl = alternateUrls
+  ? alternateUrls[alternateLang]
+  : `/${alternateLang}`;
+---
+
+<a
+  href={switchUrl}
+  class="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+  aria-label={`Switch to ${languages[alternateLang]}`}
+>
+  <span class="text-gray-400">{languages[lang]}</span>
+  <span class="text-gray-300">|</span>
+  <span class="text-gray-900">{languages[alternateLang]}</span>
+</a>

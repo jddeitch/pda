@@ -1,0 +1,120 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ICPCard from "../../components/ICPCard.astro";
+import CategoryCard from "../../components/CategoryCard.astro";
+import { isValidLang, type Language } from "../../i18n/config";
+import { t } from "../../i18n/translations";
+import { getAllCategories, getStats } from "../../lib/db";
+
+export function getStaticPaths() {
+  return [{ params: { lang: "fr" } }, { params: { lang: "en" } }];
+}
+
+const { lang } = Astro.params;
+
+if (!isValidLang(lang)) {
+  return Astro.redirect("/fr", 302);
+}
+
+const translations = t(lang as Language);
+const categories = getAllCategories();
+const stats = getStats();
+
+const alternateUrls = {
+  fr: "/fr",
+  en: "/en",
+};
+---
+
+<BaseLayout
+  title={translations.site.title}
+  description={translations.site.description}
+  lang={lang as Language}
+  alternateUrls={alternateUrls}
+>
+  <!-- Hero Section -->
+  <section class="bg-gradient-to-b from-gray-50 to-white py-16 sm:py-24">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="text-center">
+        <h1 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+          {translations.home.heroTitle}
+        </h1>
+        <p class="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+          {translations.home.heroSubtitle}
+        </p>
+      </div>
+
+      <!-- ICP Cards -->
+      <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:max-w-4xl lg:mx-auto">
+        <ICPCard
+          title={translations.icp.professionals.title}
+          subtitle={translations.icp.professionals.subtitle}
+          cta={translations.icp.professionals.cta}
+          href={`/${lang}/professionnels`}
+          variant="professionals"
+        />
+        <ICPCard
+          title={translations.icp.families.title}
+          subtitle={translations.icp.families.subtitle}
+          cta={translations.icp.families.cta}
+          href={`/${lang}/familles`}
+          variant="families"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Browse by Theme Section -->
+  <section class="py-16">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <h2 class="text-center text-2xl font-semibold text-gray-900">
+        {translations.home.browseByTheme}
+      </h2>
+
+      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {
+          categories.map((category) => (
+            <CategoryCard
+              id={category.id}
+              title={
+                lang === "fr" ? category.label_fr : category.label_en
+              }
+              description={
+                translations.categoryDescriptions[
+                  category.id as keyof typeof translations.categoryDescriptions
+                ]
+              }
+              href={`/${lang}/categories/${category.url_slug}`}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="border-t border-gray-200 bg-gray-50 py-12">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-3 gap-8 text-center">
+        <div>
+          <p class="text-3xl font-bold text-gray-900">{stats.total}</p>
+          <p class="mt-1 text-sm text-gray-500">
+            {lang === "fr" ? "Articles" : "Articles"}
+          </p>
+        </div>
+        <div>
+          <p class="text-3xl font-bold text-gray-900">{stats.translated}</p>
+          <p class="mt-1 text-sm text-gray-500">
+            {lang === "fr" ? "Traduits" : "Translated"}
+          </p>
+        </div>
+        <div>
+          <p class="text-3xl font-bold text-gray-900">{categories.length}</p>
+          <p class="mt-1 text-sm text-gray-500">
+            {lang === "fr" ? "Catégories" : "Categories"}
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,30 @@
+---
+interface Props {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  articleCount?: number;
+}
+
+const { id, title, description, href, articleCount } = Astro.props;
+---
+
+<a
+  href={href}
+  class="group block rounded-lg border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-sm"
+>
+  <h3 class="font-medium text-gray-900 group-hover:text-primary">
+    {title}
+  </h3>
+  <p class="mt-1 text-sm text-gray-500">
+    {description}
+  </p>
+  {
+    articleCount !== undefined && (
+      <p class="mt-2 text-xs text-gray-400">
+        {articleCount} {articleCount === 1 ? "article" : "articles"}
+      </p>
+    )
+  }
+</a>

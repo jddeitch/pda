@@ -1,0 +1,67 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import CategoryCard from "../../../components/CategoryCard.astro";
+import { isValidLang, type Language } from "../../../i18n/config";
+import { t } from "../../../i18n/translations";
+import { getAllCategories } from "../../../lib/db";
+
+export function getStaticPaths() {
+  return [{ params: { lang: "fr" } }, { params: { lang: "en" } }];
+}
+
+const { lang } = Astro.params;
+
+if (!isValidLang(lang)) {
+  return Astro.redirect("/fr", 302);
+}
+
+const translations = t(lang as Language);
+const categories = getAllCategories();
+
+const alternateUrls = {
+  fr: "/fr/categories",
+  en: "/en/categories",
+};
+---
+
+<BaseLayout
+  title={translations.nav.categories}
+  lang={lang as Language}
+  alternateUrls={alternateUrls}
+>
+  <!-- Header -->
+  <section class="border-b border-gray-200 bg-gray-50 py-12">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold tracking-tight text-gray-900">
+        {translations.nav.categories}
+      </h1>
+      <p class="mt-2 text-lg text-gray-600">
+        {lang === "fr"
+          ? "Explorez la littérature sur le PDA par thème clinique."
+          : "Explore PDA literature by clinical topic."}
+      </p>
+    </div>
+  </section>
+
+  <!-- Categories Grid -->
+  <section class="py-12">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <div class="grid gap-4 sm:grid-cols-2">
+        {
+          categories.map((category) => (
+            <CategoryCard
+              id={category.id}
+              title={lang === "fr" ? category.label_fr : category.label_en}
+              description={
+                translations.categoryDescriptions[
+                  category.id as keyof typeof translations.categoryDescriptions
+                ]
+              }
+              href={`/${lang}/categories/${category.url_slug}`}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>

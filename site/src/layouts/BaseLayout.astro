@@ -1,0 +1,156 @@
+---
+import "../styles/global.css";
+import { languages, defaultLang, type Language } from "../i18n/config";
+import { t } from "../i18n/translations";
+import LanguageSwitcher from "../components/LanguageSwitcher.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  lang: Language;
+  alternateUrls?: {
+    fr: string;
+    en: string;
+  };
+  canonicalUrl?: string;
+}
+
+const { title, description, lang, alternateUrls, canonicalUrl } = Astro.props;
+const translations = t(lang);
+const siteTitle = translations.site.title;
+const fullTitle = title === siteTitle ? title : `${title} | ${siteTitle}`;
+const metaDescription = description || translations.site.description;
+const currentUrl = Astro.url.href;
+const baseUrl = "https://pda.expert";
+---
+
+<!doctype html>
+<html lang={lang} class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- Primary Meta Tags -->
+    <title>{fullTitle}</title>
+    <meta name="title" content={fullTitle} />
+    <meta name="description" content={metaDescription} />
+
+    <!-- Canonical URL -->
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+
+    <!-- Hreflang Tags for Language Alternatives -->
+    {
+      alternateUrls && (
+        <>
+          <link rel="alternate" hreflang="fr" href={`${baseUrl}${alternateUrls.fr}`} />
+          <link rel="alternate" hreflang="en" href={`${baseUrl}${alternateUrls.en}`} />
+          <link
+            rel="alternate"
+            hreflang="x-default"
+            href={`${baseUrl}${alternateUrls.fr}`}
+          />
+        </>
+      )
+    }
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={currentUrl} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:locale" content={lang === "fr" ? "fr_FR" : "en_US"} />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content={currentUrl} />
+    <meta property="twitter:title" content={fullTitle} />
+    <meta property="twitter:description" content={metaDescription} />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body class="flex min-h-full flex-col bg-white text-gray-900 antialiased">
+    <!-- Skip to main content for accessibility -->
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-primary focus:px-4 focus:py-2 focus:text-white"
+    >
+      {lang === "fr" ? "Aller au contenu principal" : "Skip to main content"}
+    </a>
+
+    <!-- Header -->
+    <header class="border-b border-gray-200 bg-white">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <!-- Logo / Site Title -->
+        <a href={`/${lang}`} class="flex items-center gap-2">
+          <span class="text-xl font-semibold text-gray-900">
+            {siteTitle}
+          </span>
+        </a>
+
+        <!-- Navigation -->
+        <nav class="hidden items-center gap-6 md:flex">
+          <a
+            href={`/${lang}/professionnels`}
+            class="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            {translations.nav.professionals}
+          </a>
+          <a
+            href={`/${lang}/familles`}
+            class="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            {translations.nav.families}
+          </a>
+          <a
+            href={`/${lang}/categories`}
+            class="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            {translations.nav.categories}
+          </a>
+          <a
+            href={`/${lang}/recherche`}
+            class="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            {translations.nav.search}
+          </a>
+          <a
+            href={`/${lang}/a-propos`}
+            class="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            {translations.nav.about}
+          </a>
+        </nav>
+
+        <!-- Language Switcher -->
+        <LanguageSwitcher lang={lang} alternateUrls={alternateUrls} />
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="flex-1">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-200 bg-gray-50">
+      <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div class="text-center text-sm text-gray-500">
+          <p>
+            {
+              lang === "fr"
+                ? "Ressources francophones sur l'Évitement Pathologique des Demandes"
+                : "French-language resources on Pathological Demand Avoidance"
+            }
+          </p>
+          <p class="mt-2">
+            <a href={`/${lang}/a-propos`} class="underline hover:text-gray-700">
+              {translations.nav.about}
+            </a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

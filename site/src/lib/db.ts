@@ -24,6 +24,9 @@ export interface Article {
   journal: string | null;
   doi: string | null;
   open_access: boolean;
+  peer_reviewed: boolean;
+  method: "empirical" | "synthesis" | "theoretical" | "lived_experience" | null;
+  voice: "academic" | "practitioner" | "organization" | "individual" | null;
   summary_original: string;
 }
 

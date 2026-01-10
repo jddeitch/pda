@@ -1,0 +1,133 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CategoryCard from "../../components/CategoryCard.astro";
+import { isValidLang, type Language } from "../../i18n/config";
+import { t } from "../../i18n/translations";
+import { getAllCategories } from "../../lib/db";
+
+export function getStaticPaths() {
+  return [{ params: { lang: "fr" } }, { params: { lang: "en" } }];
+}
+
+const { lang } = Astro.params;
+
+if (!isValidLang(lang)) {
+  return Astro.redirect("/fr", 302);
+}
+
+const translations = t(lang as Language);
+const categories = getAllCategories();
+
+// Order categories for clinical pathway
+const clinicalPathway = [
+  "fondements",
+  "presentation_clinique",
+  "evaluation",
+  "prise_en_charge",
+];
+
+const pathwayCategories = clinicalPathway
+  .map((id) => categories.find((c) => c.id === id))
+  .filter(Boolean);
+
+const alternateUrls = {
+  fr: "/fr/professionnels",
+  en: "/en/professionals",
+};
+---
+
+<BaseLayout
+  title={translations.professionals.title}
+  description={translations.professionals.intro}
+  lang={lang as Language}
+  alternateUrls={alternateUrls}
+>
+  <!-- Hero Section -->
+  <section class="bg-gradient-to-b from-blue-50 to-white py-16">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+        {translations.professionals.title}
+      </h1>
+      <p class="mt-4 text-lg text-gray-600">
+        {translations.professionals.intro}
+      </p>
+    </div>
+  </section>
+
+  <!-- Clinical Pathway Section -->
+  <section class="py-12">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <h2 class="text-xl font-semibold text-gray-900">
+        {translations.professionals.startHere}
+      </h2>
+
+      <ol class="mt-6 space-y-4">
+        {
+          pathwayCategories.map((category, index) => (
+            <li class="flex items-start gap-4">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+                {index + 1}
+              </span>
+              <a
+                href={`/${lang}/categories/${category!.url_slug}`}
+                class="group flex-1 rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-blue-300 hover:shadow-sm"
+              >
+                <h3 class="font-medium text-gray-900 group-hover:text-blue-700">
+                  {translations.professionals.steps[
+                    ["understand", "recognize", "assess", "intervene"][
+                      index
+                    ] as keyof typeof translations.professionals.steps
+                  ]}
+                </h3>
+                <p class="mt-1 text-sm text-gray-500">
+                  {lang === "fr" ? category!.label_fr : category!.label_en}
+                </p>
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- Essential Reading Section (placeholder until articles are classified) -->
+  <section class="border-t border-gray-200 bg-gray-50 py-12">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <h2 class="text-xl font-semibold text-gray-900">
+        {translations.professionals.essentialReading}
+      </h2>
+      <p class="mt-4 text-gray-500">
+        {
+          lang === "fr"
+            ? "Les lectures essentielles seront ajoutées après la classification des articles."
+            : "Essential reading will be added after articles are classified."
+        }
+      </p>
+    </div>
+  </section>
+
+  <!-- All Categories -->
+  <section class="py-12">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <h2 class="text-xl font-semibold text-gray-900">
+        {translations.nav.categories}
+      </h2>
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        {
+          categories.map((category) => (
+            <CategoryCard
+              id={category.id}
+              title={lang === "fr" ? category.label_fr : category.label_en}
+              description={
+                translations.categoryDescriptions[
+                  category.id as keyof typeof translations.categoryDescriptions
+                ]
+              }
+              href={`/${lang}/categories/${category.url_slug}`}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>

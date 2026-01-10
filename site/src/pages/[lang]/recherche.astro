@@ -1,0 +1,70 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { isValidLang, type Language } from "../../i18n/config";
+import { t } from "../../i18n/translations";
+
+export function getStaticPaths() {
+  return [{ params: { lang: "fr" } }, { params: { lang: "en" } }];
+}
+
+const { lang } = Astro.params;
+
+if (!isValidLang(lang)) {
+  return Astro.redirect("/fr", 302);
+}
+
+const translations = t(lang as Language);
+
+const alternateUrls = {
+  fr: "/fr/recherche",
+  en: "/en/search",
+};
+---
+
+<BaseLayout
+  title={translations.search.title}
+  lang={lang as Language}
+  alternateUrls={alternateUrls}
+>
+  <section class="py-12">
+    <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold tracking-tight text-gray-900">
+        {translations.search.title}
+      </h1>
+
+      <!-- Pagefind Search UI -->
+      <div id="search" class="mt-8"></div>
+    </div>
+  </section>
+</BaseLayout>
+
+<link href="/pagefind/pagefind-ui.css" rel="stylesheet" />
+<script is:inline src="/pagefind/pagefind-ui.js"></script>
+<script is:inline define:vars={{ lang, placeholder: t(lang as Language).search.placeholder }}>
+  window.addEventListener("DOMContentLoaded", () => {
+    new PagefindUI({
+      element: "#search",
+      showSubResults: true,
+      translations: {
+        placeholder: placeholder,
+        zero_results: lang === "fr" ? "Aucun résultat pour [SEARCH_TERM]" : "No results for [SEARCH_TERM]",
+      },
+    });
+  });
+</script>
+
+<style is:global>
+  /* Pagefind UI customization */
+  .pagefind-ui__search-input {
+    border-radius: 0.5rem !important;
+    border-color: #d1d5db !important;
+  }
+  .pagefind-ui__search-input:focus {
+    border-color: var(--color-primary) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.1) !important;
+  }
+  .pagefind-ui__result-link {
+    color: var(--color-primary) !important;
+  }
+</style>
