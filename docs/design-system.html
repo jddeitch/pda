@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pda.expert Design System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            // Primary: Deep Blue — trust, authority, actions
+            primary: {
+              50: '#E8EEF5',
+              100: '#C5D5E8',
+              200: '#9BB8D6',
+              300: '#719BC4',
+              400: '#4A7BAA',
+              500: '#285589',  // Base
+              600: '#214771',
+              700: '#1A3859',
+              800: '#132A41',
+              900: '#0C1B29',
+            },
+            // Accent: Teal — highlights, trust signals, moments of interest
+            accent: {
+              50: '#E6F7F8',
+              100: '#B8EAEC',
+              200: '#7CDFDD',  // Light teal from Huemint
+              300: '#5CC5CE',  // Main teal from Huemint
+              400: '#46B0B9',
+              500: '#369AA3',
+              600: '#2A8A91',  // Text on light teal
+              700: '#1F6B71',
+              800: '#164D51',
+              900: '#0D2F32',
+            },
+            // Structural: Stone — borders, metadata, secondary text
+            stone: {
+              50: '#F5F5F4',
+              100: '#E7E5E4',
+              200: '#D6D3D1',
+              300: '#A8A29E',
+              400: '#8C857F',
+              500: '#78716C',  // Base
+              600: '#57534E',
+              700: '#44403C',
+              800: '#292524',
+              900: '#1C1917',
+            },
+            // Surface: Cream — warm background
+            cream: {
+              50: '#FDFCFB',
+              100: '#FAF8F5',
+              200: '#F4EEE8',  // Main cream from Huemint
+              300: '#EBE6E0',
+              400: '#E0D9D1',
+            },
+            // Dark: Near-black — footer, dark UI
+            dark: {
+              DEFAULT: '#241E1E',  // From Huemint
+              light: '#2C2626',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .badge { font-size: 11px; padding: 4px 10px; border-radius: 9999px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+    .swatch { height: 48px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: monospace; }
+    .section-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #78716C; margin-bottom: 16px; }
+    code { font-size: 12px; background: #F5F5F4; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-stone-100 p-8">
+
+  <!-- Header -->
+  <header class="max-w-6xl mx-auto mb-16">
+    <div class="flex items-center gap-4 mb-4">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-primary-500">
+        <span class="text-white font-bold text-xl">P</span>
+      </div>
+      <div>
+        <h1 class="text-3xl font-bold text-stone-900">pda.expert</h1>
+        <p class="text-stone-500">Design System v1.0</p>
+      </div>
+    </div>
+    <p class="text-lg text-stone-600 max-w-2xl">
+      A design system for an authoritative French-language medical resource.
+      Built to convey trust, warmth, and scholarly credibility.
+    </p>
+  </header>
+
+  <main class="max-w-6xl mx-auto">
+
+    <!-- ============================================ -->
+    <!-- SECTION 1: COLOR PALETTE -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">1. Color Palette</h2>
+      <p class="text-stone-600 mb-8">Four color families with distinct roles. Never mix roles.</p>
+
+      <div class="grid grid-cols-2 gap-8">
+
+        <!-- Primary: Blue -->
+        <div class="bg-white rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-lg bg-primary-500"></div>
+            <div>
+              <h3 class="font-semibold text-stone-900">Primary: Deep Blue</h3>
+              <code>#285589</code>
+            </div>
+          </div>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Role:</strong> Actions, links, primary buttons, interactive elements.
+            The "trust" color that draws eyes to what matters.
+          </p>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Use for:</strong> CTAs, navigation links, primary badges (method type),
+            focus states, active states.
+          </p>
+          <div class="grid grid-cols-10 rounded overflow-hidden">
+            <div class="swatch bg-primary-50 text-primary-900">50</div>
+            <div class="swatch bg-primary-100 text-primary-900">100</div>
+            <div class="swatch bg-primary-200 text-primary-900">200</div>
+            <div class="swatch bg-primary-300 text-primary-900">300</div>
+            <div class="swatch bg-primary-400 text-white">400</div>
+            <div class="swatch bg-primary-500 text-white font-bold">500</div>
+            <div class="swatch bg-primary-600 text-white">600</div>
+            <div class="swatch bg-primary-700 text-white">700</div>
+            <div class="swatch bg-primary-800 text-white">800</div>
+            <div class="swatch bg-primary-900 text-white">900</div>
+          </div>
+        </div>
+
+        <!-- Accent: Teal -->
+        <div class="bg-white rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-lg bg-accent-300"></div>
+            <div>
+              <h3 class="font-semibold text-stone-900">Accent: Teal</h3>
+              <code>#5CC5CE</code>
+            </div>
+          </div>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Role:</strong> Highlights, trust signals, featured content, moments of visual interest.
+            The "pop" that keeps the site from being sterile.
+          </p>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Use for:</strong> Featured card borders, "peer-reviewed" badges, "open access" badges,
+            callout borders, special highlights.
+          </p>
+          <div class="grid grid-cols-10 rounded overflow-hidden">
+            <div class="swatch bg-accent-50 text-accent-900">50</div>
+            <div class="swatch bg-accent-100 text-accent-900">100</div>
+            <div class="swatch bg-accent-200 text-accent-900">200</div>
+            <div class="swatch bg-accent-300 text-accent-900 font-bold">300</div>
+            <div class="swatch bg-accent-400 text-white">400</div>
+            <div class="swatch bg-accent-500 text-white">500</div>
+            <div class="swatch bg-accent-600 text-white">600</div>
+            <div class="swatch bg-accent-700 text-white">700</div>
+            <div class="swatch bg-accent-800 text-white">800</div>
+            <div class="swatch bg-accent-900 text-white">900</div>
+          </div>
+        </div>
+
+        <!-- Structural: Stone -->
+        <div class="bg-white rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-lg bg-stone-500"></div>
+            <div>
+              <h3 class="font-semibold text-stone-900">Structural: Stone</h3>
+              <code>#78716C</code>
+            </div>
+          </div>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Role:</strong> Text, borders, metadata, secondary UI elements.
+            The workhorse neutral with warm undertones.
+          </p>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Use for:</strong> Body text (600), headings (900), borders (200),
+            metadata (500), voice badges, secondary text.
+          </p>
+          <div class="grid grid-cols-10 rounded overflow-hidden">
+            <div class="swatch bg-stone-50 text-stone-900">50</div>
+            <div class="swatch bg-stone-100 text-stone-900">100</div>
+            <div class="swatch bg-stone-200 text-stone-900">200</div>
+            <div class="swatch bg-stone-300 text-stone-900">300</div>
+            <div class="swatch bg-stone-400 text-white">400</div>
+            <div class="swatch bg-stone-500 text-white font-bold">500</div>
+            <div class="swatch bg-stone-600 text-white">600</div>
+            <div class="swatch bg-stone-700 text-white">700</div>
+            <div class="swatch bg-stone-800 text-white">800</div>
+            <div class="swatch bg-stone-900 text-white">900</div>
+          </div>
+        </div>
+
+        <!-- Surface: Cream -->
+        <div class="bg-white rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-lg border border-stone-200" style="background: #F4EEE8;"></div>
+            <div>
+              <h3 class="font-semibold text-stone-900">Surface: Cream</h3>
+              <code>#F4EEE8</code>
+            </div>
+          </div>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Role:</strong> Page backgrounds, content areas.
+            Warm without yellow cast.
+          </p>
+          <p class="text-sm text-stone-600 mb-4">
+            <strong>Use for:</strong> Page background (200), hero gradients (300→200),
+            subtle section backgrounds.
+          </p>
+          <div class="grid grid-cols-5 rounded overflow-hidden">
+            <div class="swatch text-stone-700" style="background: #FDFCFB;">50</div>
+            <div class="swatch text-stone-700" style="background: #FAF8F5;">100</div>
+            <div class="swatch text-stone-700 font-bold" style="background: #F4EEE8;">200</div>
+            <div class="swatch text-stone-700" style="background: #EBE6E0;">300</div>
+            <div class="swatch text-stone-700" style="background: #E0D9D1;">400</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Dark -->
+      <div class="bg-white rounded-xl p-6 shadow-sm mt-8">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-lg" style="background: #241E1E;"></div>
+          <div>
+            <h3 class="font-semibold text-stone-900">Dark: Near-Black</h3>
+            <code>#241E1E</code>
+          </div>
+        </div>
+        <p class="text-sm text-stone-600">
+          <strong>Role:</strong> Footer background, dark UI elements. Warmer than pure black.
+        </p>
+      </div>
+
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 2: TYPOGRAPHY -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">2. Typography</h2>
+      <p class="text-stone-600 mb-8">System fonts for performance. Clear hierarchy.</p>
+
+      <div class="bg-white rounded-xl p-8 shadow-sm">
+        <div class="grid grid-cols-2 gap-12">
+
+          <!-- Text Styles -->
+          <div>
+            <div class="section-title">Text Styles</div>
+            <div class="space-y-6">
+              <div>
+                <h1 class="text-4xl font-bold text-stone-900">Page Title (4xl/bold)</h1>
+                <code>text-4xl font-bold text-stone-900</code>
+              </div>
+              <div>
+                <h2 class="text-2xl font-bold text-stone-900">Section Title (2xl/bold)</h2>
+                <code>text-2xl font-bold text-stone-900</code>
+              </div>
+              <div>
+                <h3 class="text-xl font-semibold text-stone-900">Subsection (xl/semibold)</h3>
+                <code>text-xl font-semibold text-stone-900</code>
+              </div>
+              <div>
+                <h4 class="text-lg font-semibold text-stone-900">Card Title (lg/semibold)</h4>
+                <code>text-lg font-semibold text-stone-900</code>
+              </div>
+              <div>
+                <p class="text-base text-stone-600">Body text (base/regular) — Main reading text for articles and descriptions. Should be comfortable for extended reading.</p>
+                <code>text-base text-stone-600</code>
+              </div>
+              <div>
+                <p class="text-sm text-stone-500">Secondary text (sm/regular) — Metadata, captions, timestamps</p>
+                <code>text-sm text-stone-500</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- Text Colors -->
+          <div>
+            <div class="section-title">Text Colors</div>
+            <div class="space-y-4">
+              <div class="flex items-center gap-4">
+                <div class="w-8 h-8 rounded bg-stone-900"></div>
+                <div>
+                  <div class="font-semibold text-stone-900">Headings</div>
+                  <code>text-stone-900</code>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-8 h-8 rounded bg-stone-600"></div>
+                <div>
+                  <div class="font-semibold text-stone-900">Body Text</div>
+                  <code>text-stone-600</code>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-8 h-8 rounded bg-stone-500"></div>
+                <div>
+                  <div class="font-semibold text-stone-900">Metadata / Secondary</div>
+                  <code>text-stone-500</code>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-8 h-8 rounded bg-primary-500"></div>
+                <div>
+                  <div class="font-semibold text-stone-900">Links</div>
+                  <code>text-primary-500</code>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-8 h-8 rounded bg-accent-600"></div>
+                <div>
+                  <div class="font-semibold text-stone-900">Text on Light Teal</div>
+                  <code>text-accent-600</code>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-title mt-8">Links</div>
+            <div class="space-y-2">
+              <p><a href="#" class="text-primary-500 font-medium hover:underline">Primary link</a> — main navigation, CTAs</p>
+              <p><a href="#" class="text-stone-500 hover:text-stone-700">Secondary link</a> — less important actions</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 3: BADGES (The Badge System) -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">3. Badge System</h2>
+      <p class="text-stone-600 mb-8">Four badge types with clear color assignments. An article shows 2-4 badges.</p>
+
+      <div class="bg-white rounded-xl p-8 shadow-sm">
+
+        <!-- Badge Type Table -->
+        <div class="overflow-x-auto mb-8">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-stone-200">
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Type</th>
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Values</th>
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Color</th>
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-stone-100">
+                <td class="py-3 px-4 font-medium text-stone-900">Method</td>
+                <td class="py-3 px-4 text-stone-600">Empirique, Synthèse, Théorique, Expérience vécue</td>
+                <td class="py-3 px-4"><span class="badge bg-primary-500 text-white">Blue (solid)</span></td>
+                <td class="py-3 px-4 text-stone-600">The <em>what</em> — type of evidence</td>
+              </tr>
+              <tr class="border-b border-stone-100">
+                <td class="py-3 px-4 font-medium text-stone-900">Voice</td>
+                <td class="py-3 px-4 text-stone-600">Académique, Praticien, Organisation, Individuel</td>
+                <td class="py-3 px-4"><span class="badge" style="background: #E7E5E4; color: #292524;">Stone (light)</span></td>
+                <td class="py-3 px-4 text-stone-600">The <em>who</em> — source type</td>
+              </tr>
+              <tr class="border-b border-stone-100">
+                <td class="py-3 px-4 font-medium text-stone-900">Peer-Reviewed</td>
+                <td class="py-3 px-4 text-stone-600">Boolean (show if true)</td>
+                <td class="py-3 px-4"><span class="badge" style="background: #B8EAEC; color: #164D51;">Teal (light)</span></td>
+                <td class="py-3 px-4 text-stone-600">Trust signal — credibility marker</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium text-stone-900">Open Access</td>
+                <td class="py-3 px-4 text-stone-600">Boolean (show if true)</td>
+                <td class="py-3 px-4"><span class="badge" style="background: #B8EAEC; color: #164D51;">Teal (light)</span></td>
+                <td class="py-3 px-4 text-stone-600">Trust signal — availability marker</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Visual Hierarchy Explanation -->
+        <div class="bg-stone-50 rounded-lg p-6 mb-8">
+          <h4 class="font-semibold text-stone-900 mb-3">Visual Hierarchy</h4>
+          <ol class="space-y-2 text-sm text-stone-600">
+            <li><strong>1. Teal badges pop</strong> — "Peer-reviewed" and "Open Access" are trust signals for clinicians. They get the accent color.</li>
+            <li><strong>2. Blue badges inform</strong> — Method tells you what kind of evidence. It's the primary classification.</li>
+            <li><strong>3. Stone badges recede</strong> — Voice is useful context but not critical for first scan.</li>
+          </ol>
+        </div>
+
+        <!-- Exact Color Specs -->
+        <div class="section-title">Exact Color Specifications</div>
+        <div class="overflow-x-auto mb-8">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-stone-200">
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Badge Type</th>
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Background</th>
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Text</th>
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Tailwind</th>
+                <th class="text-left py-3 px-4 font-semibold text-stone-900">Preview</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-stone-100">
+                <td class="py-3 px-4 font-medium text-stone-900">Method (Blue)</td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#285589</code></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#FFFFFF</code></td>
+                <td class="py-3 px-4 text-stone-600 text-xs">bg-primary-500 text-white</td>
+                <td class="py-3 px-4"><span class="badge bg-primary-500 text-white">Empirique</span></td>
+              </tr>
+              <tr class="border-b border-stone-100">
+                <td class="py-3 px-4 font-medium text-stone-900">Voice (Stone)</td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#E7E5E4</code></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#292524</code></td>
+                <td class="py-3 px-4 text-stone-600 text-xs">bg-stone-200 text-stone-800</td>
+                <td class="py-3 px-4"><span class="badge" style="background: #E7E5E4; color: #292524;">Praticien</span></td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium text-stone-900">Flags (Teal)</td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#B8EAEC</code></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#164D51</code></td>
+                <td class="py-3 px-4 text-stone-600 text-xs">bg-accent-100 text-accent-800</td>
+                <td class="py-3 px-4"><span class="badge" style="background: #B8EAEC; color: #164D51;">Accès libre</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Badge Examples -->
+        <div class="section-title">All Badge Variants</div>
+        <div class="grid grid-cols-2 gap-8">
+
+          <!-- Method Badges -->
+          <div>
+            <h4 class="font-medium text-stone-900 mb-3">Method (Blue)</h4>
+            <div class="flex flex-wrap gap-2">
+              <span class="badge bg-primary-500 text-white">Empirique</span>
+              <span class="badge bg-primary-500 text-white">Synthèse</span>
+              <span class="badge bg-primary-500 text-white">Théorique</span>
+              <span class="badge bg-primary-500 text-white">Expérience vécue</span>
+            </div>
+            <p class="text-xs text-stone-500 mt-2">bg: #285589 · text: #FFFFFF</p>
+          </div>
+
+          <!-- Voice Badges -->
+          <div>
+            <h4 class="font-medium text-stone-900 mb-3">Voice (Stone)</h4>
+            <div class="flex flex-wrap gap-2">
+              <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
+              <span class="badge" style="background: #E7E5E4; color: #292524;">Praticien</span>
+              <span class="badge" style="background: #E7E5E4; color: #292524;">Organisation</span>
+              <span class="badge" style="background: #E7E5E4; color: #292524;">Individuel</span>
+            </div>
+            <p class="text-xs text-stone-500 mt-2">bg: #E7E5E4 · text: #292524</p>
+          </div>
+
+          <!-- Flag Badges -->
+          <div>
+            <h4 class="font-medium text-stone-900 mb-3">Flags (Teal)</h4>
+            <div class="flex flex-wrap gap-2">
+              <span class="badge" style="background: #B8EAEC; color: #164D51;">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Évalué par les pairs
+              </span>
+              <span class="badge" style="background: #B8EAEC; color: #164D51;">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
+                Accès libre
+              </span>
+            </div>
+            <p class="text-xs text-stone-500 mt-2">bg: #B8EAEC · text: #164D51</p>
+          </div>
+
+          <!-- Example Combinations -->
+          <div>
+            <h4 class="font-medium text-stone-900 mb-3">Example Article</h4>
+            <div class="flex flex-wrap gap-2">
+              <span class="badge" style="background: #B8EAEC; color: #164D51;">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Évalué par les pairs
+              </span>
+              <span class="badge bg-primary-500 text-white">Empirique</span>
+              <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
+            </div>
+            <p class="text-xs text-stone-500 mt-2">O'Nions et al. (2014) — EDA-Q Development</p>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 4: CATEGORY FILTERS -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">4. Category Filters</h2>
+      <p class="text-stone-600 mb-8">Clinical topic tags for navigation. Different from classification badges.</p>
+
+      <div class="bg-white rounded-xl p-8 shadow-sm">
+
+        <div class="bg-stone-50 rounded-lg p-6 mb-8">
+          <h4 class="font-semibold text-stone-900 mb-3">Categories vs. Badges</h4>
+          <ul class="space-y-2 text-sm text-stone-600">
+            <li><strong>Badges</strong> = Classification metadata (method, voice, flags). Shown on cards.</li>
+            <li><strong>Categories</strong> = Clinical topic filters (Fondements, Évaluation...). Used for navigation/filtering.</li>
+          </ul>
+        </div>
+
+        <div class="section-title">Category Filter Bar</div>
+
+        <!-- Filter states -->
+        <div class="space-y-4">
+          <div>
+            <p class="text-sm text-stone-500 mb-2">Default state:</p>
+            <div class="flex gap-2">
+              <span class="badge bg-primary-500 text-white cursor-pointer">Tous</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Fondements</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Évaluation</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Présentation clinique</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Prise en charge</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Comorbidités</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Trajectoire</span>
+            </div>
+          </div>
+          <div>
+            <p class="text-sm text-stone-500 mb-2">With selection:</p>
+            <div class="flex gap-2">
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Tous</span>
+              <span class="badge bg-primary-500 text-white cursor-pointer">Fondements</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Évaluation</span>
+              <span class="badge bg-primary-500 text-white cursor-pointer">Prise en charge</span>
+              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Comorbidités</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 p-4 border border-stone-200 rounded-lg">
+          <h4 class="font-medium text-stone-900 mb-2">Implementation Note</h4>
+          <p class="text-sm text-stone-600">
+            Categories use the same pill shape as badges but serve a different purpose (filtering vs. labeling).
+            Active filters use <code>bg-primary-500 text-white</code>, inactive use <code>bg-stone-100 text-stone-600</code>.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 5: BUTTONS -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">5. Buttons</h2>
+      <p class="text-stone-600 mb-8">Three button types with clear hierarchy.</p>
+
+      <div class="bg-white rounded-xl p-8 shadow-sm">
+
+        <div class="grid grid-cols-3 gap-8">
+
+          <!-- Primary -->
+          <div>
+            <div class="section-title">Primary</div>
+            <button class="w-full px-4 py-2.5 rounded-lg font-medium text-white bg-primary-500 hover:bg-primary-600 transition-colors mb-4">
+              Explorer les articles
+            </button>
+            <p class="text-sm text-stone-600 mb-2">Main CTA. One per section max.</p>
+            <code class="text-xs">bg-primary-500 text-white</code>
+          </div>
+
+          <!-- Secondary / Outline -->
+          <div>
+            <div class="section-title">Secondary</div>
+            <button class="w-full px-4 py-2.5 rounded-lg font-medium text-primary-500 border-2 border-primary-500 hover:bg-primary-50 transition-colors mb-4">
+              Qu'est-ce que le PDA?
+            </button>
+            <p class="text-sm text-stone-600 mb-2">Alternative action. Pairs with primary.</p>
+            <code class="text-xs">border-primary-500 text-primary-500</code>
+          </div>
+
+          <!-- Tertiary / Ghost -->
+          <div>
+            <div class="section-title">Tertiary</div>
+            <button class="w-full px-4 py-2.5 rounded-lg font-medium text-stone-600 border border-stone-200 hover:bg-stone-50 transition-colors mb-4">
+              Voir l'original (EN)
+            </button>
+            <p class="text-sm text-stone-600 mb-2">Less important actions.</p>
+            <code class="text-xs">border-stone-200 text-stone-600</code>
+          </div>
+
+        </div>
+
+        <!-- Accent Button (rare) -->
+        <div class="mt-8 pt-8 border-t border-stone-200">
+          <div class="section-title">Accent Button (Use Sparingly)</div>
+          <div class="flex gap-4 items-center">
+            <button class="px-4 py-2.5 rounded-lg font-medium text-white bg-accent-400 hover:bg-accent-500 transition-colors">
+              Essentiel
+            </button>
+            <p class="text-sm text-stone-600">Only for very special featured actions. Rare.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 6: CARDS -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">6. Cards</h2>
+      <p class="text-stone-600 mb-8">Article cards in three states.</p>
+
+      <div class="grid grid-cols-3 gap-6" style="background: #F4EEE8; padding: 24px; border-radius: 12px;">
+
+        <!-- Standard Card -->
+        <div class="bg-white rounded-xl p-6 border border-stone-200">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge bg-primary-500 text-white">Empirique</span>
+            <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
+          </div>
+          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Standard Article Card</h3>
+          <p class="text-sm mb-1 text-stone-500">Author et al. (2024)</p>
+          <p class="text-sm mb-4 text-stone-600">Brief description of the article content goes here...</p>
+          <div class="flex items-center justify-between">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1">
+              Lire la traduction
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <a href="#" class="text-sm text-stone-500">Original</a>
+          </div>
+        </div>
+
+        <!-- Featured Card -->
+        <div class="bg-white rounded-xl p-6 border-2 border-accent-300 relative">
+          <div class="absolute -top-3 left-4">
+            <span class="badge bg-accent-300 text-accent-900 shadow-sm">Essentiel</span>
+          </div>
+          <div class="flex items-center gap-2 mb-3 mt-2">
+            <span class="badge" style="background: #B8EAEC; color: #164D51;">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              Évalué par les pairs
+            </span>
+            <span class="badge bg-primary-500 text-white">Empirique</span>
+          </div>
+          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Featured Article Card</h3>
+          <p class="text-sm mb-1 text-stone-500">Newson et al. (2003)</p>
+          <p class="text-sm mb-4 text-stone-600">A foundational paper. Teal border + badge signals importance.</p>
+          <div class="flex items-center justify-between">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1">
+              Lire la traduction
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <a href="#" class="text-sm text-stone-500">Original</a>
+          </div>
+        </div>
+
+        <!-- Card with Open Access -->
+        <div class="bg-white rounded-xl p-6 border border-stone-200">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge" style="background: #B8EAEC; color: #164D51;">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
+              Accès libre
+            </span>
+            <span class="badge bg-primary-500 text-white">Synthèse</span>
+          </div>
+          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Open Access Article</h3>
+          <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
+          <p class="text-sm mb-4 text-stone-600">The teal "Accès libre" badge indicates full text available.</p>
+          <div class="flex items-center justify-between">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1">
+              Lire l'article
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 7: CALLOUTS & HIGHLIGHTS -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">7. Callouts & Highlights</h2>
+      <p class="text-stone-600 mb-8">Left-border treatment for inline content emphasis. Different from badges.</p>
+
+      <div class="bg-white rounded-xl p-8 shadow-sm">
+
+        <div class="space-y-6">
+
+          <!-- Teal Callout -->
+          <div>
+            <div class="section-title">Key Insight (Teal)</div>
+            <div class="p-4 rounded-lg bg-accent-50 border-l-4 border-accent-300">
+              <p class="text-stone-700">This is the key takeaway from the article. Use teal for abstracts, important quotes, or summary highlights that readers should notice.</p>
+            </div>
+            <code class="text-xs mt-2 block">bg-accent-50 border-l-4 border-accent-300</code>
+          </div>
+
+          <!-- Blue Callout -->
+          <div>
+            <div class="section-title">Reference Note (Blue)</div>
+            <div class="p-4 rounded-lg bg-primary-50 border-l-4 border-primary-500">
+              <p class="text-stone-700">Use blue for citation information, methodology notes, or references. More informational than emphatic.</p>
+            </div>
+            <code class="text-xs mt-2 block">bg-primary-50 border-l-4 border-primary-500</code>
+          </div>
+
+          <!-- Stone Callout -->
+          <div>
+            <div class="section-title">Neutral Note (Stone)</div>
+            <div class="p-4 rounded-lg bg-stone-50 border-l-4 border-stone-300">
+              <p class="text-stone-700">Use stone for translator notes, editorial comments, or other secondary information that shouldn't draw attention.</p>
+            </div>
+            <code class="text-xs mt-2 block">bg-stone-50 border-l-4 border-stone-300</code>
+          </div>
+
+        </div>
+
+        <div class="mt-8 p-4 border border-stone-200 rounded-lg">
+          <h4 class="font-medium text-stone-900 mb-2">When to Use</h4>
+          <ul class="text-sm text-stone-600 space-y-1">
+            <li><strong>Teal:</strong> Abstracts, key quotes, "the important bit"</li>
+            <li><strong>Blue:</strong> Citations, methodology, reference info</li>
+            <li><strong>Stone:</strong> Translator notes, minor asides</li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 8: SPACING & LAYOUT -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">8. Spacing & Layout</h2>
+      <p class="text-stone-600 mb-8">Consistent spacing scale based on Tailwind defaults.</p>
+
+      <div class="bg-white rounded-xl p-8 shadow-sm">
+
+        <div class="grid grid-cols-2 gap-8">
+
+          <div>
+            <div class="section-title">Spacing Scale</div>
+            <div class="space-y-2 text-sm">
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-4 bg-primary-200 rounded" style="width: 8px;"></div>
+                <code>2 (8px)</code> — Icon gaps
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-4 bg-primary-200 rounded" style="width: 12px;"></div>
+                <code>3 (12px)</code> — Tight spacing
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-4 bg-primary-200 rounded" style="width: 16px;"></div>
+                <code>4 (16px)</code> — Default gap
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-4 bg-primary-200 rounded" style="width: 24px;"></div>
+                <code>6 (24px)</code> — Card padding, section gaps
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-4 bg-primary-200 rounded" style="width: 32px;"></div>
+                <code>8 (32px)</code> — Page padding
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-4 bg-primary-200 rounded" style="width: 64px;"></div>
+                <code>16 (64px)</code> — Hero padding, major sections
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-title">Borders & Radius</div>
+            <div class="space-y-4">
+              <div>
+                <p class="text-sm text-stone-600 mb-2">Card radius:</p>
+                <div class="w-32 h-16 bg-stone-100 rounded-xl border border-stone-200"></div>
+                <code class="text-xs mt-1 block">rounded-xl (12px)</code>
+              </div>
+              <div>
+                <p class="text-sm text-stone-600 mb-2">Button/Badge radius:</p>
+                <div class="w-32 h-10 bg-stone-100 rounded-lg border border-stone-200"></div>
+                <code class="text-xs mt-1 block">rounded-lg (8px)</code>
+              </div>
+              <div>
+                <p class="text-sm text-stone-600 mb-2">Border color:</p>
+                <code>border-stone-200</code> (default)
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="mt-8">
+          <div class="section-title">Max Widths</div>
+          <div class="space-y-2 text-sm text-stone-600">
+            <p><code>max-w-6xl</code> — Page container (1152px)</p>
+            <p><code>max-w-3xl</code> — Article content (768px)</p>
+            <p><code>max-w-2xl</code> — Hero text (672px)</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 9: COMPLETE EXAMPLE -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">9. Complete Example</h2>
+      <p class="text-stone-600 mb-8">Putting it all together.</p>
+
+      <div class="rounded-xl overflow-hidden shadow-2xl" style="background: #F4EEE8;">
+
+        <!-- Header -->
+        <header class="px-8 py-4 flex items-center justify-between bg-white border-b border-stone-200">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-500">
+              <span class="text-white font-bold text-sm">P</span>
+            </div>
+            <span class="font-semibold text-lg text-stone-900">pda.expert</span>
+          </div>
+          <nav class="flex items-center gap-8">
+            <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Articles</a>
+            <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Glossaire</a>
+            <a href="#" class="text-sm text-stone-600 hover:text-stone-900">À propos</a>
+            <a href="#" class="text-sm font-medium px-4 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600">Recherche</a>
+          </nav>
+        </header>
+
+        <!-- Hero -->
+        <div class="px-8 py-16 text-center" style="background: linear-gradient(180deg, #EBE6E0 0%, #F4EEE8 100%);">
+          <div class="inline-block px-3 py-1 rounded-full text-xs font-medium mb-4" style="background: #B8EAEC; color: #164D51;">
+            52 articles traduits
+          </div>
+          <h1 class="text-4xl font-bold mb-4 text-stone-900">Ressources sur le PDA en français</h1>
+          <p class="text-xl mb-8 max-w-2xl mx-auto text-stone-600">Traductions de la littérature scientifique sur le Profil d'Évitement Pathologique des Demandes.</p>
+          <div class="flex justify-center gap-4">
+            <button class="px-6 py-3 rounded-lg font-medium text-white shadow-sm bg-primary-500 hover:bg-primary-600">
+              Explorer les articles
+            </button>
+            <button class="px-6 py-3 rounded-lg font-medium text-primary-500 border-2 border-primary-500 hover:bg-primary-50">
+              Qu'est-ce que le PDA?
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="px-8 py-4 flex items-center gap-3 bg-white border-b border-stone-200">
+          <span class="text-sm font-medium text-stone-900">Catégories:</span>
+          <div class="flex gap-2">
+            <span class="badge bg-primary-500 text-white cursor-pointer">Tous</span>
+            <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Fondements</span>
+            <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Évaluation</span>
+            <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Prise en charge</span>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="px-8 py-8">
+          <div class="grid grid-cols-2 gap-6">
+
+            <!-- Featured Card -->
+            <div class="bg-white rounded-xl p-6 border-2 border-accent-300 relative">
+              <div class="absolute -top-3 left-4">
+                <span class="badge bg-accent-300 text-accent-900 shadow-sm">Essentiel</span>
+              </div>
+              <div class="flex items-center gap-2 mb-3 mt-2">
+                <span class="badge" style="background: #B8EAEC; color: #164D51;">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  Évalué par les pairs
+                </span>
+                <span class="badge bg-primary-500 text-white">Empirique</span>
+                <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
+              </div>
+              <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Extreme Demand Avoidance: An Examination of Behavioural Features</h3>
+              <p class="text-sm mb-1 text-stone-500">Newson, Le Maréchal & David (2003)</p>
+              <p class="text-sm mb-4 text-stone-600">La première description formelle du profil PDA dans la littérature scientifique.</p>
+              <div class="flex items-center justify-between">
+                <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
+                  Lire la traduction
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                <a href="#" class="text-sm text-stone-500 hover:text-stone-700">Original (EN)</a>
+              </div>
+            </div>
+
+            <!-- Standard Card -->
+            <div class="bg-white rounded-xl p-6 border border-stone-200">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="badge" style="background: #B8EAEC; color: #164D51;">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
+                  Accès libre
+                </span>
+                <span class="badge bg-primary-500 text-white">Synthèse</span>
+                <span class="badge" style="background: #E7E5E4; color: #292524;">Praticien</span>
+              </div>
+              <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Le trouble du spectre de l'autisme à expression atypique</h3>
+              <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
+              <p class="text-sm mb-4 text-stone-600">Le seul article en français sur le PDA dans une revue à comité de lecture.</p>
+              <div class="flex items-center justify-between">
+                <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
+                  Lire l'article
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="px-8 py-8" style="background: #241E1E;">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-7 h-7 rounded flex items-center justify-center bg-primary-500">
+                  <span class="text-white font-bold text-xs">P</span>
+                </div>
+                <span class="font-semibold text-white">pda.expert</span>
+              </div>
+              <p class="text-sm text-stone-400">Ressources pour les cliniciens francophones</p>
+            </div>
+            <div class="flex gap-8">
+              <div>
+                <div class="text-sm font-medium text-white mb-2">Navigation</div>
+                <div class="space-y-1 text-sm text-stone-400">
+                  <a href="#" class="block hover:text-white">Articles</a>
+                  <a href="#" class="block hover:text-white">Glossaire</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </footer>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 10: TAILWIND CONFIG -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">10. Tailwind Configuration</h2>
+      <p class="text-stone-600 mb-8">Copy this into your tailwind.config.js</p>
+
+      <div class="rounded-xl p-6 overflow-x-auto" style="background: #1C1917;">
+        <pre class="text-sm" style="color: #E7E5E4; margin: 0;"><code>// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        // Primary: Deep Blue — trust, authority, actions
+        primary: {
+          50: '#E8EEF5',
+          100: '#C5D5E8',
+          200: '#9BB8D6',
+          300: '#719BC4',
+          400: '#4A7BAA',
+          500: '#285589',  // Base
+          600: '#214771',
+          700: '#1A3859',
+          800: '#132A41',
+          900: '#0C1B29',
+        },
+        // Accent: Teal — highlights, trust signals
+        accent: {
+          50: '#E6F7F8',
+          100: '#B8EAEC',  // Light badge bg
+          200: '#7CDFDD',
+          300: '#5CC5CE',  // Base (Huemint)
+          400: '#46B0B9',
+          500: '#369AA3',
+          600: '#2A8A91',
+          700: '#1F6E74',
+          800: '#164D51',  // Text on light teal
+          900: '#0D2F32',
+        },
+        // Badge combos:
+        // - Teal flags: bg-accent-100 + text-accent-800
+        // - Stone voice: bg-stone-200 + text-stone-800
+        // Structural: Stone — text, borders, metadata
+
+        // Surface: Cream — backgrounds
+        cream: {
+          50: '#FDFCFB',
+          100: '#FAF8F5',
+          200: '#F4EEE8',  // Main background
+          300: '#EBE6E0',
+          400: '#E0D9D1',
+        },
+        // Dark: Near-black — footer
+        dark: '#241E1E',
+      }
+    }
+  }
+}</code></pre>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="max-w-6xl mx-auto mt-16 pt-8 border-t border-stone-200 text-center text-stone-500 text-sm">
+    pda.expert Design System v1.0 — Built for French clinicians who need to know about PDA
+  </footer>
+
+</body>
+</html>
