@@ -67,12 +67,20 @@
       }
     }
   </script>
+  <style type="text/tailwindcss">
+    @layer base {
+      pre, pre code {
+        white-space: pre !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+      }
+    }
+  </style>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; }
     .badge { font-size: 11px; padding: 4px 10px; border-radius: 9999px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
     .swatch { height: 48px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: monospace; }
-    .section-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #78716C; margin-bottom: 16px; }
-    code { font-size: 12px; background: #F5F5F4; padding: 2px 6px; border-radius: 4px; }
+    /* Code styling using TW-defined stone palette */
+    code:not([class]) { font-size: 12px; padding: 2px 6px; border-radius: 4px; background-color: rgb(245 245 244); /* stone-50 */ }
   </style>
 </head>
 <body class="bg-stone-100 p-8">
@@ -111,7 +119,7 @@
             <div class="w-12 h-12 rounded-lg bg-primary-500"></div>
             <div>
               <h3 class="font-semibold text-stone-900">Primary: Deep Blue</h3>
-              <code>#285589</code>
+              <code class="text-xs bg-stone-50 px-2 py-1 rounded">primary-500</code>
             </div>
           </div>
           <p class="text-sm text-stone-600 mb-4">
@@ -142,7 +150,7 @@
             <div class="w-12 h-12 rounded-lg bg-accent-300"></div>
             <div>
               <h3 class="font-semibold text-stone-900">Accent: Teal</h3>
-              <code>#5CC5CE</code>
+              <code>accent-300</code>
             </div>
           </div>
           <p class="text-sm text-stone-600 mb-4">
@@ -173,7 +181,7 @@
             <div class="w-12 h-12 rounded-lg bg-stone-500"></div>
             <div>
               <h3 class="font-semibold text-stone-900">Structural: Stone</h3>
-              <code>#78716C</code>
+              <code>stone-500</code>
             </div>
           </div>
           <p class="text-sm text-stone-600 mb-4">
@@ -181,8 +189,8 @@
             The workhorse neutral with warm undertones.
           </p>
           <p class="text-sm text-stone-600 mb-4">
-            <strong>Use for:</strong> Body text (600), headings (900), borders (200),
-            metadata (500), voice badges, secondary text.
+            <strong>Use for:</strong> Body text (700), headings (900), borders (200),
+            metadata (500), voice badges, card descriptions (600).
           </p>
           <div class="grid grid-cols-10 rounded overflow-hidden">
             <div class="swatch bg-stone-50 text-stone-900">50</div>
@@ -201,10 +209,10 @@
         <!-- Surface: Cream -->
         <div class="bg-white rounded-xl p-6 shadow-sm">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-12 h-12 rounded-lg border border-stone-200" style="background: #F4EEE8;"></div>
+            <div class="w-12 h-12 rounded-lg border border-stone-200 bg-cream-200"></div>
             <div>
               <h3 class="font-semibold text-stone-900">Surface: Cream</h3>
-              <code>#F4EEE8</code>
+              <code>cream-200</code>
             </div>
           </div>
           <p class="text-sm text-stone-600 mb-4">
@@ -216,11 +224,11 @@
             subtle section backgrounds.
           </p>
           <div class="grid grid-cols-5 rounded overflow-hidden">
-            <div class="swatch text-stone-700" style="background: #FDFCFB;">50</div>
-            <div class="swatch text-stone-700" style="background: #FAF8F5;">100</div>
-            <div class="swatch text-stone-700 font-bold" style="background: #F4EEE8;">200</div>
-            <div class="swatch text-stone-700" style="background: #EBE6E0;">300</div>
-            <div class="swatch text-stone-700" style="background: #E0D9D1;">400</div>
+            <div class="swatch text-stone-700 bg-cream-50">50</div>
+            <div class="swatch text-stone-700 bg-cream-100">100</div>
+            <div class="swatch text-stone-700 font-bold bg-cream-200">200</div>
+            <div class="swatch text-stone-700 bg-cream-300">300</div>
+            <div class="swatch text-stone-700 bg-cream-400">400</div>
           </div>
         </div>
 
@@ -229,10 +237,10 @@
       <!-- Dark -->
       <div class="bg-white rounded-xl p-6 shadow-sm mt-8">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-12 h-12 rounded-lg" style="background: #241E1E;"></div>
+          <div class="w-12 h-12 rounded-lg bg-dark"></div>
           <div>
             <h3 class="font-semibold text-stone-900">Dark: Near-Black</h3>
-            <code>#241E1E</code>
+            <code>dark</code>
           </div>
         </div>
         <p class="text-sm text-stone-600">
@@ -247,87 +255,190 @@
     <!-- ============================================ -->
     <section class="mb-20">
       <h2 class="text-2xl font-bold text-stone-900 mb-2">2. Typography</h2>
-      <p class="text-stone-600 mb-8">System fonts for performance. Clear hierarchy.</p>
+      <p class="text-stone-600 mb-8">System fonts for performance. Every text element is specified — no guessing.</p>
 
       <div class="bg-white rounded-xl p-8 shadow-sm">
+
+        <!-- Article Text Hierarchy (The Main Event) -->
+        <div class="mb-10">
+          <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Article Text — Complete Specification</div>
+          <p class="text-sm text-stone-500 mb-6">Every text element that appears on an article page, with exact Tailwind classes.</p>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-stone-200">
+                  <th class="text-left py-3 px-4 font-semibold text-stone-900">Element</th>
+                  <th class="text-left py-3 px-4 font-semibold text-stone-900">Example</th>
+                  <th class="text-left py-3 px-4 font-semibold text-stone-900">Tailwind Classes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Article Title</td>
+                  <td class="py-3 px-4"><span class="text-2xl font-bold tracking-tight text-stone-900">Extreme Demand Avoidance...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Authors + Year</td>
+                  <td class="py-3 px-4"><span class="text-stone-600">Newson et al.</span> <span class="text-stone-400">(2003)</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-600</code> / <code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-400</code> for year</td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Journal Name</td>
+                  <td class="py-3 px-4"><span class="text-stone-400">— Archives of Disease in Childhood</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-400</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Section Header</td>
+                  <td class="py-3 px-4"><span class="text-xl font-semibold text-stone-900">Résumé</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-xl font-semibold text-stone-900</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Body Text (Summary)</td>
+                  <td class="py-3 px-4"><span class="text-stone-700 leading-relaxed">This foundational paper describes...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-700 leading-relaxed</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Key Findings (Capsule)</td>
+                  <td class="py-3 px-4"><span class="text-stone-700">First formal description of PDA...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-700</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Label (uppercase)</td>
+                  <td class="py-3 px-4"><span class="text-sm font-semibold uppercase tracking-wide text-stone-500">POINTS CLÉS</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm font-semibold uppercase tracking-wide text-stone-500</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Keywords</td>
+                  <td class="py-3 px-4"><span class="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-600">autism</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm text-stone-600</code> in pill</td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">DOI</td>
+                  <td class="py-3 px-4"><span class="text-sm text-stone-500">DOI:</span> <a href="#" class="text-sm text-primary-500">10.1136/adc...</a></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm text-stone-500</code> + <code class="text-xs bg-stone-100 px-2 py-1 rounded">text-primary-500</code></td>
+                </tr>
+                <tr>
+                  <td class="py-3 px-4 font-medium text-stone-900">Breadcrumb</td>
+                  <td class="py-3 px-4"><span class="text-sm text-stone-500">Accueil</span> <span class="text-sm text-stone-400">/</span> <span class="text-sm text-stone-900">Article</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm</code> with <code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-500</code> / <code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-900</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Card Text -->
+        <div class="mb-10">
+          <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Card Text — Article Cards</div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-stone-200">
+                  <th class="text-left py-3 px-4 font-semibold text-stone-900">Element</th>
+                  <th class="text-left py-3 px-4 font-semibold text-stone-900">Example</th>
+                  <th class="text-left py-3 px-4 font-semibold text-stone-900">Tailwind Classes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Card Title</td>
+                  <td class="py-3 px-4"><span class="font-semibold text-lg leading-snug text-stone-900">Extreme Demand Avoidance...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">font-semibold text-lg leading-snug text-stone-900</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Card Authors</td>
+                  <td class="py-3 px-4"><span class="text-sm text-stone-500">Newson et al. (2003)</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm text-stone-500</code></td>
+                </tr>
+                <tr class="border-b border-stone-100">
+                  <td class="py-3 px-4 font-medium text-stone-900">Card Description</td>
+                  <td class="py-3 px-4"><span class="text-sm text-stone-600">La première description formelle...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm text-stone-600</code></td>
+                </tr>
+                <tr>
+                  <td class="py-3 px-4 font-medium text-stone-900">Card Link</td>
+                  <td class="py-3 px-4"><a href="#" class="text-sm font-medium text-primary-500">Lire la traduction →</a></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm font-medium text-primary-500</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Color Reference -->
         <div class="grid grid-cols-2 gap-12">
 
-          <!-- Text Styles -->
+          <!-- Text Colors Summary -->
           <div>
-            <div class="section-title">Text Styles</div>
-            <div class="space-y-6">
-              <div>
-                <h1 class="text-4xl font-bold text-stone-900">Page Title (4xl/bold)</h1>
-                <code>text-4xl font-bold text-stone-900</code>
-              </div>
-              <div>
-                <h2 class="text-2xl font-bold text-stone-900">Section Title (2xl/bold)</h2>
-                <code>text-2xl font-bold text-stone-900</code>
-              </div>
-              <div>
-                <h3 class="text-xl font-semibold text-stone-900">Subsection (xl/semibold)</h3>
-                <code>text-xl font-semibold text-stone-900</code>
-              </div>
-              <div>
-                <h4 class="text-lg font-semibold text-stone-900">Card Title (lg/semibold)</h4>
-                <code>text-lg font-semibold text-stone-900</code>
-              </div>
-              <div>
-                <p class="text-base text-stone-600">Body text (base/regular) — Main reading text for articles and descriptions. Should be comfortable for extended reading.</p>
-                <code>text-base text-stone-600</code>
-              </div>
-              <div>
-                <p class="text-sm text-stone-500">Secondary text (sm/regular) — Metadata, captions, timestamps</p>
-                <code>text-sm text-stone-500</code>
-              </div>
-            </div>
-          </div>
-
-          <!-- Text Colors -->
-          <div>
-            <div class="section-title">Text Colors</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Text Color Hierarchy</div>
             <div class="space-y-4">
               <div class="flex items-center gap-4">
                 <div class="w-8 h-8 rounded bg-stone-900"></div>
                 <div>
-                  <div class="font-semibold text-stone-900">Headings</div>
+                  <div class="font-semibold text-stone-900">900 — Headings, Titles</div>
                   <code>text-stone-900</code>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="w-8 h-8 rounded bg-stone-700"></div>
+                <div>
+                  <div class="font-semibold text-stone-900">700 — Body Text, Key Findings</div>
+                  <code>text-stone-700</code>
                 </div>
               </div>
               <div class="flex items-center gap-4">
                 <div class="w-8 h-8 rounded bg-stone-600"></div>
                 <div>
-                  <div class="font-semibold text-stone-900">Body Text</div>
+                  <div class="font-semibold text-stone-900">600 — Card Descriptions, Keywords</div>
                   <code>text-stone-600</code>
                 </div>
               </div>
               <div class="flex items-center gap-4">
                 <div class="w-8 h-8 rounded bg-stone-500"></div>
                 <div>
-                  <div class="font-semibold text-stone-900">Metadata / Secondary</div>
+                  <div class="font-semibold text-stone-900">500 — Labels, Card Authors</div>
                   <code>text-stone-500</code>
                 </div>
               </div>
               <div class="flex items-center gap-4">
-                <div class="w-8 h-8 rounded bg-primary-500"></div>
+                <div class="w-8 h-8 rounded bg-stone-400"></div>
                 <div>
-                  <div class="font-semibold text-stone-900">Links</div>
-                  <code>text-primary-500</code>
-                </div>
-              </div>
-              <div class="flex items-center gap-4">
-                <div class="w-8 h-8 rounded bg-accent-600"></div>
-                <div>
-                  <div class="font-semibold text-stone-900">Text on Light Teal</div>
-                  <code>text-accent-600</code>
+                  <div class="font-semibold text-stone-900">400 — Year, Journal, Dividers</div>
+                  <code>text-stone-400</code>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div class="section-title mt-8">Links</div>
-            <div class="space-y-2">
-              <p><a href="#" class="text-primary-500 font-medium hover:underline">Primary link</a> — main navigation, CTAs</p>
-              <p><a href="#" class="text-stone-500 hover:text-stone-700">Secondary link</a> — less important actions</p>
+          <!-- Links -->
+          <div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Links</div>
+            <div class="space-y-4">
+              <div>
+                <a href="#" class="text-sm font-medium text-primary-500 hover:underline">Lire la traduction →</a>
+                <p class="text-xs text-stone-500 mt-1">Primary action link</p>
+                <code class="text-xs">text-primary-500 font-medium hover:underline</code>
+              </div>
+              <div>
+                <a href="#" class="text-sm text-stone-500 hover:text-stone-700 hover:underline">Original (EN)</a>
+                <p class="text-xs text-stone-500 mt-1">Secondary link (external source)</p>
+                <code class="text-xs">text-stone-500 hover:text-stone-700 hover:underline</code>
+              </div>
+              <div>
+                <a href="#" class="text-primary-500 hover:underline">10.1136/adc.88.7.595</a>
+                <p class="text-xs text-stone-500 mt-1">DOI link</p>
+                <code class="text-xs">text-primary-500 hover:underline</code>
+              </div>
+            </div>
+
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4 mt-8">Weight Reference</div>
+            <div class="space-y-2 text-sm">
+              <p><strong class="font-bold">bold (700)</strong> — Page titles only</p>
+              <p><strong class="font-semibold">semibold (600)</strong> — Section headers, card titles, labels</p>
+              <p><strong class="font-medium">medium (500)</strong> — Action links</p>
+              <p><strong class="font-normal">regular (400)</strong> — Everything else</p>
             </div>
           </div>
 
@@ -365,19 +476,19 @@
               <tr class="border-b border-stone-100">
                 <td class="py-3 px-4 font-medium text-stone-900">Voice</td>
                 <td class="py-3 px-4 text-stone-600">Académique, Praticien, Organisation, Individuel</td>
-                <td class="py-3 px-4"><span class="badge" style="background: #E7E5E4; color: #292524;">Stone (light)</span></td>
+                <td class="py-3 px-4"><span class="badge bg-stone-100 text-stone-800">Stone (light)</span></td>
                 <td class="py-3 px-4 text-stone-600">The <em>who</em> — source type</td>
               </tr>
               <tr class="border-b border-stone-100">
                 <td class="py-3 px-4 font-medium text-stone-900">Peer-Reviewed</td>
                 <td class="py-3 px-4 text-stone-600">Boolean (show if true)</td>
-                <td class="py-3 px-4"><span class="badge" style="background: #B8EAEC; color: #164D51;">Teal (light)</span></td>
+                <td class="py-3 px-4"><span class="badge bg-accent-100 text-accent-800">Teal (light)</span></td>
                 <td class="py-3 px-4 text-stone-600">Trust signal — credibility marker</td>
               </tr>
               <tr>
                 <td class="py-3 px-4 font-medium text-stone-900">Open Access</td>
                 <td class="py-3 px-4 text-stone-600">Boolean (show if true)</td>
-                <td class="py-3 px-4"><span class="badge" style="background: #B8EAEC; color: #164D51;">Teal (light)</span></td>
+                <td class="py-3 px-4"><span class="badge bg-accent-100 text-accent-800">Teal (light)</span></td>
                 <td class="py-3 px-4 text-stone-600">Trust signal — availability marker</td>
               </tr>
             </tbody>
@@ -395,7 +506,7 @@
         </div>
 
         <!-- Exact Color Specs -->
-        <div class="section-title">Exact Color Specifications</div>
+        <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Tailwind Class Specifications</div>
         <div class="overflow-x-auto mb-8">
           <table class="w-full text-sm">
             <thead>
@@ -403,38 +514,34 @@
                 <th class="text-left py-3 px-4 font-semibold text-stone-900">Badge Type</th>
                 <th class="text-left py-3 px-4 font-semibold text-stone-900">Background</th>
                 <th class="text-left py-3 px-4 font-semibold text-stone-900">Text</th>
-                <th class="text-left py-3 px-4 font-semibold text-stone-900">Tailwind</th>
                 <th class="text-left py-3 px-4 font-semibold text-stone-900">Preview</th>
               </tr>
             </thead>
             <tbody>
               <tr class="border-b border-stone-100">
                 <td class="py-3 px-4 font-medium text-stone-900">Method (Blue)</td>
-                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#285589</code></td>
-                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#FFFFFF</code></td>
-                <td class="py-3 px-4 text-stone-600 text-xs">bg-primary-500 text-white</td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">bg-primary-500</code></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-white</code></td>
                 <td class="py-3 px-4"><span class="badge bg-primary-500 text-white">Empirique</span></td>
               </tr>
               <tr class="border-b border-stone-100">
                 <td class="py-3 px-4 font-medium text-stone-900">Voice (Stone)</td>
-                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#E7E5E4</code></td>
-                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#292524</code></td>
-                <td class="py-3 px-4 text-stone-600 text-xs">bg-stone-200 text-stone-800</td>
-                <td class="py-3 px-4"><span class="badge" style="background: #E7E5E4; color: #292524;">Praticien</span></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">bg-stone-100</code></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-800</code></td>
+                <td class="py-3 px-4"><span class="badge bg-stone-100 text-stone-800">Praticien</span></td>
               </tr>
               <tr>
                 <td class="py-3 px-4 font-medium text-stone-900">Flags (Teal)</td>
-                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#B8EAEC</code></td>
-                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">#164D51</code></td>
-                <td class="py-3 px-4 text-stone-600 text-xs">bg-accent-100 text-accent-800</td>
-                <td class="py-3 px-4"><span class="badge" style="background: #B8EAEC; color: #164D51;">Accès libre</span></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">bg-accent-100</code></td>
+                <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-accent-800</code></td>
+                <td class="py-3 px-4"><span class="badge bg-accent-100 text-accent-800">Accès libre</span></td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Badge Examples -->
-        <div class="section-title">All Badge Variants</div>
+        <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">All Badge Variants</div>
         <div class="grid grid-cols-2 gap-8">
 
           <!-- Method Badges -->
@@ -446,47 +553,47 @@
               <span class="badge bg-primary-500 text-white">Théorique</span>
               <span class="badge bg-primary-500 text-white">Expérience vécue</span>
             </div>
-            <p class="text-xs text-stone-500 mt-2">bg: #285589 · text: #FFFFFF</p>
+            <code class="text-xs text-stone-500 mt-2 block">bg-primary-500 text-white</code>
           </div>
 
           <!-- Voice Badges -->
           <div>
             <h4 class="font-medium text-stone-900 mb-3">Voice (Stone)</h4>
             <div class="flex flex-wrap gap-2">
-              <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
-              <span class="badge" style="background: #E7E5E4; color: #292524;">Praticien</span>
-              <span class="badge" style="background: #E7E5E4; color: #292524;">Organisation</span>
-              <span class="badge" style="background: #E7E5E4; color: #292524;">Individuel</span>
+              <span class="badge bg-stone-100 text-stone-800">Académique</span>
+              <span class="badge bg-stone-100 text-stone-800">Praticien</span>
+              <span class="badge bg-stone-100 text-stone-800">Organisation</span>
+              <span class="badge bg-stone-100 text-stone-800">Individuel</span>
             </div>
-            <p class="text-xs text-stone-500 mt-2">bg: #E7E5E4 · text: #292524</p>
+            <code class="text-xs text-stone-500 mt-2 block">bg-stone-100 text-stone-800</code>
           </div>
 
           <!-- Flag Badges -->
           <div>
             <h4 class="font-medium text-stone-900 mb-3">Flags (Teal)</h4>
             <div class="flex flex-wrap gap-2">
-              <span class="badge" style="background: #B8EAEC; color: #164D51;">
+              <span class="badge bg-accent-100 text-accent-800">
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 Évalué par les pairs
               </span>
-              <span class="badge" style="background: #B8EAEC; color: #164D51;">
+              <span class="badge bg-accent-100 text-accent-800">
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
                 Accès libre
               </span>
             </div>
-            <p class="text-xs text-stone-500 mt-2">bg: #B8EAEC · text: #164D51</p>
+            <code class="text-xs text-stone-500 mt-2 block">bg-accent-100 text-accent-800</code>
           </div>
 
           <!-- Example Combinations -->
           <div>
             <h4 class="font-medium text-stone-900 mb-3">Example Article</h4>
             <div class="flex flex-wrap gap-2">
-              <span class="badge" style="background: #B8EAEC; color: #164D51;">
+              <span class="badge bg-accent-100 text-accent-800">
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 Évalué par les pairs
               </span>
               <span class="badge bg-primary-500 text-white">Empirique</span>
-              <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
+              <span class="badge bg-stone-100 text-stone-800">Académique</span>
             </div>
             <p class="text-xs text-stone-500 mt-2">O'Nions et al. (2014) — EDA-Q Development</p>
           </div>
@@ -513,7 +620,7 @@
           </ul>
         </div>
 
-        <div class="section-title">Category Filter Bar</div>
+        <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Category Filter Bar</div>
 
         <!-- Filter states -->
         <div class="space-y-4">
@@ -521,22 +628,22 @@
             <p class="text-sm text-stone-500 mb-2">Default state:</p>
             <div class="flex gap-2">
               <span class="badge bg-primary-500 text-white cursor-pointer">Tous</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Fondements</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Évaluation</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Présentation clinique</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Prise en charge</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Comorbidités</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Trajectoire</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Fondements</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Évaluation</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Présentation clinique</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Prise en charge</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Comorbidités</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Trajectoire</span>
             </div>
           </div>
           <div>
             <p class="text-sm text-stone-500 mb-2">With selection:</p>
             <div class="flex gap-2">
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Tous</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Tous</span>
               <span class="badge bg-primary-500 text-white cursor-pointer">Fondements</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Évaluation</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Évaluation</span>
               <span class="badge bg-primary-500 text-white cursor-pointer">Prise en charge</span>
-              <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Comorbidités</span>
+              <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Comorbidités</span>
             </div>
           </div>
         </div>
@@ -565,7 +672,7 @@
 
           <!-- Primary -->
           <div>
-            <div class="section-title">Primary</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Primary</div>
             <button class="w-full px-4 py-2.5 rounded-lg font-medium text-white bg-primary-500 hover:bg-primary-600 transition-colors mb-4">
               Explorer les articles
             </button>
@@ -575,7 +682,7 @@
 
           <!-- Secondary / Outline -->
           <div>
-            <div class="section-title">Secondary</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Secondary</div>
             <button class="w-full px-4 py-2.5 rounded-lg font-medium text-primary-500 border-2 border-primary-500 hover:bg-primary-50 transition-colors mb-4">
               Qu'est-ce que le PDA?
             </button>
@@ -585,7 +692,7 @@
 
           <!-- Tertiary / Ghost -->
           <div>
-            <div class="section-title">Tertiary</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Tertiary</div>
             <button class="w-full px-4 py-2.5 rounded-lg font-medium text-stone-600 border border-stone-200 hover:bg-stone-50 transition-colors mb-4">
               Voir l'original (EN)
             </button>
@@ -593,17 +700,6 @@
             <code class="text-xs">border-stone-200 text-stone-600</code>
           </div>
 
-        </div>
-
-        <!-- Accent Button (rare) -->
-        <div class="mt-8 pt-8 border-t border-stone-200">
-          <div class="section-title">Accent Button (Use Sparingly)</div>
-          <div class="flex gap-4 items-center">
-            <button class="px-4 py-2.5 rounded-lg font-medium text-white bg-accent-400 hover:bg-accent-500 transition-colors">
-              Essentiel
-            </button>
-            <p class="text-sm text-stone-600">Only for very special featured actions. Rare.</p>
-          </div>
         </div>
 
       </div>
@@ -614,56 +710,54 @@
     <!-- ============================================ -->
     <section class="mb-20">
       <h2 class="text-2xl font-bold text-stone-900 mb-2">6. Cards</h2>
-      <p class="text-stone-600 mb-8">Article cards in three states.</p>
+      <p class="text-stone-600 mb-8">Article cards in three states. Badge containers use <code>flex flex-wrap gap-1.5</code> — badges wrap to a second line rather than compress or overflow.</p>
 
-      <div class="grid grid-cols-3 gap-6" style="background: #F4EEE8; padding: 24px; border-radius: 12px;">
+      <div class="grid grid-cols-3 gap-6 bg-cream-200 p-6 rounded-xl">
 
         <!-- Standard Card -->
         <div class="bg-white rounded-xl p-6 border border-stone-200">
-          <div class="flex items-center gap-2 mb-3">
+          <div class="flex flex-wrap gap-1.5 mb-3">
             <span class="badge bg-primary-500 text-white">Empirique</span>
-            <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
+            <span class="badge bg-stone-100 text-stone-800">Académique</span>
           </div>
           <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Standard Article Card</h3>
           <p class="text-sm mb-1 text-stone-500">Author et al. (2024)</p>
           <p class="text-sm mb-4 text-stone-600">Brief description of the article content goes here...</p>
           <div class="flex items-center justify-between">
-            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire la traduction
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
-            <a href="#" class="text-sm text-stone-500">Original</a>
+            <a href="#" class="text-sm text-stone-500 hover:text-stone-700 hover:underline">Original (EN)</a>
           </div>
         </div>
 
-        <!-- Featured Card -->
-        <div class="bg-white rounded-xl p-6 border-2 border-accent-300 relative">
-          <div class="absolute -top-3 left-4">
-            <span class="badge bg-accent-300 text-accent-900 shadow-sm">Essentiel</span>
-          </div>
-          <div class="flex items-center gap-2 mb-3 mt-2">
-            <span class="badge" style="background: #B8EAEC; color: #164D51;">
+        <!-- Card with Peer Review -->
+        <div class="bg-white rounded-xl p-6 border border-stone-200">
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            <span class="badge bg-accent-100 text-accent-800">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
               Évalué par les pairs
             </span>
             <span class="badge bg-primary-500 text-white">Empirique</span>
+            <span class="badge bg-stone-100 text-stone-800">Académique</span>
           </div>
-          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Featured Article Card</h3>
+          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Peer-Reviewed Article Card</h3>
           <p class="text-sm mb-1 text-stone-500">Newson et al. (2003)</p>
-          <p class="text-sm mb-4 text-stone-600">A foundational paper. Teal border + badge signals importance.</p>
+          <p class="text-sm mb-4 text-stone-600">The teal "Évalué par les pairs" badge indicates peer-reviewed source.</p>
           <div class="flex items-center justify-between">
-            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire la traduction
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
-            <a href="#" class="text-sm text-stone-500">Original</a>
+            <a href="#" class="text-sm text-stone-500 hover:text-stone-700 hover:underline">Original (EN)</a>
           </div>
         </div>
 
         <!-- Card with Open Access -->
         <div class="bg-white rounded-xl p-6 border border-stone-200">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="badge" style="background: #B8EAEC; color: #164D51;">
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            <span class="badge bg-accent-100 text-accent-800">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
               Accès libre
             </span>
@@ -673,7 +767,7 @@
           <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
           <p class="text-sm mb-4 text-stone-600">The teal "Accès libre" badge indicates full text available.</p>
           <div class="flex items-center justify-between">
-            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire l'article
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
@@ -696,7 +790,7 @@
 
           <!-- Teal Callout -->
           <div>
-            <div class="section-title">Key Insight (Teal)</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Key Insight (Teal)</div>
             <div class="p-4 rounded-lg bg-accent-50 border-l-4 border-accent-300">
               <p class="text-stone-700">This is the key takeaway from the article. Use teal for abstracts, important quotes, or summary highlights that readers should notice.</p>
             </div>
@@ -705,7 +799,7 @@
 
           <!-- Blue Callout -->
           <div>
-            <div class="section-title">Reference Note (Blue)</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Reference Note (Blue)</div>
             <div class="p-4 rounded-lg bg-primary-50 border-l-4 border-primary-500">
               <p class="text-stone-700">Use blue for citation information, methodology notes, or references. More informational than emphatic.</p>
             </div>
@@ -714,7 +808,7 @@
 
           <!-- Stone Callout -->
           <div>
-            <div class="section-title">Neutral Note (Stone)</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Neutral Note (Stone)</div>
             <div class="p-4 rounded-lg bg-stone-50 border-l-4 border-stone-300">
               <p class="text-stone-700">Use stone for translator notes, editorial comments, or other secondary information that shouldn't draw attention.</p>
             </div>
@@ -747,7 +841,7 @@
         <div class="grid grid-cols-2 gap-8">
 
           <div>
-            <div class="section-title">Spacing Scale</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Spacing Scale</div>
             <div class="space-y-2 text-sm">
               <div class="flex items-center gap-4">
                 <div class="w-16 h-4 bg-primary-200 rounded" style="width: 8px;"></div>
@@ -777,7 +871,7 @@
           </div>
 
           <div>
-            <div class="section-title">Borders & Radius</div>
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Borders & Radius</div>
             <div class="space-y-4">
               <div>
                 <p class="text-sm text-stone-600 mb-2">Card radius:</p>
@@ -799,7 +893,7 @@
         </div>
 
         <div class="mt-8">
-          <div class="section-title">Max Widths</div>
+          <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Max Widths</div>
           <div class="space-y-2 text-sm text-stone-600">
             <p><code>max-w-6xl</code> — Page container (1152px)</p>
             <p><code>max-w-3xl</code> — Article content (768px)</p>
@@ -817,7 +911,7 @@
       <h2 class="text-2xl font-bold text-stone-900 mb-2">9. Complete Example</h2>
       <p class="text-stone-600 mb-8">Putting it all together.</p>
 
-      <div class="rounded-xl overflow-hidden shadow-2xl" style="background: #F4EEE8;">
+      <div class="rounded-xl overflow-hidden shadow-2xl bg-cream-200">
 
         <!-- Header -->
         <header class="px-8 py-4 flex items-center justify-between bg-white border-b border-stone-200">
@@ -836,8 +930,8 @@
         </header>
 
         <!-- Hero -->
-        <div class="px-8 py-16 text-center" style="background: linear-gradient(180deg, #EBE6E0 0%, #F4EEE8 100%);">
-          <div class="inline-block px-3 py-1 rounded-full text-xs font-medium mb-4" style="background: #B8EAEC; color: #164D51;">
+        <div class="px-8 py-16 text-center bg-gradient-to-b from-cream-300 to-cream-200">
+          <div class="inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 bg-accent-100 text-accent-800">
             52 articles traduits
           </div>
           <h1 class="text-4xl font-bold mb-4 text-stone-900">Ressources sur le PDA en français</h1>
@@ -857,9 +951,9 @@
           <span class="text-sm font-medium text-stone-900">Catégories:</span>
           <div class="flex gap-2">
             <span class="badge bg-primary-500 text-white cursor-pointer">Tous</span>
-            <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Fondements</span>
-            <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Évaluation</span>
-            <span class="badge cursor-pointer" style="background: #E7E5E4; color: #292524;">Prise en charge</span>
+            <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Fondements</span>
+            <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Évaluation</span>
+            <span class="badge bg-stone-100 text-stone-600 cursor-pointer hover:bg-stone-200">Prise en charge</span>
           </div>
         </div>
 
@@ -867,18 +961,15 @@
         <div class="px-8 py-8">
           <div class="grid grid-cols-2 gap-6">
 
-            <!-- Featured Card -->
-            <div class="bg-white rounded-xl p-6 border-2 border-accent-300 relative">
-              <div class="absolute -top-3 left-4">
-                <span class="badge bg-accent-300 text-accent-900 shadow-sm">Essentiel</span>
-              </div>
-              <div class="flex items-center gap-2 mb-3 mt-2">
-                <span class="badge" style="background: #B8EAEC; color: #164D51;">
+            <!-- Card with peer review + original link -->
+            <div class="bg-white rounded-xl p-6 border border-stone-200">
+              <div class="flex flex-wrap gap-1.5 mb-3">
+                <span class="badge bg-accent-100 text-accent-800">
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                   Évalué par les pairs
                 </span>
                 <span class="badge bg-primary-500 text-white">Empirique</span>
-                <span class="badge" style="background: #E7E5E4; color: #292524;">Académique</span>
+                <span class="badge bg-stone-100 text-stone-800">Académique</span>
               </div>
               <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Extreme Demand Avoidance: An Examination of Behavioural Features</h3>
               <p class="text-sm mb-1 text-stone-500">Newson, Le Maréchal & David (2003)</p>
@@ -888,19 +979,19 @@
                   Lire la traduction
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
-                <a href="#" class="text-sm text-stone-500 hover:text-stone-700">Original (EN)</a>
+                <a href="#" class="text-sm text-stone-500 hover:text-stone-700 hover:underline">Original (EN)</a>
               </div>
             </div>
 
-            <!-- Standard Card -->
+            <!-- Card with open access (no original link needed) -->
             <div class="bg-white rounded-xl p-6 border border-stone-200">
-              <div class="flex items-center gap-2 mb-3">
-                <span class="badge" style="background: #B8EAEC; color: #164D51;">
+              <div class="flex flex-wrap gap-1.5 mb-3">
+                <span class="badge bg-accent-100 text-accent-800">
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
                   Accès libre
                 </span>
                 <span class="badge bg-primary-500 text-white">Synthèse</span>
-                <span class="badge" style="background: #E7E5E4; color: #292524;">Praticien</span>
+                <span class="badge bg-stone-100 text-stone-800">Praticien</span>
               </div>
               <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Le trouble du spectre de l'autisme à expression atypique</h3>
               <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
@@ -917,7 +1008,7 @@
         </div>
 
         <!-- Footer -->
-        <footer class="px-8 py-8" style="background: #241E1E;">
+        <footer class="px-8 py-8 bg-dark">
           <div class="flex items-center justify-between">
             <div>
               <div class="flex items-center gap-2 mb-2">
@@ -944,14 +1035,153 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- SECTION 10: TAILWIND CONFIG -->
+    <!-- SECTION 10: ARTICLE PAGE TEMPLATE -->
     <!-- ============================================ -->
     <section class="mb-20">
-      <h2 class="text-2xl font-bold text-stone-900 mb-2">10. Tailwind Configuration</h2>
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">10. Article Page Template</h2>
+      <p class="text-stone-600 mb-8">The most important page type. Optimized for AI citation and clinician readability.</p>
+
+      <div class="rounded-xl overflow-hidden shadow-2xl bg-cream-200">
+
+        <!-- Header (simplified) -->
+        <header class="px-8 py-4 flex items-center justify-between bg-white border-b border-stone-200">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-500">
+              <span class="text-white font-bold text-sm">P</span>
+            </div>
+            <span class="font-semibold text-lg text-stone-900">pda.expert</span>
+          </div>
+          <nav class="flex items-center gap-8">
+            <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Articles</a>
+            <a href="#" class="text-sm font-medium px-4 py-2 rounded-lg bg-primary-500 text-white">Recherche</a>
+          </nav>
+        </header>
+
+        <!-- Article Content -->
+        <article class="px-8 py-12 max-w-3xl mx-auto">
+
+          <!-- Breadcrumb -->
+          <nav class="mb-6 text-sm">
+            <a href="#" class="text-stone-500 hover:text-stone-700">Accueil</a>
+            <span class="mx-2 text-stone-400">/</span>
+            <span class="text-stone-900">Article</span>
+          </nav>
+
+          <!-- H1: Article Title (critical for AI discoverability) -->
+          <h1 class="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+            Extreme Demand Avoidance in Autism: An Examination of Behavioural Features in Children
+          </h1>
+
+          <!-- Authors and Year -->
+          <p class="mt-3 text-stone-600">
+            Newson, Le Maréchal & David
+            <span class="text-stone-400"> (2003)</span>
+            <span class="text-stone-400"> — Archives of Disease in Childhood</span>
+          </p>
+
+          <!-- Classification Badges -->
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge bg-accent-100 text-accent-800">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              Évalué par les pairs
+            </span>
+            <span class="badge bg-primary-500 text-white">Empirique</span>
+            <span class="badge bg-stone-100 text-stone-800">Académique</span>
+          </div>
+
+          <!-- Answer Capsule (AI optimized - immediately after H1) -->
+          <div class="mt-6 rounded-lg border-l-4 border-accent-300 bg-accent-50 p-4">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-accent-700">
+              Points clés
+            </h2>
+            <ul class="mt-2 space-y-1">
+              <li class="flex items-start gap-2 text-stone-700">
+                <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500"></span>
+                <span>First formal description of PDA as a distinct profile within autism spectrum conditions.</span>
+              </li>
+              <li class="flex items-start gap-2 text-stone-700">
+                <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500"></span>
+                <span>Identifies demand avoidance driven by anxiety, not oppositional behavior.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Summary Section -->
+          <section class="mt-8">
+            <h2 class="text-xl font-semibold text-stone-900">Résumé</h2>
+            <div class="prose prose-stone mt-4 max-w-none">
+              <p class="text-stone-700 leading-relaxed">
+                This foundational paper describes the behavioral profile of children who exhibit extreme demand avoidance
+                as part of their autism presentation. The authors analyzed 150 cases referred to their clinic,
+                identifying consistent patterns of anxiety-driven avoidance, surface sociability, and rapid mood changes.
+                The study proposes that PDA represents a distinct profile within the autism spectrum, characterized
+                primarily by the use of social strategies to avoid demands, rather than passive withdrawal or overt refusal.
+              </p>
+            </div>
+          </section>
+
+          <!-- Source Link -->
+          <section class="mt-8 border-t border-stone-200 pt-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">Source</h2>
+            <a href="#" class="mt-2 inline-flex items-center gap-1 text-primary-500 hover:underline">
+              Voir l'original (EN)
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+              </svg>
+            </a>
+          </section>
+
+          <!-- Keywords -->
+          <section class="mt-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">Mots-clés</h2>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span class="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-600">autism</span>
+              <span class="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-600">demand avoidance</span>
+              <span class="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-600">anxiety</span>
+              <span class="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-600">behavioral profile</span>
+            </div>
+          </section>
+
+          <!-- DOI -->
+          <section class="mt-6 text-sm text-stone-500">
+            <span class="font-medium">DOI:</span>
+            <a href="#" class="text-primary-500 hover:underline">10.1136/adc.88.7.595</a>
+          </section>
+
+        </article>
+
+        <!-- Footer -->
+        <footer class="px-8 py-6 bg-dark">
+          <div class="flex items-center justify-between">
+            <p class="text-sm text-stone-400">pda.expert — Ressources pour les cliniciens francophones</p>
+          </div>
+        </footer>
+
+      </div>
+
+      <!-- Implementation Notes -->
+      <div class="mt-8 bg-white rounded-xl p-6 shadow-sm">
+        <h4 class="font-semibold text-stone-900 mb-4">Design Patterns Used</h4>
+        <ul class="space-y-3 text-sm text-stone-600">
+          <li><strong class="text-stone-900">Answer Capsule:</strong> Uses <code>bg-accent-50 border-l-4 border-accent-300</code> — positioned immediately after H1 for AI discoverability</li>
+          <li><strong class="text-stone-900">Badge Order:</strong> Teal flags first (trust signals), then blue method, then stone voice</li>
+          <li><strong class="text-stone-900">Keyword Pills:</strong> <code>bg-stone-100 text-stone-600</code> — neutral, searchable terms</li>
+          <li><strong class="text-stone-900">Section Headers:</strong> <code>text-sm font-semibold uppercase tracking-wide text-stone-500</code></li>
+          <li><strong class="text-stone-900">Body Text:</strong> <code>text-stone-700 leading-relaxed</code></li>
+        </ul>
+      </div>
+
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 11: TAILWIND CONFIG -->
+    <!-- ============================================ -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold text-stone-900 mb-2">11. Tailwind Configuration</h2>
       <p class="text-stone-600 mb-8">Copy this into your tailwind.config.js</p>
 
-      <div class="rounded-xl p-6 overflow-x-auto" style="background: #1C1917;">
-        <pre class="text-sm" style="color: #E7E5E4; margin: 0;"><code>// tailwind.config.js
+      <div class="rounded-xl p-6 overflow-x-auto bg-stone-900">
+        <pre class="text-sm text-stone-100 m-0 font-mono whitespace-pre block"><code class="whitespace-pre block">// tailwind.config.js
 module.exports = {
   theme: {
     extend: {
