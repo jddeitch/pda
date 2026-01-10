@@ -307,25 +307,27 @@ When starting translation work, also:
 - [x] Pagefind search integration
   - Build script runs indexer after Astro build
   - Search UI at /fr/recherche and /en/search
-- [x] Test articles classified and translated
-  - Haire et al. 2023 (empirical, academic, peer-reviewed)
-  - Stuart et al. 2020 (empirical, academic, peer-reviewed)
-- [x] Build verified: 131 pages generated, 3098 words indexed
-- [x] Design system finalized
+- [x] Design system finalized and applied to components
   - Fonts: Lexend (UI) + Literata (content)
   - Color palette: Deep blue primary, teal accent, cream background
   - Wordmark: text-only with raised teal dot (no icon)
   - Card typography hierarchy locked in
   - Complete visual reference at `docs/design-system.html`
+- [x] Site deployed to Vercel (pda.expert)
 
-### Next Session
+### Article Progress
 
-**Priority:**
-1. Deploy to Vercel and verify live site
-2. Apply design system to Astro components
-3. Classify more articles (50 remaining)
-4. Translate more articles
+**Classified and translated (2):**
+1. "Practising Psychologists' Accounts of Demand Avoidance..." (post-id-16136) — empirical, practitioner, peer-reviewed
+2. "What are the experiences and support needs of families..." (post-id-16049) — translated only, needs classification
 
-**Not yet:**
-- Mass classification of all 52 articles
-- Mass translation
+**Remaining:** 50 articles need classification and translation
+
+### Next Steps
+
+Continue article-by-article workflow:
+1. Select next unclassified article
+2. Assign method, voice, peer_reviewed, categories, keywords
+3. Translate summary (and full text if open access)
+4. Save to database
+5. Move to next article
