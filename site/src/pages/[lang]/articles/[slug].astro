@@ -79,27 +79,27 @@ const hasTranslation = article.translation_status === "translated";
     <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
       <!-- Breadcrumb -->
       <nav class="mb-6 text-sm">
-        <a href={`/${lang}`} class="text-gray-500 hover:text-gray-700">
+        <a href={`/${lang}`} class="text-stone-500 hover:text-stone-700">
           {translations.nav.home}
         </a>
-        <span class="mx-2 text-gray-400">/</span>
-        <span class="text-gray-900">
+        <span class="mx-2 text-stone-400">/</span>
+        <span class="text-stone-900">
           {lang === "fr" ? "Article" : "Article"}
         </span>
       </nav>
 
       <!-- H1: Article Title (critical for AI discoverability) -->
-      <h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+      <h1 class="font-literata text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
         {displayTitle}
       </h1>
 
       <!-- Authors and Year -->
-      <p class="mt-3 text-gray-600">
+      <p class="mt-3 text-stone-600">
         {article.authors}
-        {article.year && <span class="text-gray-400"> ({article.year})</span>}
+        {article.year && <span class="text-stone-400"> ({article.year})</span>}
         {
           article.journal && (
-            <span class="text-gray-400"> — {article.journal}</span>
+            <span class="text-stone-400"> — {article.journal}</span>
           )
         }
       </p>
@@ -140,11 +140,11 @@ const hasTranslation = article.translation_status === "translated";
       {
         displaySummary && (
           <section class="mt-8">
-            <h2 class="text-xl font-semibold text-gray-900">
+            <h2 class="text-xl font-semibold text-stone-900">
               {translations.article.summary}
             </h2>
-            <div class="prose prose-gray mt-4 max-w-none">
-              <p>{displaySummary}</p>
+            <div class="mt-4 max-w-none">
+              <p class="font-literata text-stone-700 leading-relaxed">{displaySummary}</p>
             </div>
           </section>
         )
@@ -154,10 +154,10 @@ const hasTranslation = article.translation_status === "translated";
       {
         displayFullText && (
           <section class="mt-8">
-            <h2 class="text-xl font-semibold text-gray-900">
+            <h2 class="text-xl font-semibold text-stone-900">
               {translations.article.fullText}
             </h2>
-            <div class="prose prose-gray mt-4 max-w-none">
+            <div class="mt-4 max-w-none font-literata text-stone-700 leading-relaxed prose prose-stone">
               <Fragment set:html={displayFullText} />
             </div>
           </section>
@@ -167,15 +167,15 @@ const hasTranslation = article.translation_status === "translated";
       <!-- Source Link -->
       {
         article.source_url && (
-          <section class="mt-8 border-t border-gray-200 pt-6">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <section class="mt-8 border-t border-stone-200 pt-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">
               {translations.article.source}
             </h2>
             <a
               href={article.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              class="mt-2 inline-flex items-center gap-1 text-primary hover:underline"
+              class="mt-2 inline-flex items-center gap-1 text-primary-500 hover:underline"
             >
               {translations.article.viewOriginal}
               <svg
@@ -200,12 +200,12 @@ const hasTranslation = article.translation_status === "translated";
       {
         article.keywords && article.keywords.length > 0 && (
           <section class="mt-6">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">
               {translations.article.keywords}
             </h2>
             <div class="mt-2 flex flex-wrap gap-2">
               {article.keywords.map((keyword) => (
-                <span class="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
+                <span class="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-600">
                   {keyword}
                 </span>
               ))}
@@ -217,13 +217,13 @@ const hasTranslation = article.translation_status === "translated";
       <!-- DOI -->
       {
         article.doi && (
-          <section class="mt-6 text-sm text-gray-500">
+          <section class="mt-6 text-sm text-stone-500">
             <span class="font-medium">DOI:</span>{" "}
             <a
               href={`https://doi.org/${article.doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              class="text-primary hover:underline"
+              class="text-primary-500 hover:underline"
             >
               {article.doi}
             </a>

@@ -10,13 +10,13 @@ interface Props {
 const { title, subtitle, cta, href, variant } = Astro.props;
 
 const variantStyles = {
-  professionals: "border-blue-200 hover:border-blue-400 hover:bg-blue-50",
-  families: "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50",
+  professionals: "border-primary-200 hover:border-primary-400 hover:bg-primary-50",
+  families: "border-accent-200 hover:border-accent-400 hover:bg-accent-50",
 };
 
 const ctaStyles = {
-  professionals: "text-blue-700 group-hover:text-blue-800",
-  families: "text-emerald-700 group-hover:text-emerald-800",
+  professionals: "text-primary-500 group-hover:text-primary-600",
+  families: "text-accent-600 group-hover:text-accent-700",
 };
 ---
 
@@ -24,10 +24,10 @@ const ctaStyles = {
   href={href}
   class={`group block rounded-xl border-2 bg-white p-6 transition-all duration-200 ${variantStyles[variant]}`}
 >
-  <h2 class="text-xl font-semibold text-gray-900">
+  <h2 class="text-xl font-semibold text-stone-900">
     {title}
   </h2>
-  <p class="mt-2 text-gray-600">
+  <p class="mt-2 font-literata text-stone-600">
     {subtitle}
   </p>
   <p class={`mt-4 flex items-center gap-1 text-sm font-medium ${ctaStyles[variant]}`}>

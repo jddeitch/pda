@@ -28,7 +28,7 @@ const alternateUrls = {
 >
   <section class="py-12">
     <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-      <h1 class="text-3xl font-bold tracking-tight text-gray-900">
+      <h1 class="font-literata text-3xl font-bold tracking-tight text-stone-900">
         {translations.search.title}
       </h1>
 
@@ -54,17 +54,17 @@ const alternateUrls = {
 </script>
 
 <style is:global>
-  /* Pagefind UI customization */
+  /* Pagefind UI customization - using design system colors */
   .pagefind-ui__search-input {
     border-radius: 0.5rem !important;
-    border-color: #d1d5db !important;
+    border-color: #D6D3D1 !important; /* stone-200 */
   }
   .pagefind-ui__search-input:focus {
-    border-color: var(--color-primary) !important;
+    border-color: #285589 !important; /* primary-500 */
     outline: none !important;
-    box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.1) !important;
+    box-shadow: 0 0 0 2px rgba(40, 85, 137, 0.1) !important;
   }
   .pagefind-ui__result-link {
-    color: var(--color-primary) !important;
+    color: #285589 !important; /* primary-500 */
   }
 </style>
