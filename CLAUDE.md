@@ -87,7 +87,8 @@ See `docs/schema.md` for full schema reference.
 │   ├── pda_research.yaml              # Original import data (archived)
 │   └── categories.yaml                # Legacy — superseded by taxonomy.yaml
 ├── docs/
-│   └── decisions.md                   # Architecture and workflow decisions
+│   ├── decisions.md                   # Architecture and workflow decisions
+│   └── design-system.html             # Complete visual reference (fonts, colors, components)
 ├── training/
 │   ├── philippe_contejean_2018.md     # Reference French PDA paper — GOLD STANDARD
 │   ├── has_terminology_2017.md        # HAS guidelines terminology
@@ -196,6 +197,36 @@ Process one article completely before moving to the next:
 
 ---
 
+## Design System
+
+See `docs/design-system.html` for the complete visual reference.
+
+### Fonts
+- **Lexend** (sans-serif) — UI, navigation, metadata, authors, key findings content
+- **Literata** (serif) — Page H1s, article body text, card descriptions
+
+### Colors
+- **Primary (Deep Blue)** — trust, authority, actions (`primary-500: #285589`)
+- **Accent (Teal)** — highlights, trust signals (`accent-300: #5CC5CE`)
+- **Stone** — borders, metadata, secondary text
+- **Cream** — warm background (`cream-200: #F4EEE8`)
+- **Dark** — footer (`#241E1E`)
+
+### Wordmark
+No icon. Text-only with raised teal dot:
+- **Light background:** `pda` (primary-500) `•` (accent-500) `expert` (accent-500)
+- **Dark background:** `pda` (white) `•` (accent-200) `expert` (accent-200)
+- Dot position: `relative top-px` (1px below center, at e crossbar level)
+
+### Card Typography Hierarchy
+| Element | Size | Font |
+|---------|------|------|
+| Title | `text-xl` (20px) | Lexend bold |
+| Authors | `text-xs` (12px) | Lexend |
+| Description | `text-base` (16px) | Literata |
+
+---
+
 ## Key Decisions
 
 See `docs/decisions.md` for rationale. Summary:
@@ -280,20 +311,21 @@ When starting translation work, also:
   - Haire et al. 2023 (empirical, academic, peer-reviewed)
   - Stuart et al. 2020 (empirical, academic, peer-reviewed)
 - [x] Build verified: 131 pages generated, 3098 words indexed
+- [x] Design system finalized
+  - Fonts: Lexend (UI) + Literata (content)
+  - Color palette: Deep blue primary, teal accent, cream background
+  - Wordmark: text-only with raised teal dot (no icon)
+  - Card typography hierarchy locked in
+  - Complete visual reference at `docs/design-system.html`
 
 ### Next Session
 
 **Priority:**
 1. Deploy to Vercel and verify live site
-2. Design work (fonts, colors) — handled in separate session
+2. Apply design system to Astro components
 3. Classify more articles (50 remaining)
 4. Translate more articles
-
-**Design decisions pending:**
-- Color scheme (being worked on separately)
-- Font selection (to be provided)
 
 **Not yet:**
 - Mass classification of all 52 articles
 - Mass translation
-- Final design polish
