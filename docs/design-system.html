@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>pda.expert Design System</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       theme: {
@@ -62,6 +65,10 @@
               DEFAULT: '#241E1E',  // From Huemint
               light: '#2C2626',
             }
+          },
+          fontFamily: {
+            lexend: ['Lexend', 'system-ui', 'sans-serif'],
+            literata: ['Literata', 'Georgia', 'serif'],
           }
         }
       }
@@ -76,7 +83,7 @@
     }
   </style>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; }
+    body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; }
     .badge { font-size: 11px; padding: 4px 10px; border-radius: 9999px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
     .swatch { height: 48px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: monospace; }
     /* Code styling using TW-defined stone palette */
@@ -89,10 +96,10 @@
   <header class="max-w-6xl mx-auto mb-16">
     <div class="flex items-center gap-4 mb-4">
       <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-primary-500">
-        <span class="text-white font-bold text-xl">P</span>
+        <span class="text-white font-semibold text-xl font-lexend">p</span>
       </div>
       <div>
-        <h1 class="text-3xl font-bold text-stone-900">pda.expert</h1>
+        <h1 class="text-3xl font-medium text-stone-900 font-lexend">pda.expert</h1>
         <p class="text-stone-500">Design System v1.0</p>
       </div>
     </div>
@@ -255,9 +262,180 @@
     <!-- ============================================ -->
     <section class="mb-20">
       <h2 class="text-2xl font-bold text-stone-900 mb-2">2. Typography</h2>
-      <p class="text-stone-600 mb-8">System fonts for performance. Every text element is specified — no guessing.</p>
+      <p class="text-stone-600 mb-8">Two font families with clear roles. Every text element is specified — no guessing.</p>
 
       <div class="bg-white rounded-xl p-8 shadow-sm">
+
+        <!-- Font Families -->
+        <div class="mb-10">
+          <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Font Families</div>
+
+          <div class="grid grid-cols-2 gap-8 mb-8">
+            <!-- Lexend -->
+            <div class="p-6 rounded-lg bg-cream-100 border border-stone-200">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="text-3xl font-medium font-lexend text-stone-900">Lexend</div>
+                <span class="badge bg-primary-500 text-white">UI</span>
+              </div>
+              <p class="text-sm text-stone-600 mb-4">Designed for reading fluency. Wider letter-spacing helps all readers, including those with dyslexia.</p>
+              <div class="text-sm font-semibold text-stone-500 mb-2">Used for:</div>
+              <ul class="text-sm text-stone-600 space-y-1">
+                <li>• Wordmark (<span class="font-medium">pda.expert</span>)</li>
+                <li>• Navigation, badges, metadata</li>
+                <li>• Authors, dates, labels</li>
+                <li>• Key findings (Points clés content)</li>
+                <li>• All UI elements</li>
+              </ul>
+              <div class="mt-4 pt-4 border-t border-stone-200">
+                <code class="text-xs">font-lexend</code>
+              </div>
+            </div>
+
+            <!-- Literata -->
+            <div class="p-6 rounded-lg bg-cream-100 border border-stone-200">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="text-3xl font-bold font-literata text-stone-900">Literata</div>
+                <span class="badge bg-accent-100 text-accent-800">Content</span>
+              </div>
+              <p class="text-sm text-stone-600 mb-4">Variable serif designed for Google Books. Academic gravitas for titles, scholarly feel for content.</p>
+              <div class="text-sm font-semibold text-stone-500 mb-2">Used for:</div>
+              <ul class="text-sm text-stone-600 space-y-1">
+                <li>• Page H1s (article titles, hero headlines)</li>
+                <li>• Article body text (summaries, abstracts)</li>
+                <li>• Card blurbs/descriptions</li>
+              </ul>
+              <div class="mt-4 pt-4 border-t border-stone-200">
+                <code class="text-xs">font-literata</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- Wordmark Options -->
+          <div class="p-6 rounded-lg bg-dark mb-8">
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-400 mb-4">Wordmark Options</div>
+
+            <!-- Option A: Current (monotone) -->
+            <div class="mb-6 pb-6 border-b border-stone-700">
+              <div class="text-xs text-stone-500 mb-2">Option A: Monotone (current)</div>
+              <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-primary-500">
+                    <span class="text-white font-semibold text-lg font-lexend">p</span>
+                  </div>
+                  <span class="text-2xl font-medium text-white font-lexend">pda.expert</span>
+                </div>
+                <div class="text-sm text-stone-400">
+                  All white • Clean, simple
+                </div>
+              </div>
+            </div>
+
+            <!-- Option B: Two-tone (pda emphasized) -->
+            <div class="mb-6 pb-6 border-b border-stone-700">
+              <div class="text-xs text-stone-500 mb-2">Option B: Two-tone</div>
+              <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-primary-500">
+                    <span class="text-white font-semibold text-lg font-lexend">p</span>
+                  </div>
+                  <span class="text-2xl font-medium font-lexend"><span class="text-white">pda</span><span class="text-stone-400">.expert</span></span>
+                </div>
+                <div class="text-sm text-stone-400">
+                  "pda" white, ".expert" recedes
+                </div>
+              </div>
+            </div>
+
+            <!-- Option C: Teal dot (raised) -->
+            <div class="mb-6 pb-6 border-b border-stone-700">
+              <div class="text-xs text-stone-500 mb-2">Option C: Teal dot (raised)</div>
+              <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-primary-500">
+                    <span class="text-white font-semibold text-lg font-lexend">p</span>
+                  </div>
+                  <span class="text-2xl font-medium font-lexend"><span class="text-white">pda</span><span class="text-accent-300 relative -top-1 mx-0.5">•</span><span class="text-stone-400">expert</span></span>
+                </div>
+                <div class="text-sm text-stone-400">
+                  Teal dot as trust signal, raised
+                </div>
+              </div>
+            </div>
+
+            <!-- Option D: Teal dot (inline) -->
+            <div class="mb-6 pb-6 border-b border-stone-700">
+              <div class="text-xs text-stone-500 mb-2">Option D: Teal dot (inline)</div>
+              <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-primary-500">
+                    <span class="text-white font-semibold text-lg font-lexend">p</span>
+                  </div>
+                  <span class="text-2xl font-medium font-lexend"><span class="text-white">pda</span><span class="text-stone-400 relative top-px mx-0.5">•</span><span class="text-stone-400">expert</span></span>
+                </div>
+                <div class="text-sm text-stone-400">
+                  Teal dot at baseline, subtle
+                </div>
+              </div>
+            </div>
+
+            <!-- Option E: Full three-tone -->
+            <div>
+              <div class="text-xs text-stone-500 mb-2">Option E: Three-tone with teal</div>
+              <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-primary-500">
+                    <span class="text-white font-semibold text-lg font-lexend">p</span>
+                  </div>
+                  <span class="text-2xl font-medium font-lexend"><span class="text-white">pda</span><span class="text-accent-200 relative top-px mx-0.5">•</span><span class="text-accent-200">expert</span></span>
+                </div>
+                <div class="text-sm text-stone-400">
+                  Teal family throughout
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Wordmark on Light Background -->
+          <div class="p-6 rounded-lg bg-cream-200 border border-stone-200 mb-8">
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Wordmark on Light Background</div>
+
+            <div class="flex items-center gap-6 mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-primary-500">
+                  <span class="text-white font-semibold text-lg font-lexend">p</span>
+                </div>
+                <span class="text-2xl font-medium font-lexend"><span class="text-primary-500">pda</span><span class="text-accent-500 relative top-px mx-0.5">•</span><span class="text-accent-500">expert</span></span>
+              </div>
+              <div class="text-sm text-stone-500">
+                "pda" primary-500, dot + "expert" accent-500
+              </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-primary-500">
+                  <span class="text-white font-semibold text-lg font-lexend">p</span>
+                </div>
+                <span class="text-2xl font-medium font-lexend"><span class="text-primary-500">pda</span><span class="text-stone-400 relative top-px mx-0.5">•</span><span class="text-stone-500">expert</span></span>
+              </div>
+              <div class="text-sm text-stone-500">
+                "pda" primary-500, dot + "expert" stone
+              </div>
+            </div>
+
+          </div>
+
+          <!-- H1 Example -->
+          <div class="p-6 rounded-lg bg-cream-200 border border-stone-200">
+            <div class="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-4">Page H1 — Literata Bold</div>
+            <h1 class="text-3xl font-bold text-stone-900 font-literata mb-2">Extreme Demand Avoidance in Autism</h1>
+            <p class="text-sm text-stone-500">Article titles get Literata for scholarly gravitas. Everything else stays Lexend.</p>
+            <div class="mt-4">
+              <code class="text-xs">font-literata text-2xl font-bold tracking-tight sm:text-3xl</code>
+            </div>
+          </div>
+        </div>
 
         <!-- Article Text Hierarchy (The Main Event) -->
         <div class="mb-10">
@@ -276,8 +454,8 @@
               <tbody>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Article Title</td>
-                  <td class="py-3 px-4"><span class="text-2xl font-bold tracking-tight text-stone-900">Extreme Demand Avoidance...</span></td>
-                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl</code></td>
+                  <td class="py-3 px-4"><span class="text-2xl font-bold tracking-tight text-stone-900 font-literata">Extreme Demand Avoidance...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">font-literata text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl</code></td>
                 </tr>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Authors + Year</td>
@@ -296,13 +474,13 @@
                 </tr>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Body Text (Summary)</td>
-                  <td class="py-3 px-4"><span class="text-stone-700 leading-relaxed">This foundational paper describes...</span></td>
-                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-700 leading-relaxed</code></td>
+                  <td class="py-3 px-4"><span class="text-stone-700 leading-relaxed font-literata">This foundational paper describes...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">font-literata text-stone-700 leading-relaxed</code></td>
                 </tr>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Key Findings (Capsule)</td>
                   <td class="py-3 px-4"><span class="text-stone-700">First formal description of PDA...</span></td>
-                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-700</code></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-stone-700</code> (Lexend)</td>
                 </tr>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Label (uppercase)</td>
@@ -344,18 +522,18 @@
               <tbody>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Card Title</td>
-                  <td class="py-3 px-4"><span class="font-semibold text-lg leading-snug text-stone-900">Extreme Demand Avoidance...</span></td>
-                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">font-semibold text-lg leading-snug text-stone-900</code></td>
+                  <td class="py-3 px-4"><span class="font-semibold text-xl leading-snug text-stone-900">Extreme Demand Avoidance...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">font-semibold text-xl leading-snug text-stone-900</code></td>
                 </tr>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Card Authors</td>
-                  <td class="py-3 px-4"><span class="text-sm text-stone-500">Newson et al. (2003)</span></td>
-                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm text-stone-500</code></td>
+                  <td class="py-3 px-4"><span class="text-xs text-stone-500">Newson et al. (2003)</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-xs text-stone-500</code></td>
                 </tr>
                 <tr class="border-b border-stone-100">
                   <td class="py-3 px-4 font-medium text-stone-900">Card Description</td>
-                  <td class="py-3 px-4"><span class="text-sm text-stone-600">La première description formelle...</span></td>
-                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">text-sm text-stone-600</code></td>
+                  <td class="py-3 px-4"><span class="text-base text-stone-600 font-literata">La première description formelle...</span></td>
+                  <td class="py-3 px-4"><code class="text-xs bg-stone-100 px-2 py-1 rounded">font-literata text-base text-stone-600</code></td>
                 </tr>
                 <tr>
                   <td class="py-3 px-4 font-medium text-stone-900">Card Link</td>
@@ -720,9 +898,9 @@
             <span class="badge bg-primary-500 text-white">Empirique</span>
             <span class="badge bg-stone-100 text-stone-800">Académique</span>
           </div>
-          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Standard Article Card</h3>
-          <p class="text-sm mb-1 text-stone-500">Author et al. (2024)</p>
-          <p class="text-sm mb-4 text-stone-600 flex-grow">Brief description of the article content goes here...</p>
+          <h3 class="font-semibold text-xl mb-2 leading-snug text-stone-900">Standard Article Card</h3>
+          <p class="text-xs mb-1 text-stone-500">Author et al. (2024)</p>
+          <p class="text-base mb-4 text-stone-600 flex-grow font-literata">Brief description of the article content goes here...</p>
           <div class="flex items-center justify-between mt-auto">
             <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire la traduction
@@ -742,9 +920,9 @@
             <span class="badge bg-primary-500 text-white">Empirique</span>
             <span class="badge bg-stone-100 text-stone-800">Académique</span>
           </div>
-          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Peer-Reviewed Article Card</h3>
-          <p class="text-sm mb-1 text-stone-500">Newson et al. (2003)</p>
-          <p class="text-sm mb-4 text-stone-600 flex-grow">The teal "Évalué par les pairs" badge indicates peer-reviewed source.</p>
+          <h3 class="font-semibold text-xl mb-2 leading-snug text-stone-900">Peer-Reviewed Article Card</h3>
+          <p class="text-xs mb-1 text-stone-500">Newson et al. (2003)</p>
+          <p class="text-base mb-4 text-stone-600 flex-grow font-literata">The teal "Évalué par les pairs" badge indicates peer-reviewed source.</p>
           <div class="flex items-center justify-between mt-auto">
             <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire la traduction
@@ -763,9 +941,9 @@
             </span>
             <span class="badge bg-primary-500 text-white">Synthèse</span>
           </div>
-          <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Open Access Article</h3>
-          <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
-          <p class="text-sm mb-4 text-stone-600 flex-grow">The teal "Accès libre" badge indicates full text available.</p>
+          <h3 class="font-semibold text-xl mb-2 leading-snug text-stone-900">Open Access Article</h3>
+          <p class="text-xs mb-1 text-stone-500">Philippe & Contejean (2018)</p>
+          <p class="text-base mb-4 text-stone-600 flex-grow font-literata">The teal "Accès libre" badge indicates full text available.</p>
           <div class="flex items-center justify-between mt-auto">
             <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
               Lire l'article
@@ -914,13 +1092,8 @@
       <div class="rounded-xl overflow-hidden shadow-2xl bg-cream-200">
 
         <!-- Header -->
-        <header class="px-8 py-4 flex items-center justify-between bg-white border-b border-stone-200">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-500">
-              <span class="text-white font-bold text-sm">P</span>
-            </div>
-            <span class="font-semibold text-lg text-stone-900">pda.expert</span>
-          </div>
+        <header class="px-8 py-4 flex items-center justify-between bg-white border-b border-stone-200 font-lexend">
+          <span class="text-xl font-medium font-lexend"><span class="text-primary-500">pda</span><span class="text-accent-500 relative top-px mx-0.5">•</span><span class="text-accent-500">expert</span></span>
           <nav class="flex items-center gap-8">
             <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Articles</a>
             <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Glossaire</a>
@@ -931,12 +1104,12 @@
 
         <!-- Hero -->
         <div class="px-8 py-16 text-center bg-gradient-to-b from-cream-300 to-cream-200">
-          <div class="inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 bg-accent-100 text-accent-800">
+          <div class="inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 bg-accent-100 text-accent-800 font-lexend">
             52 articles traduits
           </div>
-          <h1 class="text-4xl font-bold mb-4 text-stone-900">Ressources sur le PDA en français</h1>
-          <p class="text-xl mb-8 max-w-2xl mx-auto text-stone-600">Traductions de la littérature scientifique sur le Profil d'Évitement Pathologique des Demandes.</p>
-          <div class="flex justify-center gap-4">
+          <h1 class="text-4xl font-bold mb-4 text-stone-900 font-literata">Ressources sur le PDA en français</h1>
+          <p class="text-xl mb-8 max-w-2xl mx-auto text-stone-600 font-lexend">Traductions de la littérature scientifique sur le Profil d'Évitement Pathologique des Demandes.</p>
+          <div class="flex justify-center gap-4 font-lexend">
             <button class="px-6 py-3 rounded-lg font-medium text-white shadow-sm bg-primary-500 hover:bg-primary-600">
               Explorer les articles
             </button>
@@ -947,7 +1120,7 @@
         </div>
 
         <!-- Filter bar -->
-        <div class="px-8 py-4 flex items-center gap-3 bg-white border-b border-stone-200">
+        <div class="px-8 py-4 flex items-center gap-3 bg-white border-b border-stone-200 font-lexend">
           <span class="text-sm font-medium text-stone-900">Catégories:</span>
           <div class="flex gap-2">
             <span class="badge bg-primary-500 text-white cursor-pointer">Tous</span>
@@ -958,7 +1131,7 @@
         </div>
 
         <!-- Content -->
-        <div class="px-8 py-8">
+        <div class="px-8 py-8 font-lexend">
           <div class="grid grid-cols-2 gap-6">
 
             <!-- Card with peer review + original link -->
@@ -971,9 +1144,9 @@
                 <span class="badge bg-primary-500 text-white">Empirique</span>
                 <span class="badge bg-stone-100 text-stone-800">Académique</span>
               </div>
-              <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Extreme Demand Avoidance: An Examination of Behavioural Features</h3>
-              <p class="text-sm mb-1 text-stone-500">Newson, Le Maréchal & David (2003)</p>
-              <p class="text-sm mb-4 text-stone-600 flex-grow">La première description formelle du profil PDA dans la littérature scientifique.</p>
+              <h3 class="font-semibold text-xl mb-2 leading-snug text-stone-900">Extreme Demand Avoidance: An Examination of Behavioural Features</h3>
+              <p class="text-xs mb-1 text-stone-500">Newson, Le Maréchal & David (2003)</p>
+              <p class="text-base mb-4 text-stone-600 flex-grow font-literata">La première description formelle du profil PDA dans la littérature scientifique.</p>
               <div class="flex items-center justify-between mt-auto">
                 <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
                   Lire la traduction
@@ -993,9 +1166,9 @@
                 <span class="badge bg-primary-500 text-white">Synthèse</span>
                 <span class="badge bg-stone-100 text-stone-800">Praticien</span>
               </div>
-              <h3 class="font-semibold text-lg mb-2 leading-snug text-stone-900">Le trouble du spectre de l'autisme à expression atypique</h3>
-              <p class="text-sm mb-1 text-stone-500">Philippe & Contejean (2018)</p>
-              <p class="text-sm mb-4 text-stone-600 flex-grow">Le seul article en français sur le PDA dans une revue à comité de lecture.</p>
+              <h3 class="font-semibold text-xl mb-2 leading-snug text-stone-900">Le trouble du spectre de l'autisme à expression atypique</h3>
+              <p class="text-xs mb-1 text-stone-500">Philippe & Contejean (2018)</p>
+              <p class="text-base mb-4 text-stone-600 flex-grow font-literata">Le seul article en français sur le PDA dans une revue à comité de lecture.</p>
               <div class="flex items-center justify-between mt-auto">
                 <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
                   Lire l'article
@@ -1008,14 +1181,11 @@
         </div>
 
         <!-- Footer -->
-        <footer class="px-8 py-8 bg-dark">
+        <footer class="px-8 py-8 bg-dark font-lexend">
           <div class="flex items-center justify-between">
             <div>
-              <div class="flex items-center gap-2 mb-2">
-                <div class="w-7 h-7 rounded flex items-center justify-center bg-primary-500">
-                  <span class="text-white font-bold text-xs">P</span>
-                </div>
-                <span class="font-semibold text-white">pda.expert</span>
+              <div class="mb-2">
+                <span class="text-lg font-medium font-lexend"><span class="text-white">pda</span><span class="text-accent-200 relative top-px mx-0.5">•</span><span class="text-accent-200">expert</span></span>
               </div>
               <p class="text-sm text-stone-400">Ressources pour les cliniciens francophones</p>
             </div>
@@ -1044,12 +1214,12 @@
       <div class="rounded-xl overflow-hidden shadow-2xl bg-cream-200">
 
         <!-- Header (simplified) -->
-        <header class="px-8 py-4 flex items-center justify-between bg-white border-b border-stone-200">
+        <header class="px-8 py-4 flex items-center justify-between bg-white border-b border-stone-200 font-lexend">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-500">
-              <span class="text-white font-bold text-sm">P</span>
+              <span class="text-white font-semibold text-sm">p</span>
             </div>
-            <span class="font-semibold text-lg text-stone-900">pda.expert</span>
+            <span class="font-medium text-lg text-stone-900">pda.expert</span>
           </div>
           <nav class="flex items-center gap-8">
             <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Articles</a>
@@ -1058,7 +1228,7 @@
         </header>
 
         <!-- Article Content -->
-        <article class="px-8 py-12 max-w-3xl mx-auto">
+        <article class="px-8 py-12 max-w-3xl mx-auto font-lexend">
 
           <!-- Breadcrumb -->
           <nav class="mb-6 text-sm">
@@ -1068,7 +1238,7 @@
           </nav>
 
           <!-- H1: Article Title (critical for AI discoverability) -->
-          <h1 class="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+          <h1 class="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl font-literata">
             Extreme Demand Avoidance in Autism: An Examination of Behavioural Features in Children
           </h1>
 
@@ -1109,7 +1279,7 @@
           <!-- Summary Section -->
           <section class="mt-8">
             <h2 class="text-xl font-semibold text-stone-900">Résumé</h2>
-            <div class="prose prose-stone mt-4 max-w-none">
+            <div class="prose prose-stone mt-4 max-w-none font-literata">
               <p class="text-stone-700 leading-relaxed">
                 This foundational paper describes the behavioral profile of children who exhibit extreme demand avoidance
                 as part of their autism presentation. The authors analyzed 150 cases referred to their clinic,
@@ -1151,7 +1321,7 @@
         </article>
 
         <!-- Footer -->
-        <footer class="px-8 py-6 bg-dark">
+        <footer class="px-8 py-6 bg-dark font-lexend">
           <div class="flex items-center justify-between">
             <p class="text-sm text-stone-400">pda.expert — Ressources pour les cliniciens francophones</p>
           </div>
@@ -1163,11 +1333,12 @@
       <div class="mt-8 bg-white rounded-xl p-6 shadow-sm">
         <h4 class="font-semibold text-stone-900 mb-4">Design Patterns Used</h4>
         <ul class="space-y-3 text-sm text-stone-600">
+          <li><strong class="text-stone-900">Font Families:</strong> <code>font-literata</code> for H1 titles and body text; <code>font-lexend</code> for UI elements and key findings</li>
           <li><strong class="text-stone-900">Answer Capsule:</strong> Uses <code>bg-accent-50 border-l-4 border-accent-300</code> — positioned immediately after H1 for AI discoverability</li>
           <li><strong class="text-stone-900">Badge Order:</strong> Teal flags first (trust signals), then blue method, then stone voice</li>
           <li><strong class="text-stone-900">Keyword Pills:</strong> <code>bg-stone-100 text-stone-600</code> — neutral, searchable terms</li>
-          <li><strong class="text-stone-900">Section Headers:</strong> <code>text-sm font-semibold uppercase tracking-wide text-stone-500</code></li>
-          <li><strong class="text-stone-900">Body Text:</strong> <code>text-stone-700 leading-relaxed</code></li>
+          <li><strong class="text-stone-900">Section Headers:</strong> <code>text-sm font-semibold uppercase tracking-wide text-stone-500</code> (Lexend)</li>
+          <li><strong class="text-stone-900">Body Text:</strong> <code>font-literata text-stone-700 leading-relaxed</code></li>
         </ul>
       </div>
 
@@ -1227,6 +1398,12 @@ module.exports = {
         },
         // Dark: Near-black — footer
         dark: '#241E1E',
+      },
+      fontFamily: {
+        // Sans-serif — UI, navigation, metadata, key findings
+        lexend: ['Lexend', 'system-ui', 'sans-serif'],
+        // Serif — H1s, body text, card blurbs
+        literata: ['Literata', 'Georgia', 'serif'],
       }
     }
   }
