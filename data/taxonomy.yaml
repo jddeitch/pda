@@ -147,7 +147,7 @@ flags:
     definition: Full text freely available for translation
     signals:
       - PDF available without paywall
-      - "Open Access" label
+      - '"Open Access" label'
       - Creative Commons license
       - hosted on institutional repository
 

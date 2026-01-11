@@ -106,6 +106,41 @@ def skip_article(article_id: str, reason: str, flag_code: str) -> dict[str, Any]
     return tools.skip_article(article_id, reason, flag_code)
 
 
+# --- Tool: get_chunk (Phase 2) ---
+
+@mcp.tool()
+def get_chunk(article_id: str, chunk_number: int) -> dict[str, Any]:
+    """
+    Get a chunk of article text for translation.
+
+    Returns one chunk (3-5 paragraphs) of the article.
+    First call triggers PDF extraction and caching.
+
+    WORKFLOW FOR EACH CHUNK:
+    1. Read the instruction field — it contains translation rules
+    2. Translate the chunk faithfully using provided glossary terms
+    3. Append translation to your running translated_chunks list
+    4. Note any classification signals (method, voice, peer_reviewed)
+    5. Note any flags (TBL if tables, FIG if figures, AMBIG if unclear)
+    6. Call get_chunk(article_id, chunk_number + 1)
+    7. Repeat until response contains "complete": true
+
+    Args:
+        article_id: The article ID from get_next_article()
+        chunk_number: Which chunk to retrieve (1-indexed)
+
+    Returns on success (more chunks):
+        chunk_number, total_chunks, text, glossary_terms, instruction, complete=false
+
+    Returns on success (no more chunks):
+        complete=true, total_chunks, next_step
+
+    Returns on error:
+        error=true, error_code, problems, action
+    """
+    return tools.get_chunk(article_id, chunk_number)
+
+
 # --- Tool: set_human_review_interval ---
 
 @mcp.tool()
