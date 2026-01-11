@@ -155,7 +155,18 @@ Claude maintains these in working memory during the session:
 - Title and summary are ALWAYS translated, even for paywalled articles
 - Extraction warnings (COLUMNJUMBLE, etc.) don't stop translation — they become flags
 - Extraction blockers (UNUSABLE, GARBLED) trigger skip_article()
-- After 2 failed save attempts on same article, call skip_article() with justification
+
+**Error handling for BLOCKING flags:**
+```
+IF save_article() returns BLOCKING flags:
+  1. Read the details (e.g., "Source: 45 sentences, Target: 32")
+  2. Identify what was missed or added
+  3. Fix the translation
+  4. Re-validate and re-save
+  5. IF same BLOCKING flag persists after fix:
+     Call skip_article() with reason explaining the issue
+     Do NOT retry more than once — one fix attempt, then skip
+```
 
 ### D8: Validation Token Mechanism
 `validate_classification()` returns a token on success that must be passed to `save_article()`:
@@ -213,13 +224,39 @@ def find_glossary_terms_in_text(text: str, glossary: dict) -> dict[str, str]:
        d. Check abbreviation if defined in glossary entry
     3. Return {en_term: fr_term} for all matches found
 
-    Glossary entries may have optional 'abbreviation' field:
+    Glossary entries may have optional fields:
       demand_avoidance:
         en: "demand avoidance"
         fr: "évitement des demandes"
+        fr_alt: ["évitement de la demande"]  # Acceptable variants
         abbreviation: "DA"  # optional
     """
+
+def verify_glossary_terms(source_text: str, translation: str, glossary: dict) -> list[str]:
+    """
+    Returns list of missing terms for TERMMIS flag.
+    Accepts primary fr term OR any fr_alt variant.
+    """
+    expected = find_glossary_terms_in_text(source_text, glossary)
+    missing = []
+
+    for en_term, entry in expected.items():
+        # Get primary and alternative French terms
+        fr_primary = entry if isinstance(entry, str) else entry.get('fr', '')
+        fr_alternatives = []
+        if isinstance(entry, dict) and 'fr_alt' in entry:
+            fr_alternatives = entry['fr_alt']
+
+        all_acceptable = [fr_primary.lower()] + [alt.lower() for alt in fr_alternatives]
+
+        # Check if ANY acceptable variant appears in translation
+        if not any(alt in translation.lower() for alt in all_acceptable if alt):
+            missing.append(f"{en_term} → {fr_primary}")
+
+    return missing
 ```
+
+**Edge case: Terms in direct quotes.** If the source contains `as Smith called it, "demand avoidance"` and Claude correctly leaves the quoted term in English, TERMMIS will flag it. This is **intended behavior** — the human reviewer sees the flag, recognizes it's a quote, and marks it reviewed. We flag uncertainty rather than trying to detect quotes automatically.
 
 ### D13: PDF and Source Content Storage
 
@@ -617,6 +654,99 @@ def check_session_limit() -> bool:
     return row['articles_processed_count'] >= row['human_review_interval']
 ```
 
+### D24: open_access Field Population
+
+```
+For existing articles (from PDA Society scrape):
+- Default to `open_access = NULL` (unknown)
+- On first get_chunk() call, server attempts to fetch source_url
+- If PDF/HTML is accessible and extractable: set `open_access = 1`
+- If paywall detected or fetch fails: set `open_access = 0`
+- Once set, value persists in database
+
+Paywall detection heuristics:
+- HTTP 403/401 response
+- Page contains "purchase", "subscribe", "access denied"
+- Content length < 1000 chars (stub page)
+- Known paywall domains: sciencedirect.com, tandfonline.com, etc.
+
+For ingested articles (from intake/):
+- `open_access = 1` always (we have the PDF)
+
+For manually added articles:
+- Human sets `open_access` explicitly
+```
+
+### D25: Admin Interface Access
+
+The `/admin/*` routes are **local development only** — not deployed to production.
+
+```javascript
+// astro.config.mjs
+export default defineConfig({
+  vite: {
+    define: {
+      'import.meta.env.ENABLE_ADMIN': JSON.stringify(process.env.ENABLE_ADMIN === 'true')
+    }
+  }
+});
+```
+
+```astro
+---
+// site/src/pages/admin/[...path].astro
+if (!import.meta.env.ENABLE_ADMIN) {
+  return Astro.redirect('/');
+}
+---
+```
+
+**Usage:**
+- Local: `ENABLE_ADMIN=true npm run dev`
+- Production: `ENABLE_ADMIN` not set → admin routes redirect to home
+
+### D26: Chunk Cache Lifecycle
+
+```python
+from datetime import datetime, timedelta
+
+# In-memory cache with TTL
+_chunk_cache: dict[str, tuple[list[str], datetime]] = {}
+CACHE_TTL = timedelta(hours=1)
+
+def get_chunks_for_article(article_id: str) -> list[str]:
+    """
+    Returns cached chunks or generates new ones.
+    """
+    if article_id in _chunk_cache:
+        chunks, cached_at = _chunk_cache[article_id]
+        if datetime.now() - cached_at < CACHE_TTL:
+            return chunks
+        # Expired — regenerate
+        del _chunk_cache[article_id]
+
+    # Generate fresh chunks
+    text = extract_article_text(article_id)
+    chunks = split_into_chunks(text)
+    _chunk_cache[article_id] = (chunks, datetime.now())
+    return chunks
+
+def clear_chunk_cache(article_id: str = None):
+    """
+    Called after save_article() or skip_article().
+    """
+    if article_id:
+        _chunk_cache.pop(article_id, None)
+    else:
+        _chunk_cache.clear()
+```
+
+**Cache cleared:**
+- After successful `save_article()` — article is done
+- After `skip_article()` — article is skipped
+- On server restart — memory lost anyway
+- After 1 hour — prevents stale data if session interrupted
+
 ---
 
 ## Part 1: The Two Risks and How We Address Them
@@ -943,34 +1073,46 @@ def get_chunk(article_id: str, chunk_number: int) -> dict:
     6. Call get_chunk(article_id, chunk_number + 1)
     7. Repeat until response contains "complete": true
 
-    Returns:
+    RESPONSE SCHEMAS:
+
+    SUCCESS (more chunks remain):
     {
         "chunk_number": 1,
         "total_chunks": 5,
-        "text": "...",                    # Just this chunk's paragraphs
-        "glossary_terms": {               # Terms relevant to THIS chunk
-            "demand avoidance": "évitement des demandes",
-            ...
-        },
-        "instruction": "Translate this chunk faithfully. Match the author's register, sentence structure, and hedging. Do not clarify, improve, or simplify. Use the glossary terms provided.",
-        "complete": false                 # true when no more chunks
+        "text": "...",
+        "glossary_terms": {"demand avoidance": "évitement des demandes"},
+        "instruction": "Translate this chunk faithfully. Match the author's register...",
+        "extraction_warnings": [],  # May contain: ["COLUMNJUMBLE", "NOPARAGRAPHS"]
+        "complete": false
     }
 
-    The 'instruction' field is repeated with EVERY chunk to prevent context decay.
-
-    On completion (no more chunks):
+    SUCCESS (no more chunks):
     {
         "complete": true,
         "total_chunks": 5,
         "next_step": "Call validate_classification() with your classification decisions."
     }
 
-    If extraction fails:
+    EXTRACTION FAILED (blocking — cannot proceed):
     {
-        "error": "PDFEXTRACT",
-        "problems": ["GARBLED"],
-        "action": "Call skip_article(article_id, 'PDF extraction failed', 'PDFEXTRACT')"
+        "error": true,
+        "error_code": "EXTRACTION_FAILED",
+        "problems": ["GARBLED", "TOOSHORT"],
+        "action": "Call skip_article(article_id, 'PDF extraction failed: GARBLED', 'PDFEXTRACT')"
     }
+
+    ARTICLE NOT FOUND:
+    {
+        "error": true,
+        "error_code": "ARTICLE_NOT_FOUND",
+        "action": "Call get_next_article() to get a valid article."
+    }
+
+    KEY DISTINCTIONS:
+    - `error: true` distinguishes error responses from success
+    - `extraction_warnings` in SUCCESS responses are non-blocking — note as flags but continue
+    - `problems` in ERROR responses are blocking — must skip article
+    - The 'instruction' field is repeated with EVERY chunk to prevent context decay
     """
 
 # Tool 3: Validate classification before saving
@@ -1302,18 +1444,31 @@ dev = [
 ]
 ```
 
-**spaCy models required (pinned versions for consistent tokenization):**
+**spaCy models required:**
 ```bash
-# Install specific model versions to ensure consistent sentence counts
-python -m spacy download en_core_web_sm-3.7.1
-python -m spacy download fr_core_news_sm-3.7.0
+# Standard installation — models auto-resolve to compatible versions
+python -m spacy download en_core_web_sm
+python -m spacy download fr_core_news_sm
 
-# Verify versions match
-python -c "import spacy; print(spacy.load('en_core_web_sm').meta['version'])"
-python -c "import spacy; print(spacy.load('fr_core_news_sm').meta['version'])"
+# Verify installed versions
+python -c "import spacy; nlp = spacy.load('en_core_web_sm'); print(f'en: {nlp.meta[\"version\"]}')"
+python -c "import spacy; nlp = spacy.load('fr_core_news_sm'); print(f'fr: {nlp.meta[\"version\"]}')"
 ```
 
-**Why pin spaCy?** Sentence tokenization rules change between versions. If SENTMIS threshold is calibrated on v3.7 and someone installs v4.0, the same translation might suddenly fail validation. Pinning prevents this drift.
+**Setup script (recommended):**
+```python
+# scripts/setup.py
+import subprocess
+
+def download_spacy_models():
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    subprocess.run(["python", "-m", "spacy", "download", "fr_core_news_sm"])
+
+if __name__ == "__main__":
+    download_spacy_models()
+```
+
+**Why pin spaCy (not models)?** Sentence tokenization rules change between major versions. Pinning `spacy>=3.7,<4.0` ensures consistent behavior. The models auto-install compatible versions for your spaCy installation, so we pin the library, not individual model versions.
 
 ---
 
@@ -1828,3 +1983,8 @@ The key insight: **chunked delivery is the quality control mechanism**, not logg
 | 2025-01-11 | **Plan review edits:** Added Tool 9 (ingest_article) to Part 4.1 tools list |
 | 2025-01-11 | **Final review:** Confirmed Jaccard check stays at 0.6 threshold with ≥3 term minimum; glossary (~200 terms) provides sufficient coverage. No rollback mechanism needed — re-translation overwrites. |
 | 2025-01-11 | **Consistency fix:** Aligned validate_classification() signature with D20 — uses `primary_category: str` + `secondary_categories: list[str]` instead of `categories: list[dict]` |
+| 2025-01-11 | **Ambiguity resolutions:** Added D24 (open_access field population), D25 (admin local-only access), D26 (chunk cache lifecycle with 1-hour TTL) |
+| 2025-01-11 | **Ambiguity resolutions:** Updated D7 error handling — one fix attempt for BLOCKING flags, then skip (no attempt counting) |
+| 2025-01-11 | **Ambiguity resolutions:** Updated D12 with fr_alt variant support and quote edge case documentation |
+| 2025-01-11 | **Ambiguity resolutions:** Clarified get_chunk() response schema with error/success distinction and extraction_warnings field |
+| 2025-01-11 | **Ambiguity resolutions:** Fixed spaCy installation instructions — use standard download commands, pin library not models |
