@@ -858,7 +858,7 @@ article_data['glossary_version'] = get_glossary_version()
 │  5. SAVE                                                                     │
 │     Claude calls: save_article(validation_token, ...)                       │
 │     Server: validates token (rejects if invalid/expired)                    │
-│     Server: runs quality checks (sentence count, word ratio, Jaccard)       │
+│     Server: runs quality checks (sentence count, word ratio, recall)        │
 │     Server: if BLOCKING flags → REJECT, Claude must fix                     │
 │     Server: if WARNING flags → ACCEPT, flags stored for human review       │
 │     Server: writes processing_flags + processing_notes to articles table   │
@@ -1964,7 +1964,7 @@ Run `pytest tests/ -v` after completing each phase.
 ### Phase 3: Quality Checks
 
 **Implement:**
-- `quality_checks.py` — spaCy sentence counting, word ratios, Jaccard similarity, statistics check
+- `quality_checks.py` — spaCy sentence counting, word ratios, glossary recall, statistics check
 - Integrate checks into save workflow
 
 **Test (`tests/test_phase3.py`):**
@@ -2196,7 +2196,7 @@ tests/
 ├── conftest.py           # Shared fixtures: test_db, sample_articles, cached_pdf, etc.
 ├── test_phase1.py        # Core tools, session management, taxonomy validation
 ├── test_phase2.py        # Chunked delivery, PDF extraction, glossary matching
-├── test_phase3.py        # Quality checks (spaCy sentence counting, ratios, Jaccard)
+├── test_phase3.py        # Quality checks (spaCy sentence counting, ratios, glossary recall)
 ├── test_phase4.py        # Validation + save workflow, transactions, token lifecycle
 ├── test_phase5.py        # Admin interface data layer (optional: browser tests)
 └── test_phase6.py        # Integration: end-to-end workflows, crash recovery

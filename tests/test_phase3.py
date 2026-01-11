@@ -4,7 +4,7 @@ Tests for Phase 3: Quality Checks.
 Covers:
 - Sentence counting (EN/FR) with spaCy
 - Word ratio calculation
-- Jaccard similarity for content words
+- Glossary term recall for drift detection
 - Glossary term verification
 - Statistics preservation check
 - Blocking vs warning flag classification
