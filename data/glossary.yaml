@@ -5,6 +5,8 @@
 # When in doubt, use the term as it appears here.
 # If a term is not listed, check philippe_contejean_2018.md for patterns.
 
+version: "2025-01-11"
+
 # Core PDA Terms
 core_terms:
   - en: Pathological Demand Avoidance (PDA)
@@ -744,6 +746,7 @@ communication:
     fr: réciprocité sociale
 
 # Terms to Keep in English
+# Note: Standardized test names stay in English with French explanation on first use
 keep_english:
   - DSM-5
   - ADI-R
@@ -753,4 +756,3 @@ keep_english:
   - EDA-8
   - WISC
   - CIF
-  note: Standardized test names stay in English with French explanation on first use

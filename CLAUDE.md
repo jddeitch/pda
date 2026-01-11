@@ -1,5 +1,151 @@
 # PDA France — French-Language PDA Resource
 
+## Who JD Is
+
+- 20+ years in SaaS/tech, but not a software engineer by trade
+- Wants to understand WHY before WHAT
+- Values robust thinking before coding
+- Prefers direct, confident communication - no hedging or unnecessary apologies
+
+## How We Work
+
+You are an expert who double-checks things. You are skeptical and you do research. I am not always right. Neither are you, but we both strive for accuracy.
+
+## Development Environment
+
+**Python:** Use Homebrew Python, not system Python.
+
+```bash
+# CORRECT
+/opt/homebrew/bin/python3.11 -c "..."
+/opt/homebrew/bin/python3.11 -m pytest ...
+
+# WRONG — will fail
+python ...
+python3 ...
+```
+
+Don't fumble around with `python` and `python3` — use the explicit brew path.
+
+**Communication style:**
+
+- Principles first - explain reasoning before showing code
+- Use analogies - connect to real-world examples
+- Be direct - no "I apologize but..." or excessive hedging
+- Ask when unclear - clarify ambiguous requirements rather than guessing
+- Think operationally - consider production consequences, not just implementation
+
+**Before significant work, address:**
+
+1. What assumptions are you making?
+2. What other parts of the system does this affect?
+3. What could this break?
+4. How does this fit with existing patterns?
+
+## STOP. READ FIRST. DON'T ASSUME.
+
+**This is non-negotiable. Violating this wastes JD's time and breaks things.**
+
+Before making ANY code changes:
+
+### 1. Read the affected files FIRST
+
+- Don't assume you know what's there
+- Don't assume the problem is what you think it is
+- Actually open and read the files you're about to change
+
+### 2. Check the scope of impact
+
+- What other files consume this code?
+- What other lessons/components/pages use this pattern?
+- Will your change break existing functionality?
+
+### 3. Make one change, verify, then proceed
+
+- Don't batch multiple changes hoping they all work
+- Test incrementally
+- If you can't test, at least explain what you're assuming
+
+### Anti-patterns (NEVER DO THESE)
+
+```
+❌ BAD: "I'll add this feature to the page"
+   *immediately starts editing without reading existing code*
+
+❌ BAD: "This model needs a new field"
+   *adds field and restructures template in one go without checking dependencies*
+
+❌ BAD: "This should work for all cases"
+   *changes shared code without verifying all consumers*
+```
+
+### Correct patterns (ALWAYS DO THESE)
+
+```
+✅ GOOD: "Let me first read the view to understand the current structure"
+   *reads the view file, identifies the rendering logic*
+
+✅ GOOD: "Before changing this, let me check what other templates use this pattern"
+   *runs glob to see the actual files*
+
+✅ GOOD: "This change affects a shared template - let me verify existing pages still work"
+   *tests affected pages after making changes*
+```
+
+### When you catch yourself assuming
+
+If you notice thoughts like:
+
+- "I know this file does X..."
+- "This should be simple..."
+- "I'll just add..."
+
+**STOP. Open the file. Read it. Then proceed.**
+
+---
+
+## Before Writing Any Code
+
+State out loud:
+
+1. **What I'm about to change** (specific files)
+2. **Why this is the right place** (not just where the error appears)
+3. **What else uses this code** (dependencies, consumers)
+4. **What could break** (side effects)
+
+If you can't answer these, you haven't read enough yet.
+
+---
+
+## Fix Things Properly (No Workarounds)
+
+**The error is not the problem. The error is a symptom telling you where to look.**
+
+Before writing any fix:
+
+1. **Trace to source** - Not where the error appears, but where the bad state originates
+2. **Explain the causal chain** - What sequence of events led to this failure?
+3. **Fix at the appropriate level** - Address root cause, not symptom
+
+### Never Do These
+
+- Adding null checks/fallbacks for data that *should* be correct
+- Fixing in component B because component A is broken
+- Making changes until errors disappear without understanding why
+- Logging errors and continuing as if nothing happened
+- Duplicating logic to avoid touching fragile code
+- Adding layers to isolate broken code instead of fixing it
+
+### When a Proper Fix Is Big
+
+If the root cause fix requires significant refactoring, **surface it explicitly**:
+
+> "The proper fix requires X. A workaround would do Y but leaves Z unfixed. Which path do you want?"
+
+Never silently choose the workaround. JD decides whether to accept technical debt.
+
+---
+
 ## Project Overview
 
 This project creates an authoritative French-language resource on Pathological Demand Avoidance (PDA), a behavioral profile within autism that is virtually unknown in France. The goal is to make the English-language research literature accessible to French clinicians (psychiatrists, pediatricians, psychologists) who would otherwise never encounter it.
@@ -89,13 +235,31 @@ See `docs/schema.md` for full schema reference.
 ├── docs/
 │   ├── decisions.md                   # Architecture and workflow decisions
 │   ├── design-system.html             # Complete visual reference (fonts, colors, components)
-│   └── translation-process.md         # Deterministic translation pipeline (7 steps)
+│   ├── schema.md                      # Database schema reference
+│   └── translation-machine-plan.md    # MCP server specification (THE translation workflow)
 ├── training/
 │   ├── philippe_contejean_2018.md     # Reference French PDA paper — GOLD STANDARD
 │   ├── has_terminology_2017.md        # HAS guidelines terminology
 │   └── style_notes.md                 # Human feedback on translations
 ├── external/
 │   └── pda/                           # Collection of PDA research PDFs
+├── cache/                             # AUTO-MANAGED by MCP server
+│   └── articles/                      # Downloaded/cached PDFs and extracted text
+│       ├── {article_id}.pdf           # Cached from source_url
+│       ├── {article_id}.html          # Cached HTML when PDF not available
+│       └── {article_id}.txt           # Pre-extracted text (takes precedence)
+├── intake/                            # HUMAN-MANAGED: New articles to add
+│   └── articles/                      # Drop PDFs here for ingestion
+├── mcp_server/                        # Translation Machine MCP server
+│   ├── __init__.py
+│   ├── server.py                      # Main MCP server entry point
+│   ├── tools.py                       # Tool implementations
+│   ├── validation.py                  # Classification validation
+│   ├── database.py                    # SQLite operations + session state
+│   ├── taxonomy.py                    # Loads taxonomy.yaml
+│   ├── pdf_extraction.py              # PDF extraction with fallback chain
+│   ├── glossary.py                    # Glossary matching with variants
+│   └── quality_checks.py              # spaCy sentence counting, etc.
 ├── scripts/
 │   ├── init_db.py                     # Database schema initialization
 │   ├── migrate_schema.py              # One-time migration for method/voice/peer_reviewed
@@ -124,6 +288,11 @@ See `docs/schema.md` for full schema reference.
         │   └── ClassificationBadges.astro
         └── pages/
             ├── index.astro            # Root redirect to /fr
+            ├── admin/                 # Admin interface (local dev only)
+            │   ├── index.astro        # Dashboard
+            │   ├── articles/          # Article review
+            │   ├── preprocessing.astro # PDF queue
+            │   └── settings.astro     # Review interval config
             └── [lang]/
                 ├── index.astro        # Homepage with ICP cards
                 ├── professionnels.astro
@@ -167,66 +336,59 @@ Articles are tagged by clinical topic (not hierarchical — an article can have 
 
 ---
 
-## Article Workflow
+## Translation Machine
 
-**CRITICAL: One article at a time. Complete it fully. No batching.**
+**Translation is handled by the MCP server.** See `docs/translation-machine-plan.md` for the complete specification.
 
-See `docs/translation-process.md` for the complete deterministic pipeline with decision trees for every step.
+### How It Works
 
-### Pipeline Summary
+The Translation Machine is an MCP server that enforces the translation pipeline deterministically. It:
+
+1. **Controls what Claude sees** — Feeds source text in chunks (3-5 paragraphs), preventing "skim and summarize" behavior
+2. **Validates all inputs** — Rejects invalid taxonomy values, enforces workflow order
+3. **Runs quality checks** — Sentence count ratios, word ratios, glossary term verification
+4. **Maintains state** — All progress in SQLite; any session can resume
+
+### MCP Tools
+
+| Tool | Purpose |
+|------|---------|
+| `get_next_article()` | Returns next article + fresh taxonomy |
+| `get_chunk(article_id, n)` | Returns chunk n + relevant glossary terms |
+| `validate_classification(...)` | Validates classification, returns token |
+| `save_article(token, ...)` | Saves with quality checks |
+| `skip_article(id, reason, flag)` | Marks article as skipped |
+| `get_progress()` | Returns status counts |
+| `ingest_article(filename)` | Imports PDF from intake/ folder |
+
+### Workflow (Claude's Perspective)
 
 ```
-SELECT → ACCESS → READ → CLASSIFY → TRANSLATE → SAVE → LOG
+1. Call get_next_article()
+2. Translate title + summary
+3. IF open_access: loop get_chunk() until complete
+4. Call validate_classification() → get token
+5. Call save_article() with token
+6. Repeat until SESSION_PAUSE or COMPLETE
 ```
 
-1. **SELECT** — Pick next unprocessed article (by ID ascending)
-2. **ACCESS** — Fetch source URL, search for open access if paywalled
-3. **READ** — Extract content, verify metadata, detect tables/figures
-4. **CLASSIFY** — Assign method, voice, peer_reviewed, categories, keywords
-5. **TRANSLATE** — Section-by-section with paragraph attention
-6. **SAVE** — Write to all tables in single transaction
-7. **LOG** — Update processing_status, processing_flags, processing_notes
+### Human Review Interval
 
-### What "Complete" Means
+After every N articles (default: 5), the server returns `SESSION_PAUSE`. Human reviews flagged articles in `/admin` before continuing. This catches drift before it compounds.
 
-An article is complete when it has:
-- [ ] method assigned (empirical/synthesis/theoretical/lived_experience)
-- [ ] voice assigned (academic/practitioner/organization/individual)
-- [ ] peer_reviewed flag set (true/false)
-- [ ] categories assigned (1-3 from taxonomy.yaml, one marked primary)
-- [ ] keywords assigned (5-15 for searchability)
-- [ ] French title translated
-- [ ] French summary translated
-- [ ] Full text translated (if open_access = 1)
-- [ ] processing_status set to 'translated'
-- [ ] processing_flags contains any flag codes
-- [ ] Saved to database
+### Quality Checks (Automated)
 
-### Classification
+| Check | Flag | Blocks Save? |
+|-------|------|--------------|
+| Sentence count >15% variance | SENTMIS | Yes |
+| Word ratio outside 0.9-1.5 | WORDMIS | Yes |
+| Content word Jaccard < 0.6 | WORDDRIFT | No (warning) |
+| Glossary term missing | TERMMIS | No (warning) |
+| Statistics modified | STATMIS | No (warning) |
 
-Read `data/taxonomy.yaml` before classifying. Key rules:
-- `lived_experience` trumps all other methods (first-person narrative = lived_experience + individual)
-- If academic doing clinical guidance, use `practitioner`
-- Default `peer_reviewed` to FALSE if uncertain
+### Translation Principle
 
-**When uncertain:** Make best guess AND flag for human review (don't skip).
-
-### Translation Quality Requirements
-
-**Register:**
-- Academic/clinical French, formal but accessible
-- Match French psychiatric literature register
-- Use HAS (Haute Autorité de Santé) conventions
-
-**Terminology:** See `data/glossary.yaml` for consistent translations.
-
-**Anti-Patterns — What NOT to Do:**
-- Add translator notes or editorial commentary
-- "Improve" or "clarify" the original
-- Use informal register
-- Simplify complex sentences
-- Omit anything, even redundancy
-- Use machine-translation artifacts
+**Match the source.** The register is IN the source text — don't infer it and apply it, just match what's there. Glossary terms must be consistent; everything else follows the author's style.
 
 ---
 
@@ -270,6 +432,7 @@ See `docs/decisions.md` for rationale. Summary:
 4. **SQLite over YAML at scale** — queryable, handles relationships
 5. **Static site** — no runtime, fast, cheap hosting
 6. **Single source of truth for taxonomy** — `data/taxonomy.yaml` is canonical for all classification terms and their translations
+7. **MCP-based Translation Machine** — enforces workflow deterministically, prevents Claude failure modes (summarizing, skipping, editorial drift) via chunked delivery and automated quality checks
 
 ---
 
@@ -293,9 +456,9 @@ See `docs/decisions.md` for rationale. Summary:
 
 When working on this project:
 
-- **"Let's translate"** — Start or continue translation work
-- **"Check progress"** — Show translation status
-- **"Add source [URL]"** — Add a new paper to the database
+- **"Let's translate"** — Start the Translation Machine (call `get_next_article()`)
+- **"Check progress"** — Call `get_progress()` to show translation status
+- **"Add source [filename]"** — Call `ingest_article(filename)` for PDFs in `intake/articles/`
 
 ---
 
@@ -306,71 +469,48 @@ When starting ANY work on this project:
 2. `data/glossary.yaml` — terminology for article content
 3. `training/style_notes.md` — human feedback and corrections
 
-When starting translation work, also:
-4. `docs/translation-process.md` — deterministic pipeline with decision trees
-5. Query database for untranslated articles (`processing_status = 'pending'`)
+When working on the Translation Machine:
+4. `docs/translation-machine-plan.md` — MCP server specification (single source of truth)
 
 ---
 
 ## Current State
 
 ### Completed
-- [x] Captured 52 resources from PDA Society research overviews
-- [x] Built glossary with ~200 terms across 18 categories
-- [x] SQLite database with articles, categories, keywords
-- [x] Architecture decisions documented
-- [x] Vercel deployment configured (pda.expert, Paris region)
-- [x] Article schema defined (see `docs/schema.md`)
-  - Two-dimension classification: method (empirical/synthesis/theoretical/lived_experience) + voice (academic/practitioner/organization/individual)
-  - Categories as tags, not hierarchy
-  - Controlled keyword vocabulary
-- [x] Canonical taxonomy file created (`data/taxonomy.yaml`) with EN/FR labels
-- [x] SQLite schema migrated
-  - Added `method`, `voice`, `peer_reviewed` columns
-  - Added `source` column (NOT NULL), dropped `journal` column
-  - Added processing fields: `processing_status`, `processing_flags`, `processing_notes`, `processed_at`
-- [x] Complete Astro site with full i18n support
-  - Tailwind CSS v4 styling
-  - Language detection middleware (cookie → Accept-Language → French default)
-  - BaseLayout with hreflang tags for SEO
-  - All UI strings translated (FR/EN)
-- [x] All page templates implemented
-  - Homepage with ICP audience cards
-  - ICP landing pages (/fr/professionnels, /fr/familles)
-  - Category index and category detail pages
-  - Article pages with answer capsules (AI citation optimized)
-  - Classification badges (method, voice, peer-reviewed, open access)
-  - About page
-- [x] Pagefind search integration
-  - Build script runs indexer after Astro build
-  - Search UI at /fr/recherche and /en/search
-- [x] Design system finalized and applied to components
-  - Fonts: Lexend (UI) + Literata (content)
-  - Color palette: Deep blue primary, teal accent, cream background
-  - Wordmark: text-only with raised teal dot (no icon)
-  - Card typography hierarchy locked in
-  - Complete visual reference at `docs/design-system.html`
+
+**Infrastructure:**
+- [x] 52 resources captured from PDA Society research overviews
+- [x] Glossary with ~200 terms across 18 categories
+- [x] SQLite database with articles, translations, categories, keywords
+- [x] Canonical taxonomy (`data/taxonomy.yaml`) with EN/FR labels
 - [x] Site deployed to Vercel (pda.expert)
-- [x] Deterministic translation pipeline documented (`docs/translation-process.md`)
-  - 7-step pipeline: SELECT → ACCESS → READ → CLASSIFY → TRANSLATE → SAVE → LOG
-  - Decision trees for method, voice, peer_reviewed classification
-  - Flag coding system (16 codes for content, access, relevance, translation, classification)
-  - SQL templates for all database operations
-  - Processing status tracked per article in database
+
+**Astro Site:**
+- [x] Full i18n support (FR/EN)
+- [x] All page templates (homepage, ICP pages, articles, categories, search)
+- [x] Design system applied (Lexend + Literata fonts, deep blue/teal palette)
+- [x] Pagefind search integration
+
+**Translation Machine Plan:**
+- [x] Complete MCP server specification (`docs/translation-machine-plan.md`)
+- [x] Chunked delivery design (prevents summarizing/skipping)
+- [x] Quality check system (SENTMIS, WORDMIS, WORDDRIFT, TERMMIS, STATMIS)
+- [x] Human review interval mechanism
+- [x] PDF extraction pipeline with fallbacks
+- [x] Admin interface design
 
 ### Article Progress
 
-**Classified and translated (2):**
-1. "Practising Psychologists' Accounts of Demand Avoidance..." (post-id-16136) — empirical, practitioner, peer-reviewed
-2. "What are the experiences and support needs of families..." (post-id-16049) — translated only, needs classification
-
+**Translated:** 2 articles
 **Remaining:** 50 articles need classification and translation
 
-### Next Steps
+### Next Milestone: Build the Translation Machine
 
-Continue article-by-article workflow:
-1. Select next unclassified article
-2. Assign method, voice, peer_reviewed, categories, keywords
-3. Translate summary (and full text if open access)
-4. Save to database
-5. Move to next article
+The MCP server needs to be built. See `docs/translation-machine-plan.md` Part 12 for implementation phases:
+
+1. **Phase 1:** MCP Server Core — `server.py`, `database.py`, `taxonomy.py`, basic tools
+2. **Phase 2:** Chunked Delivery — `get_chunk()`, PDF extraction, glossary matching
+3. **Phase 3:** Quality Checks — spaCy sentence counting, word ratios, Jaccard
+4. **Phase 4:** Validation + Save — tokens, transactions, review interval
+5. **Phase 5:** Admin Interface — dashboard, article review, settings
+6. **Phase 6:** Integration Testing — end-to-end with real articles
