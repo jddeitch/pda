@@ -1,0 +1,279 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import {
+  getAdminArticleById,
+  getTranslationForReview,
+  getArticleById,
+} from "../../../lib/db";
+
+// Check admin access
+if (!import.meta.env.ENABLE_ADMIN) {
+  return Astro.redirect("/");
+}
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect("/admin/articles");
+}
+
+const article = getAdminArticleById(id);
+const translation = getTranslationForReview(id);
+const sourceArticle = getArticleById(id);
+
+if (!article) {
+  return Astro.redirect("/admin/articles");
+}
+
+// Parse flags for display
+function parseFlags(flagsJson: string): string[] {
+  try {
+    return JSON.parse(flagsJson);
+  } catch {
+    return [];
+  }
+}
+
+const flags = parseFlags(article.processing_flags);
+
+// Method labels
+const methodLabels: Record<string, string> = {
+  empirical: "Empirical",
+  synthesis: "Synthesis",
+  theoretical: "Theoretical",
+  lived_experience: "Lived Experience",
+};
+
+// Voice labels
+const voiceLabels: Record<string, string> = {
+  academic: "Academic",
+  practitioner: "Practitioner",
+  organization: "Organization",
+  individual: "Individual",
+};
+
+// Status badge colors
+function getStatusColor(status: string): string {
+  switch (status) {
+    case "pending":
+      return "bg-amber-100 text-amber-800";
+    case "in_progress":
+      return "bg-primary-100 text-primary-800";
+    case "translated":
+      return "bg-green-100 text-green-800";
+    case "skipped":
+      return "bg-stone-100 text-stone-600";
+    default:
+      return "bg-stone-100 text-stone-600";
+  }
+}
+
+// Flag colors
+function getFlagColor(flag: string): string {
+  if (flag === "SENTMIS" || flag === "WORDMIS") {
+    return "bg-red-100 text-red-800 border-red-200";
+  }
+  if (flag === "WORDDRIFT" || flag === "TERMMIS" || flag === "STATMIS") {
+    return "bg-amber-100 text-amber-800 border-amber-200";
+  }
+  return "bg-stone-100 text-stone-600 border-stone-200";
+}
+---
+
+<AdminLayout title={`Review: ${article.source_title}`}>
+  <div class="space-y-6">
+    <!-- Navigation -->
+    <div class="flex items-center gap-2 text-sm">
+      <a href="/admin/articles" class="text-stone-500 hover:text-stone-700">
+        Articles
+      </a>
+      <span class="text-stone-400">/</span>
+      <span class="text-stone-700 truncate max-w-md">{article.source_title}</span>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex-1">
+        <h1 class="text-xl font-bold text-stone-900">{article.source_title}</h1>
+        {article.authors && (
+          <p class="mt-1 text-sm text-stone-500">{article.authors}</p>
+        )}
+      </div>
+      <span class={`flex-shrink-0 rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(article.processing_status)}`}>
+        {article.processing_status}
+      </span>
+    </div>
+
+    <!-- Flags Alert -->
+    {flags.length > 0 && (
+      <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <h3 class="text-sm font-medium text-amber-800 mb-2">Flags for Review</h3>
+        <div class="flex flex-wrap gap-2">
+          {flags.map((flag) => (
+            <span class={`rounded border px-2 py-1 text-sm font-medium ${getFlagColor(flag)}`}>
+              {flag}
+            </span>
+          ))}
+        </div>
+        {article.processing_notes && (
+          <p class="mt-3 text-sm text-amber-700">{article.processing_notes}</p>
+        )}
+      </div>
+    )}
+
+    <!-- Metadata Grid -->
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium text-stone-500 mb-1">Year</p>
+        <p class="text-sm font-medium text-stone-900">{article.year || "—"}</p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium text-stone-500 mb-1">Method</p>
+        <p class="text-sm font-medium text-stone-900">
+          {article.method ? methodLabels[article.method] || article.method : "—"}
+        </p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium text-stone-500 mb-1">Voice</p>
+        <p class="text-sm font-medium text-stone-900">
+          {article.voice ? voiceLabels[article.voice] || article.voice : "—"}
+        </p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium text-stone-500 mb-1">Access</p>
+        <div class="flex gap-2">
+          {article.peer_reviewed ? (
+            <span class="rounded bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-700">
+              Peer Reviewed
+            </span>
+          ) : null}
+          {article.open_access ? (
+            <span class="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+              Open Access
+            </span>
+          ) : (
+            <span class="rounded bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+              Paywalled
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <!-- Links -->
+    <div class="rounded-lg bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap gap-4 text-sm">
+        {article.source_url && (
+          <a
+            href={article.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-primary-500 hover:text-primary-700"
+          >
+            View Source
+          </a>
+        )}
+        {article.primary_category && (
+          <span class="text-stone-500">
+            Category: <span class="text-stone-700">{article.primary_category}</span>
+          </span>
+        )}
+        {article.processed_at && (
+          <span class="text-stone-500">
+            Processed: <span class="text-stone-700">{new Date(article.processed_at).toLocaleString()}</span>
+          </span>
+        )}
+      </div>
+    </div>
+
+    <!-- Side-by-Side Translation View -->
+    <div class="grid gap-6 lg:grid-cols-2">
+      <!-- Source Column -->
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold text-stone-900 border-b border-stone-200 pb-2">
+          Source (English)
+        </h2>
+
+        <!-- Source Title -->
+        <div class="rounded-lg bg-white p-4 shadow-sm">
+          <p class="text-xs font-medium text-stone-500 mb-2">Title</p>
+          <p class="text-stone-900">{article.source_title}</p>
+        </div>
+
+        <!-- Source Summary -->
+        {sourceArticle?.summary_original && (
+          <div class="rounded-lg bg-white p-4 shadow-sm">
+            <p class="text-xs font-medium text-stone-500 mb-2">Summary</p>
+            <p class="text-stone-700 text-sm leading-relaxed whitespace-pre-wrap">
+              {sourceArticle.summary_original}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <!-- Translation Column -->
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold text-stone-900 border-b border-stone-200 pb-2">
+          Translation (French)
+        </h2>
+
+        {translation ? (
+          <>
+            <!-- Translated Title -->
+            <div class="rounded-lg bg-white p-4 shadow-sm">
+              <p class="text-xs font-medium text-stone-500 mb-2">Title</p>
+              <p class="text-stone-900">
+                {translation.translated_title || <span class="text-stone-400 italic">Not translated</span>}
+              </p>
+            </div>
+
+            <!-- Translated Summary -->
+            <div class="rounded-lg bg-white p-4 shadow-sm">
+              <p class="text-xs font-medium text-stone-500 mb-2">Summary</p>
+              <p class="text-stone-700 text-sm leading-relaxed whitespace-pre-wrap">
+                {translation.translated_summary || <span class="text-stone-400 italic">Not translated</span>}
+              </p>
+            </div>
+
+            <!-- Translated Full Text (if open access) -->
+            {translation.translated_full_text && (
+              <div class="rounded-lg bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-stone-500 mb-2">Full Text</p>
+                <div class="max-h-96 overflow-y-auto">
+                  <p class="text-stone-700 text-sm leading-relaxed whitespace-pre-wrap font-literata">
+                    {translation.translated_full_text}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <!-- Translator Notes -->
+            {translation.translator_notes && (
+              <div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
+                <p class="text-xs font-medium text-amber-700 mb-2">Translator Notes</p>
+                <p class="text-stone-700 text-sm">{translation.translator_notes}</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div class="rounded-lg bg-stone-50 border border-stone-200 p-8 text-center">
+            <p class="text-stone-500">No translation available yet.</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="pt-4 border-t border-stone-200">
+      <a
+        href="/admin/articles"
+        class="inline-flex items-center gap-2 text-sm text-stone-500 hover:text-stone-700"
+      >
+        <span>&larr;</span>
+        <span>Back to Articles</span>
+      </a>
+    </div>
+  </div>
+</AdminLayout>

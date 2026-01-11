@@ -1,0 +1,171 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { getSessionState } from "../../lib/db";
+
+// Check admin access
+if (!import.meta.env.ENABLE_ADMIN) {
+  return Astro.redirect("/");
+}
+
+const session = getSessionState();
+---
+
+<AdminLayout title="Settings">
+  <div class="space-y-6">
+    <!-- Page Header -->
+    <div>
+      <h1 class="text-2xl font-bold text-stone-900">Settings</h1>
+      <p class="mt-1 text-sm text-stone-500">
+        Translation Machine configuration
+      </p>
+    </div>
+
+    <!-- Current Settings -->
+    <div class="rounded-lg bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-stone-900 mb-4">Session Settings</h2>
+
+      {session ? (
+        <div class="space-y-6">
+          <!-- Human Review Interval -->
+          <div class="flex items-start justify-between gap-8">
+            <div>
+              <p class="text-sm font-medium text-stone-900">Human Review Interval</p>
+              <p class="text-sm text-stone-500 mt-1">
+                Number of articles processed before SESSION_PAUSE is returned.
+                This ensures regular human review to catch drift.
+              </p>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <p class="text-2xl font-bold text-stone-900">{session.human_review_interval}</p>
+              <p class="text-xs text-stone-500">articles</p>
+            </div>
+          </div>
+
+          <hr class="border-stone-200" />
+
+          <!-- Current Session Progress -->
+          <div class="flex items-start justify-between gap-8">
+            <div>
+              <p class="text-sm font-medium text-stone-900">Current Session Progress</p>
+              <p class="text-sm text-stone-500 mt-1">
+                Articles processed since last reset or midnight.
+              </p>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <p class="text-2xl font-bold text-stone-900">
+                {session.articles_processed_count} / {session.human_review_interval}
+              </p>
+              <p class="text-xs text-stone-500">
+                {session.articles_processed_count >= session.human_review_interval
+                  ? "Paused for review"
+                  : `${session.human_review_interval - session.articles_processed_count} remaining`}
+              </p>
+            </div>
+          </div>
+
+          <hr class="border-stone-200" />
+
+          <!-- Last Reset -->
+          <div class="flex items-start justify-between gap-8">
+            <div>
+              <p class="text-sm font-medium text-stone-900">Last Reset</p>
+              <p class="text-sm text-stone-500 mt-1">
+                Session counter resets at midnight local time or when manually reset.
+              </p>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <p class="text-lg font-medium text-stone-900">{session.last_reset_at}</p>
+              <p class="text-xs text-stone-500">Date: {session.last_reset_date}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p class="text-sm text-stone-500">
+          No session state found. Session state will be created when translation begins.
+        </p>
+      )}
+    </div>
+
+    <!-- How to Change Settings -->
+    <div class="rounded-lg bg-primary-50 border border-primary-200 p-6">
+      <h2 class="text-lg font-semibold text-primary-900 mb-4">How to Change Settings</h2>
+      <p class="text-sm text-primary-700 mb-4">
+        Settings are managed through the MCP server tools. Use these commands in your Claude session:
+      </p>
+
+      <div class="space-y-4">
+        <!-- Set Interval -->
+        <div class="bg-white rounded-md p-4 border border-primary-200">
+          <p class="text-sm font-medium text-stone-900 mb-2">Change Review Interval</p>
+          <code class="block text-sm bg-stone-800 text-green-400 p-3 rounded font-mono overflow-x-auto">
+            set_human_review_interval(interval=10)
+          </code>
+          <p class="text-xs text-stone-500 mt-2">
+            Valid range: 1-20 articles. Default: 5.
+          </p>
+        </div>
+
+        <!-- Reset Counter -->
+        <div class="bg-white rounded-md p-4 border border-primary-200">
+          <p class="text-sm font-medium text-stone-900 mb-2">Reset Session Counter</p>
+          <code class="block text-sm bg-stone-800 text-green-400 p-3 rounded font-mono overflow-x-auto">
+            reset_session_counter()
+          </code>
+          <p class="text-xs text-stone-500 mt-2">
+            Call this after reviewing flagged articles to continue translation.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Valid Values Reference -->
+    <div class="rounded-lg bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-stone-900 mb-4">Reference: Valid Values</h2>
+
+      <div class="grid gap-6 md:grid-cols-2">
+        <!-- Methods -->
+        <div>
+          <p class="text-sm font-medium text-stone-700 mb-2">Methods</p>
+          <ul class="text-sm text-stone-600 space-y-1">
+            <li><code class="bg-stone-100 px-1 rounded">empirical</code> — Original data collection</li>
+            <li><code class="bg-stone-100 px-1 rounded">synthesis</code> — Reviewing existing work</li>
+            <li><code class="bg-stone-100 px-1 rounded">theoretical</code> — Conceptual argument</li>
+            <li><code class="bg-stone-100 px-1 rounded">lived_experience</code> — First-hand experience</li>
+          </ul>
+        </div>
+
+        <!-- Voices -->
+        <div>
+          <p class="text-sm font-medium text-stone-700 mb-2">Voices</p>
+          <ul class="text-sm text-stone-600 space-y-1">
+            <li><code class="bg-stone-100 px-1 rounded">academic</code> — Researchers, scholars</li>
+            <li><code class="bg-stone-100 px-1 rounded">practitioner</code> — Clinicians, educators</li>
+            <li><code class="bg-stone-100 px-1 rounded">organization</code> — Charities, institutions</li>
+            <li><code class="bg-stone-100 px-1 rounded">individual</code> — Person or family</li>
+          </ul>
+        </div>
+
+        <!-- Blocking Flags -->
+        <div>
+          <p class="text-sm font-medium text-stone-700 mb-2">Blocking Flags</p>
+          <ul class="text-sm text-stone-600 space-y-1">
+            <li><code class="bg-red-100 text-red-800 px-1 rounded">SENTMIS</code> — Sentence count mismatch &gt;15%</li>
+            <li><code class="bg-red-100 text-red-800 px-1 rounded">WORDMIS</code> — Word ratio outside 0.9-1.5</li>
+          </ul>
+        </div>
+
+        <!-- Warning Flags -->
+        <div>
+          <p class="text-sm font-medium text-stone-700 mb-2">Warning Flags</p>
+          <ul class="text-sm text-stone-600 space-y-1">
+            <li><code class="bg-amber-100 text-amber-800 px-1 rounded">WORDDRIFT</code> — Glossary recall &lt;0.7</li>
+            <li><code class="bg-amber-100 text-amber-800 px-1 rounded">TERMMIS</code> — Missing glossary term</li>
+            <li><code class="bg-amber-100 text-amber-800 px-1 rounded">STATMIS</code> — Statistics may be modified</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

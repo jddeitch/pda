@@ -1,0 +1,131 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { getPreprocessingQueue } from "../../lib/db";
+
+// Check admin access
+if (!import.meta.env.ENABLE_ADMIN) {
+  return Astro.redirect("/");
+}
+
+const queue = getPreprocessingQueue();
+
+// Parse flags for display
+function parseFlags(flagsJson: string): string[] {
+  try {
+    return JSON.parse(flagsJson);
+  } catch {
+    return [];
+  }
+}
+---
+
+<AdminLayout title="PDF Preprocessing">
+  <div class="space-y-6">
+    <!-- Page Header -->
+    <div>
+      <h1 class="text-2xl font-bold text-stone-900">PDF Preprocessing Queue</h1>
+      <p class="mt-1 text-sm text-stone-500">
+        Articles that failed PDF extraction and need manual preprocessing
+      </p>
+    </div>
+
+    <!-- Instructions -->
+    <div class="rounded-lg bg-primary-50 border border-primary-200 p-4">
+      <h2 class="text-sm font-medium text-primary-800 mb-2">How to preprocess</h2>
+      <ol class="text-sm text-primary-700 space-y-1 list-decimal list-inside">
+        <li>Download the PDF from the source URL</li>
+        <li>Convert to plain text (copy-paste or use a tool)</li>
+        <li>Clean up formatting issues (column jumbles, headers/footers)</li>
+        <li>Save as <code class="bg-white px-1 rounded">cache/articles/&#123;article_id&#125;.txt</code></li>
+        <li>Reset the article status to "pending" in the database</li>
+      </ol>
+    </div>
+
+    <!-- Queue -->
+    {queue.length > 0 ? (
+      <div class="rounded-lg bg-white shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-stone-200 bg-stone-50">
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Article</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Problems</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Notes</th>
+                <th class="px-4 py-3 text-right font-medium text-stone-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-stone-100">
+              {queue.map((article) => (
+                <tr class="hover:bg-stone-50">
+                  <td class="px-4 py-3">
+                    <div class="max-w-md">
+                      <p class="font-medium text-stone-900 line-clamp-2">
+                        {article.source_title}
+                      </p>
+                      <code class="text-xs text-stone-500 mt-1 block">
+                        {article.id}
+                      </code>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-1">
+                      {parseFlags(article.processing_flags).map((flag) => (
+                        <span class="rounded bg-red-100 text-red-800 px-1.5 py-0.5 text-xs font-medium">
+                          {flag}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <p class="text-stone-600 text-sm max-w-xs line-clamp-2">
+                      {article.processing_notes || "—"}
+                    </p>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <div class="flex justify-end gap-3">
+                      {article.source_url && (
+                        <a
+                          href={article.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-primary-500 hover:text-primary-700"
+                        >
+                          Source
+                        </a>
+                      )}
+                      <a
+                        href={`/admin/articles/${article.id}`}
+                        class="text-stone-500 hover:text-stone-700"
+                      >
+                        Details
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ) : (
+      <div class="rounded-lg bg-white p-8 shadow-sm text-center">
+        <div class="text-4xl mb-4">&#10003;</div>
+        <h3 class="text-lg font-medium text-stone-900 mb-1">Queue Empty</h3>
+        <p class="text-sm text-stone-500">
+          No articles need manual preprocessing. All PDF extractions succeeded.
+        </p>
+      </div>
+    )}
+
+    <!-- File Path Reference -->
+    <div class="rounded-lg bg-stone-50 border border-stone-200 p-4">
+      <h3 class="text-sm font-medium text-stone-700 mb-2">File Locations</h3>
+      <div class="text-sm text-stone-600 space-y-1 font-mono">
+        <p>Cache directory: <code class="bg-white px-2 py-0.5 rounded">/Users/jd/Projects/pda/cache/articles/</code></p>
+        <p>Preprocessed format: <code class="bg-white px-2 py-0.5 rounded">&#123;article_id&#125;.txt</code></p>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

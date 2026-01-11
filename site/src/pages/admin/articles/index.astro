@@ -1,0 +1,266 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getAdminArticles, getAllCategories } from "../../../lib/db";
+
+// Check admin access
+if (!import.meta.env.ENABLE_ADMIN) {
+  return Astro.redirect("/");
+}
+
+// Get filter params from URL
+const url = new URL(Astro.request.url);
+const statusFilter = url.searchParams.get("status") || undefined;
+const hasFlagsFilter = url.searchParams.get("hasFlags") === "true";
+const categoryFilter = url.searchParams.get("category") || undefined;
+const methodFilter = url.searchParams.get("method") || undefined;
+
+// Fetch data
+const articles = getAdminArticles({
+  status: statusFilter,
+  hasFlags: hasFlagsFilter || undefined,
+  category: categoryFilter,
+  method: methodFilter,
+});
+const categories = getAllCategories();
+
+// Parse flags for display
+function parseFlags(flagsJson: string): string[] {
+  try {
+    return JSON.parse(flagsJson);
+  } catch {
+    return [];
+  }
+}
+
+// Status badge colors
+function getStatusColor(status: string): string {
+  switch (status) {
+    case "pending":
+      return "bg-amber-100 text-amber-800";
+    case "in_progress":
+      return "bg-primary-100 text-primary-800";
+    case "translated":
+      return "bg-green-100 text-green-800";
+    case "skipped":
+      return "bg-stone-100 text-stone-600";
+    default:
+      return "bg-stone-100 text-stone-600";
+  }
+}
+
+// Method labels
+const methodLabels: Record<string, string> = {
+  empirical: "Empirical",
+  synthesis: "Synthesis",
+  theoretical: "Theoretical",
+  lived_experience: "Lived Experience",
+};
+
+// Voice labels
+const voiceLabels: Record<string, string> = {
+  academic: "Academic",
+  practitioner: "Practitioner",
+  organization: "Organization",
+  individual: "Individual",
+};
+---
+
+<AdminLayout title="Articles">
+  <div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-stone-900">Articles</h1>
+        <p class="mt-1 text-sm text-stone-500">
+          {articles.length} articles {statusFilter ? `with status "${statusFilter}"` : ""}
+          {hasFlagsFilter ? "with flags" : ""}
+        </p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="rounded-lg bg-white p-4 shadow-sm">
+      <form method="get" class="flex flex-wrap items-end gap-4">
+        <!-- Status Filter -->
+        <div>
+          <label for="status" class="block text-xs font-medium text-stone-500 mb-1">
+            Status
+          </label>
+          <select
+            id="status"
+            name="status"
+            class="rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            <option value="">All</option>
+            <option value="pending" selected={statusFilter === "pending"}>Pending</option>
+            <option value="in_progress" selected={statusFilter === "in_progress"}>In Progress</option>
+            <option value="translated" selected={statusFilter === "translated"}>Translated</option>
+            <option value="skipped" selected={statusFilter === "skipped"}>Skipped</option>
+          </select>
+        </div>
+
+        <!-- Method Filter -->
+        <div>
+          <label for="method" class="block text-xs font-medium text-stone-500 mb-1">
+            Method
+          </label>
+          <select
+            id="method"
+            name="method"
+            class="rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            <option value="">All</option>
+            <option value="empirical" selected={methodFilter === "empirical"}>Empirical</option>
+            <option value="synthesis" selected={methodFilter === "synthesis"}>Synthesis</option>
+            <option value="theoretical" selected={methodFilter === "theoretical"}>Theoretical</option>
+            <option value="lived_experience" selected={methodFilter === "lived_experience"}>Lived Experience</option>
+          </select>
+        </div>
+
+        <!-- Category Filter -->
+        <div>
+          <label for="category" class="block text-xs font-medium text-stone-500 mb-1">
+            Category
+          </label>
+          <select
+            id="category"
+            name="category"
+            class="rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            <option value="">All</option>
+            {categories.map((cat) => (
+              <option value={cat.id} selected={categoryFilter === cat.id}>
+                {cat.label_en}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <!-- Has Flags -->
+        <div class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="hasFlags"
+            name="hasFlags"
+            value="true"
+            checked={hasFlagsFilter}
+            class="h-4 w-4 rounded border-stone-300 text-primary-500 focus:ring-primary-500"
+          />
+          <label for="hasFlags" class="text-sm text-stone-600">Has flags</label>
+        </div>
+
+        <!-- Submit -->
+        <button
+          type="submit"
+          class="rounded-md bg-primary-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+        >
+          Apply Filters
+        </button>
+
+        <!-- Clear -->
+        <a
+          href="/admin/articles"
+          class="text-sm text-stone-500 hover:text-stone-700"
+        >
+          Clear
+        </a>
+      </form>
+    </div>
+
+    <!-- Articles Table -->
+    <div class="rounded-lg bg-white shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-stone-200 bg-stone-50">
+              <th class="px-4 py-3 text-left font-medium text-stone-500">Title</th>
+              <th class="px-4 py-3 text-left font-medium text-stone-500">Year</th>
+              <th class="px-4 py-3 text-left font-medium text-stone-500">Method</th>
+              <th class="px-4 py-3 text-left font-medium text-stone-500">Status</th>
+              <th class="px-4 py-3 text-left font-medium text-stone-500">Flags</th>
+              <th class="px-4 py-3 text-right font-medium text-stone-500">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100">
+            {articles.length > 0 ? (
+              articles.map((article) => (
+                <tr class="hover:bg-stone-50">
+                  <td class="px-4 py-3">
+                    <div class="max-w-md">
+                      <a
+                        href={`/admin/articles/${article.id}`}
+                        class="font-medium text-stone-900 hover:text-primary-600 line-clamp-1"
+                      >
+                        {article.source_title}
+                      </a>
+                      {article.authors && (
+                        <p class="text-xs text-stone-500 line-clamp-1 mt-0.5">
+                          {article.authors}
+                        </p>
+                      )}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-stone-600">
+                    {article.year || "—"}
+                  </td>
+                  <td class="px-4 py-3">
+                    {article.method ? (
+                      <span class="text-stone-600">
+                        {methodLabels[article.method] || article.method}
+                      </span>
+                    ) : (
+                      <span class="text-stone-400">—</span>
+                    )}
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(article.processing_status)}`}>
+                      {article.processing_status}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    {parseFlags(article.processing_flags).length > 0 ? (
+                      <div class="flex flex-wrap gap-1">
+                        {parseFlags(article.processing_flags).slice(0, 3).map((flag) => (
+                          <span class={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                            flag === 'SENTMIS' || flag === 'WORDMIS'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {flag}
+                          </span>
+                        ))}
+                        {parseFlags(article.processing_flags).length > 3 && (
+                          <span class="text-xs text-stone-500">
+                            +{parseFlags(article.processing_flags).length - 3}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span class="text-stone-400">—</span>
+                    )}
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <a
+                      href={`/admin/articles/${article.id}`}
+                      class="text-primary-500 hover:text-primary-700"
+                    >
+                      View
+                    </a>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-stone-500">
+                  No articles found matching your filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

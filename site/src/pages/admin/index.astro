@@ -1,0 +1,223 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import {
+  getAdminStats,
+  getSessionState,
+  getFlaggedArticles,
+  getRecentlyCompleted,
+} from "../../lib/db";
+
+// Check admin access
+if (!import.meta.env.ENABLE_ADMIN) {
+  return Astro.redirect("/");
+}
+
+const stats = getAdminStats();
+const session = getSessionState();
+const flaggedArticles = getFlaggedArticles(10);
+const recentArticles = getRecentlyCompleted(5);
+
+// Calculate progress percentage
+const progressPercent = stats.total > 0
+  ? Math.round((stats.translated / stats.total) * 100)
+  : 0;
+
+// Parse flags for display
+function parseFlags(flagsJson: string): string[] {
+  try {
+    return JSON.parse(flagsJson);
+  } catch {
+    return [];
+  }
+}
+---
+
+<AdminLayout title="Dashboard">
+  <div class="space-y-8">
+    <!-- Page Header -->
+    <div>
+      <h1 class="text-2xl font-bold text-stone-900">Dashboard</h1>
+      <p class="mt-1 text-sm text-stone-500">
+        Translation Machine status and progress
+      </p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-sm font-medium text-stone-500">Total</p>
+        <p class="mt-1 text-2xl font-bold text-stone-900">{stats.total}</p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-sm font-medium text-stone-500">Pending</p>
+        <p class="mt-1 text-2xl font-bold text-amber-600">{stats.pending}</p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-sm font-medium text-stone-500">In Progress</p>
+        <p class="mt-1 text-2xl font-bold text-primary-600">{stats.in_progress}</p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-sm font-medium text-stone-500">Translated</p>
+        <p class="mt-1 text-2xl font-bold text-green-600">{stats.translated}</p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-sm font-medium text-stone-500">Skipped</p>
+        <p class="mt-1 text-2xl font-bold text-stone-400">{stats.skipped}</p>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <p class="text-sm font-medium text-stone-500">Flagged</p>
+        <p class="mt-1 text-2xl font-bold text-red-600">{stats.flagged}</p>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="rounded-lg bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-semibold text-stone-900">Overall Progress</h2>
+        <span class="text-sm font-medium text-stone-500">{progressPercent}%</span>
+      </div>
+      <div class="h-4 w-full rounded-full bg-stone-200 overflow-hidden">
+        <div
+          class="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all duration-500"
+          style={`width: ${progressPercent}%`}
+        ></div>
+      </div>
+      <p class="mt-2 text-sm text-stone-500">
+        {stats.translated} of {stats.total} articles translated
+      </p>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="grid gap-8 lg:grid-cols-2">
+      <!-- Session Status -->
+      <div class="rounded-lg bg-white p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-stone-900 mb-4">Session Status</h2>
+        {session ? (
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-stone-500">Articles this session</span>
+              <span class="text-lg font-bold text-stone-900">
+                {session.articles_processed_count} / {session.human_review_interval}
+              </span>
+            </div>
+            <div class="h-2 w-full rounded-full bg-stone-200 overflow-hidden">
+              <div
+                class="h-full rounded-full bg-primary-500"
+                style={`width: ${Math.min(100, (session.articles_processed_count / session.human_review_interval) * 100)}%`}
+              ></div>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-stone-500">Review interval</span>
+              <span class="text-stone-900">{session.human_review_interval} articles</span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-stone-500">Last reset</span>
+              <span class="text-stone-900">{session.last_reset_at}</span>
+            </div>
+            {session.articles_processed_count >= session.human_review_interval && (
+              <div class="mt-4 rounded-md bg-amber-50 border border-amber-200 p-3">
+                <p class="text-sm font-medium text-amber-800">
+                  Review interval reached. Review flagged articles before continuing.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p class="text-sm text-stone-500">No session state found. Start translating to initialize.</p>
+        )}
+      </div>
+
+      <!-- Recently Completed -->
+      <div class="rounded-lg bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-stone-900">Recently Completed</h2>
+          <a href="/admin/articles?status=translated" class="text-sm text-primary-500 hover:text-primary-700">
+            View all
+          </a>
+        </div>
+        {recentArticles.length > 0 ? (
+          <ul class="space-y-3">
+            {recentArticles.map((article) => (
+              <li class="flex items-start justify-between gap-4">
+                <a
+                  href={`/admin/articles/${article.id}`}
+                  class="text-sm text-stone-700 hover:text-primary-600 line-clamp-1 flex-1"
+                >
+                  {article.source_title}
+                </a>
+                {parseFlags(article.processing_flags).length > 0 && (
+                  <span class="flex-shrink-0 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    {parseFlags(article.processing_flags).length} flags
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-sm text-stone-500">No translated articles yet.</p>
+        )}
+      </div>
+    </div>
+
+    <!-- Needs Attention -->
+    <div class="rounded-lg bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-stone-900">Needs Attention</h2>
+        <a href="/admin/articles?hasFlags=true" class="text-sm text-primary-500 hover:text-primary-700">
+          View all flagged
+        </a>
+      </div>
+      {flaggedArticles.length > 0 ? (
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-stone-200">
+                <th class="pb-2 text-left font-medium text-stone-500">Article</th>
+                <th class="pb-2 text-left font-medium text-stone-500">Flags</th>
+                <th class="pb-2 text-left font-medium text-stone-500">Processed</th>
+                <th class="pb-2 text-right font-medium text-stone-500">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-stone-100">
+              {flaggedArticles.map((article) => (
+                <tr>
+                  <td class="py-3 pr-4">
+                    <span class="line-clamp-1 text-stone-700">{article.source_title}</span>
+                  </td>
+                  <td class="py-3 pr-4">
+                    <div class="flex flex-wrap gap-1">
+                      {parseFlags(article.processing_flags).map((flag) => (
+                        <span class={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                          flag === 'SENTMIS' || flag === 'WORDMIS'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {flag}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td class="py-3 pr-4 text-stone-500">
+                    {article.processed_at ? new Date(article.processed_at).toLocaleDateString() : '—'}
+                  </td>
+                  <td class="py-3 text-right">
+                    <a
+                      href={`/admin/articles/${article.id}`}
+                      class="text-primary-500 hover:text-primary-700"
+                    >
+                      Review
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p class="text-sm text-stone-500">No flagged articles. Everything looks good!</p>
+      )}
+    </div>
+  </div>
+</AdminLayout>

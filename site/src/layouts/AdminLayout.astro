@@ -1,0 +1,89 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} | pda.expert Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body class="flex min-h-full flex-col bg-stone-100 text-stone-900 font-lexend antialiased">
+    <!-- Admin Header -->
+    <header class="border-b border-stone-300 bg-white shadow-sm">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <!-- Logo / Wordmark with Admin badge -->
+        <a href="/admin" class="flex items-center gap-3">
+          <span class="text-xl font-medium font-lexend">
+            <span class="text-primary-500">pda</span><span class="text-accent-500 relative top-px mx-0.5">•</span><span class="text-accent-500">expert</span>
+          </span>
+          <span class="rounded bg-stone-800 px-2 py-0.5 text-xs font-medium text-white">
+            Admin
+          </span>
+        </a>
+
+        <!-- Admin Navigation -->
+        <nav class="flex items-center gap-6">
+          <a
+            href="/admin"
+            class="text-sm font-medium text-stone-600 hover:text-stone-900"
+          >
+            Dashboard
+          </a>
+          <a
+            href="/admin/articles"
+            class="text-sm font-medium text-stone-600 hover:text-stone-900"
+          >
+            Articles
+          </a>
+          <a
+            href="/admin/preprocessing"
+            class="text-sm font-medium text-stone-600 hover:text-stone-900"
+          >
+            Preprocessing
+          </a>
+          <a
+            href="/admin/settings"
+            class="text-sm font-medium text-stone-600 hover:text-stone-900"
+          >
+            Settings
+          </a>
+          <span class="text-stone-300">|</span>
+          <a
+            href="/fr"
+            class="text-sm font-medium text-primary-500 hover:text-primary-700"
+          >
+            View Site
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1">
+      <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <slot />
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-stone-200 bg-white py-4">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <p class="text-center text-xs text-stone-400">
+          Translation Machine Admin &mdash; Local development only
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
