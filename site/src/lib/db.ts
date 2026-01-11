@@ -351,6 +351,7 @@ export function getAdminArticles(filters?: {
   hasFlags?: boolean;
   category?: string;
   method?: string;
+  voice?: string;
 }): AdminArticle[] {
   let query = `
     SELECT
@@ -396,6 +397,11 @@ export function getAdminArticles(filters?: {
   if (filters?.method) {
     conditions.push("a.method = ?");
     params.push(filters.method);
+  }
+
+  if (filters?.voice) {
+    conditions.push("a.voice = ?");
+    params.push(filters.voice);
   }
 
   if (conditions.length > 0) {

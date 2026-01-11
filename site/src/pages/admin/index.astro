@@ -162,9 +162,20 @@ function parseFlags(flagsJson: string): string[] {
     </div>
 
     <!-- Needs Attention -->
-    <div class="rounded-lg bg-white p-6 shadow-sm">
+    <div class="rounded-lg bg-white p-6 shadow-sm" id="needs-attention">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-stone-900">Needs Attention</h2>
+        <div class="flex items-center gap-3">
+          <h2 class="text-lg font-semibold text-stone-900">Needs Attention</h2>
+          <button
+            id="refresh-btn"
+            type="button"
+            class="rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            title="Refresh stats"
+          >
+            ↻ Refresh
+          </button>
+          <span id="last-updated" class="text-xs text-stone-400"></span>
+        </div>
         <a href="/admin/articles?hasFlags=true" class="text-sm text-primary-500 hover:text-primary-700">
           View all flagged
         </a>
@@ -220,4 +231,107 @@ function parseFlags(flagsJson: string): string[] {
       )}
     </div>
   </div>
+
+  <!-- Client-side refresh script -->
+  <script>
+    const refreshBtn = document.getElementById('refresh-btn');
+    const lastUpdated = document.getElementById('last-updated');
+    let autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
+    function formatTime(date: Date): string {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function refreshStats() {
+      if (refreshBtn) {
+        refreshBtn.textContent = '↻ ...';
+        refreshBtn.setAttribute('disabled', 'true');
+      }
+
+      try {
+        const response = await fetch('/api/progress');
+        if (!response.ok) throw new Error('Failed to fetch');
+
+        const data = await response.json();
+
+        // Update stats grid
+        const statsGrid = document.querySelector('.grid.grid-cols-2');
+        if (statsGrid) {
+          const statValues = statsGrid.querySelectorAll('.text-2xl');
+          if (statValues.length >= 6) {
+            statValues[0].textContent = data.stats.total;
+            statValues[1].textContent = data.stats.pending;
+            statValues[2].textContent = data.stats.in_progress;
+            statValues[3].textContent = data.stats.translated;
+            statValues[4].textContent = data.stats.skipped;
+            statValues[5].textContent = data.stats.flagged;
+          }
+        }
+
+        // Update progress bar
+        const progressPercent = data.progressPercent;
+        const progressBar = document.querySelector('.bg-gradient-to-r');
+        const progressText = document.querySelector('.text-sm.font-medium.text-stone-500');
+        if (progressBar instanceof HTMLElement) {
+          progressBar.style.width = `${progressPercent}%`;
+        }
+        if (progressText) {
+          progressText.textContent = `${progressPercent}%`;
+        }
+
+        // Update session status if available
+        if (data.session) {
+          const sessionCount = document.querySelector('.text-lg.font-bold.text-stone-900');
+          if (sessionCount) {
+            sessionCount.textContent = `${data.session.articles_processed_count} / ${data.session.human_review_interval}`;
+          }
+        }
+
+        // Update last updated time
+        if (lastUpdated) {
+          lastUpdated.textContent = `Updated ${formatTime(new Date())}`;
+        }
+
+      } catch (error) {
+        console.error('Refresh failed:', error);
+        if (lastUpdated) {
+          lastUpdated.textContent = 'Refresh failed';
+        }
+      } finally {
+        if (refreshBtn) {
+          refreshBtn.textContent = '↻ Refresh';
+          refreshBtn.removeAttribute('disabled');
+        }
+      }
+    }
+
+    // Manual refresh button
+    refreshBtn?.addEventListener('click', refreshStats);
+
+    // Auto-refresh every 30 seconds when page is visible
+    function startAutoRefresh() {
+      if (!autoRefreshInterval) {
+        autoRefreshInterval = setInterval(refreshStats, 30000);
+      }
+    }
+
+    function stopAutoRefresh() {
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+      }
+    }
+
+    // Only auto-refresh when tab is visible
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopAutoRefresh();
+      } else {
+        startAutoRefresh();
+      }
+    });
+
+    // Start auto-refresh on load
+    startAutoRefresh();
+  </script>
 </AdminLayout>

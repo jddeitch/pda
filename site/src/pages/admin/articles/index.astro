@@ -15,6 +15,7 @@ const statusFilter = url.searchParams.get("status") || undefined;
 const hasFlagsFilter = url.searchParams.get("hasFlags") === "true";
 const categoryFilter = url.searchParams.get("category") || undefined;
 const methodFilter = url.searchParams.get("method") || undefined;
+const voiceFilter = url.searchParams.get("voice") || undefined;
 
 // Fetch data
 const articles = getAdminArticles({
@@ -22,6 +23,7 @@ const articles = getAdminArticles({
   hasFlags: hasFlagsFilter || undefined,
   category: categoryFilter,
   method: methodFilter,
+  voice: voiceFilter,
 });
 const categories = getAllCategories();
 
@@ -116,6 +118,24 @@ const voiceLabels: Record<string, string> = {
             <option value="synthesis" selected={methodFilter === "synthesis"}>Synthesis</option>
             <option value="theoretical" selected={methodFilter === "theoretical"}>Theoretical</option>
             <option value="lived_experience" selected={methodFilter === "lived_experience"}>Lived Experience</option>
+          </select>
+        </div>
+
+        <!-- Voice Filter -->
+        <div>
+          <label for="voice" class="block text-xs font-medium text-stone-500 mb-1">
+            Voice
+          </label>
+          <select
+            id="voice"
+            name="voice"
+            class="rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            <option value="">All</option>
+            <option value="academic" selected={voiceFilter === "academic"}>Academic</option>
+            <option value="practitioner" selected={voiceFilter === "practitioner"}>Practitioner</option>
+            <option value="organization" selected={voiceFilter === "organization"}>Organization</option>
+            <option value="individual" selected={voiceFilter === "individual"}>Individual</option>
           </select>
         </div>
 
