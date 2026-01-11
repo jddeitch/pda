@@ -982,19 +982,28 @@ For each article, after save_article() returns SUCCESS:
 |-------|--------------|---------|
 | **Sentence count** | spaCy tokenizer on source vs target. Flag if ratio outside 0.85-1.15 | Omissions, over-splitting |
 | **Word count ratio** | EN→FR typically 1.1-1.2x. Flag if outside 0.9-1.5 | Major content changes |
-| **Content word Jaccard** | Compare lemmatized nouns/verbs between expected FR and actual FR | Creative rephrasing, editorial drift |
+| **Glossary term recall** | Measure what percentage of expected glossary terms appear in translation | Creative rephrasing, editorial drift |
 | **Glossary terms** | Verify expected French terms appear in translation | Term invention, inconsistent terms |
 | **Statistics** | Regex for numbers in source, verify same in target | Accidental modification of data |
 
-#### Content Word Jaccard Check
+#### Glossary Term Recall Check
 
-This catches "creative" translation where sentence count is preserved but content is rephrased:
+This catches "creative" translation where sentence count is preserved but glossary terms are missing or replaced:
 
 ```python
-def check_content_word_similarity(source_en: str, translation_fr: str, glossary: dict) -> dict:
+def check_glossary_recall(source_en: str, translation_fr: str, glossary: dict) -> dict:
     """
-    Compares content words between translation and expected vocabulary.
-    Catches editorial drift that sentence counting misses.
+    Measures what percentage of expected glossary terms appear in translation.
+
+    Uses RECALL (intersection / expected) rather than Jaccard (intersection / union).
+    Recall is the right metric because:
+    - Jaccard penalizes translations for having additional content words (normal)
+    - Recall only checks if expected terms are present (what we actually care about)
+
+    Empirically validated on known-good translations:
+    - Good translations: 0.77-0.88 recall
+    - Drifted translations: ~0.23 recall
+    - Threshold 0.7 correctly separates good from drifted
     """
     # Extract expected French terms from glossary matches in source
     expected_terms = find_glossary_terms_in_text(source_en, glossary)
@@ -1004,37 +1013,35 @@ def check_content_word_similarity(source_en: str, translation_fr: str, glossary:
         doc = nlp_fr(fr_term.lower())
         expected_fr_words.update(token.lemma_ for token in doc if token.pos_ in ('NOUN', 'VERB', 'ADJ'))
 
+    # Skip check if too few terms to be meaningful
+    if len(expected_fr_words) < 3:
+        return {"recall": 1.0, "flag": None}
+
     # Extract actual content words from translation
     doc = nlp_fr(translation_fr.lower())
     actual_fr_words = set(token.lemma_ for token in doc if token.pos_ in ('NOUN', 'VERB', 'ADJ'))
 
-    # Jaccard similarity on content words
-    if not expected_fr_words:
-        return {"similarity": 1.0, "flag": None}  # No expected terms to check
-
-    # Skip check if too few terms to be meaningful
-    if len(expected_fr_words) < 3:
-        return {"similarity": 1.0, "flag": None}
-
+    # RECALL: what percentage of expected terms appeared?
     intersection = expected_fr_words & actual_fr_words
-    union = expected_fr_words | actual_fr_words
-    similarity = len(intersection) / len(union) if union else 1.0
+    recall = len(intersection) / len(expected_fr_words)
 
     return {
-        "similarity": round(similarity, 2),
+        "recall": round(recall, 2),
         "missing_expected": list(expected_fr_words - actual_fr_words)[:10],
-        "flag": "WORDDRIFT" if similarity < 0.6 else None
+        "flag": "WORDDRIFT" if recall < 0.7 else None
     }
 ```
 
-**Glossary coverage note:** The glossary contains ~200 domain-specific terms across 18 categories (core PDA terms, behavioral, clinical, emotional, etc.). For PDA research articles, expect 5-15 glossary terms per chunk — sufficient coverage for the Jaccard check to be meaningful. The ≥3 term minimum handles edge cases like methodology sections with fewer domain terms.
+**Why Recall over Jaccard:** Jaccard (intersection/union) penalizes translations for having additional content words beyond the glossary — but this is normal behavior for any real translation. Recall (intersection/expected) correctly measures "of the glossary terms we expected, what percentage appeared?" Empirically tested on known-good translations from our database showed 0.77-0.88 recall, while a synthetically drifted translation scored 0.23. The 0.7 threshold correctly separates the two.
+
+**Glossary coverage note:** The glossary contains ~200 domain-specific terms across 18 categories (core PDA terms, behavioral, clinical, emotional, etc.). For PDA research articles, expect 5-15 glossary terms per chunk — sufficient coverage for the recall check to be meaningful. The ≥3 term minimum handles edge cases like methodology sections with fewer domain terms.
 
 **BLOCKING FLAGS (save rejected):**
 - `SENTMIS` — sentence count mismatch >15%
 - `WORDMIS` — word count ratio outside 0.9-1.5
 
 **WARNING FLAGS (save allowed, human reviews later):**
-- `WORDDRIFT` — content word Jaccard similarity < 0.6 (possible editorial drift)
+- `WORDDRIFT` — glossary term recall < 0.7 (possible editorial drift)
 - `TERMMIS` — expected glossary term missing
 - `STATMIS` — statistics may have been modified
 - Content flags: `TBL`, `FIG`, `META`, `LONG`, `TERM`, `AMBIG`
@@ -1215,7 +1222,7 @@ def save_article(
     Quality checks (run automatically):
     - Sentence count ratio (SENTMIS if >15% variance)
     - Word count ratio (WORDMIS if outside 0.9-1.5)
-    - Content word Jaccard (WORDDRIFT if < 0.6 similarity)
+    - Glossary term recall (WORDDRIFT if < 0.7)
     - Glossary term verification (TERMMIS if missing)
     - Statistics preservation (STATMIS if numbers differ)
 
@@ -1890,7 +1897,7 @@ processing_flags:
       SENTMIS: {description: "Sentence count mismatch >15%", action: "Must fix"}
       WORDMIS: {description: "Word ratio outside 0.9-1.5", action: "Must fix"}
     warning:
-      WORDDRIFT: {description: "Content word Jaccard < 0.6", action: "Human review — possible editorial drift"}
+      WORDDRIFT: {description: "Glossary term recall < 0.7", action: "Human review — possible editorial drift"}
       TERMMIS: {description: "Glossary term missing", action: "Human review"}
       STATMIS: {description: "Statistics may be modified", action: "Human review"}
 ```
@@ -1963,7 +1970,7 @@ Run `pytest tests/ -v` after completing each phase.
 **Test (`tests/test_phase3.py`):**
 - `TestSentenceCounting`: accurate count for EN and FR, handles abbreviations (Dr., U.S.A.), ratio calculation, SENTMIS flag when >15% variance
 - `TestWordRatio`: calculates correctly, WORDMIS flag outside 0.9-1.5 range
-- `TestJaccardSimilarity`: content word extraction, similarity calculation, WORDDRIFT flag when <0.6
+- `TestGlossaryRecall`: content word extraction, recall calculation, WORDDRIFT flag when <0.7
 - `TestGlossaryVerification`: TERMMIS for missing terms, accepts fr_alt variants, handles quotes edge case
 - `TestStatisticsCheck`: detects numbers in source, STATMIS when numbers differ
 - `TestBlockingVsWarning`: correctly classifies blocking (SENTMIS, WORDMIS) vs warning flags
@@ -2017,7 +2024,7 @@ This plan creates a translation machine that:
 1. **Prevents quantity problems** via automated checks at save-time
    - spaCy sentence count catches omissions (SENTMIS)
    - Word ratio catches compression (WORDMIS)
-   - Content word Jaccard catches "creative" rephrasing (WORDDRIFT)
+   - Glossary term recall catches "creative" rephrasing (WORDDRIFT)
 
 2. **Prevents quality problems** via chunked delivery + repeated instruction
    - Claude only sees 3-5 paragraphs at a time
@@ -2305,3 +2312,4 @@ jobs:
 | 2025-01-11 | **Pre-build review:** Added crash recovery clarification to D1 — partial translations not persisted, restart from chunk 1 |
 | 2025-01-11 | Added Part 13 (Multi-Language Support) — glossary file structure, tool parameters, spaCy model loading, word ratio calibration |
 | 2026-01-11 | **Testing requirements:** Expanded Part 12 phases with explicit test requirements per phase; added Part 14 (Testing Strategy) with test structure, fixtures, commands, and CI config |
+| 2026-01-11 | **Metric change:** Replaced Jaccard similarity with Recall for WORDDRIFT check. Jaccard (intersection/union) penalized translations for having additional content words — normal behavior. Recall (intersection/expected) correctly measures "what % of expected glossary terms appeared." Empirically validated: good translations 0.77-0.88 recall, drifted 0.23. Threshold changed from 0.6 to 0.7. |

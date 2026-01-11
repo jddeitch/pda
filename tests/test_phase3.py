@@ -239,8 +239,8 @@ class TestWordRatio:
         assert result.flag == "WORDMIS"  # Outside acceptable range
 
 
-class TestJaccardSimilarity:
-    """Tests for content word Jaccard similarity check."""
+class TestGlossaryRecall:
+    """Tests for glossary term recall check (replaces Jaccard)."""
 
     def test_extracts_content_words_en(self):
         """Should extract nouns, verbs, and adjectives from English."""
@@ -271,9 +271,9 @@ class TestJaccardSimilarity:
         assert "le" not in words
         assert "un" not in words
 
-    def test_similarity_calculation_high(self):
-        """Should return high similarity when expected terms are found."""
-        from mcp_server.quality_checks import check_content_word_similarity
+    def test_high_recall_when_terms_present(self):
+        """Should return high recall when expected terms are found."""
+        from mcp_server.quality_checks import check_glossary_recall
 
         source = "The child shows demand avoidance and anxiety."
         translation = "L'enfant montre un évitement des demandes et de l'anxiété."
@@ -284,15 +284,15 @@ class TestJaccardSimilarity:
             "child": "enfant",
         }
 
-        result = check_content_word_similarity(source, translation, glossary)
+        result = check_glossary_recall(source, translation, glossary)
 
-        # Should have good similarity
-        assert result.similarity >= 0.5
-        assert result.flag is None or result.similarity >= 0.6
+        # Should have high recall (most expected terms present)
+        assert result.recall >= 0.7
+        assert result.flag is None
 
-    def test_worddrift_flag_when_low_similarity(self):
-        """Should flag WORDDRIFT when similarity below 0.6."""
-        from mcp_server.quality_checks import check_content_word_similarity
+    def test_worddrift_flag_when_low_recall(self):
+        """Should flag WORDDRIFT when recall below 0.7."""
+        from mcp_server.quality_checks import check_glossary_recall
 
         source = "The child shows demand avoidance and anxiety in clinical settings."
         # Translation uses completely different vocabulary
@@ -305,15 +305,15 @@ class TestJaccardSimilarity:
             "clinical": "clinique",
         }
 
-        result = check_content_word_similarity(source, translation, glossary)
+        result = check_glossary_recall(source, translation, glossary)
 
-        # Should have low similarity since expected terms are missing
+        # Should have low recall since expected terms are missing
         assert result.flag == "WORDDRIFT"
-        assert result.similarity < 0.6
+        assert result.recall < 0.7
 
     def test_skips_check_with_few_glossary_terms(self):
         """Should skip check when fewer than 3 glossary terms."""
-        from mcp_server.quality_checks import check_content_word_similarity
+        from mcp_server.quality_checks import check_glossary_recall
 
         source = "A short sentence."
         translation = "Une phrase courte."
@@ -321,28 +321,28 @@ class TestJaccardSimilarity:
         # Only 1 term - not enough for meaningful check
         glossary = {"sentence": "phrase"}
 
-        result = check_content_word_similarity(source, translation, glossary)
+        result = check_glossary_recall(source, translation, glossary)
 
         # Per plan: "Skip check if too few terms to be meaningful"
-        assert result.similarity == 1.0
+        assert result.recall == 1.0
         assert result.flag is None
 
     def test_skips_check_with_no_glossary(self):
         """Should return neutral result when no glossary provided."""
-        from mcp_server.quality_checks import check_content_word_similarity
+        from mcp_server.quality_checks import check_glossary_recall
 
-        result = check_content_word_similarity(
+        result = check_glossary_recall(
             "Source text here.",
             "Texte source ici.",
             glossary=None
         )
 
-        assert result.similarity == 1.0
+        assert result.recall == 1.0
         assert result.flag is None
 
     def test_returns_missing_expected_words(self):
         """Should return list of missing expected words."""
-        from mcp_server.quality_checks import check_content_word_similarity
+        from mcp_server.quality_checks import check_glossary_recall
 
         source = "The child shows demand avoidance and anxiety and stress."
         translation = "L'enfant montre quelque chose."  # Missing most terms
@@ -354,10 +354,41 @@ class TestJaccardSimilarity:
             "child": "enfant",
         }
 
-        result = check_content_word_similarity(source, translation, glossary)
+        result = check_glossary_recall(source, translation, glossary)
 
         # Should report missing expected words
         assert len(result.missing_expected) > 0
+
+    def test_recall_vs_jaccard_difference(self):
+        """Recall should pass good translations that Jaccard would fail.
+
+        This test validates the metric change: Jaccard penalizes translations
+        for having additional content words (normal), while recall only checks
+        if expected terms are present.
+        """
+        from mcp_server.quality_checks import check_glossary_recall
+
+        # Real-world example: source with few glossary terms, but translation
+        # has many additional content words (normal for a full translation)
+        source = "Children with PDA show demand avoidance and anxiety."
+        translation = (
+            "Les enfants avec PDA montrent un évitement des demandes et de l'anxiété. "
+            "Cette présentation clinique nécessite une évaluation approfondie et "
+            "des stratégies d'accompagnement personnalisées."
+        )
+
+        glossary = {
+            "demand avoidance": "évitement des demandes",
+            "anxiety": "anxiété",
+            "PDA": "PDA",
+        }
+
+        result = check_glossary_recall(source, translation, glossary)
+
+        # Recall should be high (expected terms are present)
+        # Jaccard would have been low (~0.15) due to extra content words
+        assert result.recall >= 0.7
+        assert result.flag is None
 
 
 class TestGlossaryVerification:
@@ -571,7 +602,7 @@ class TestBlockingVsWarning:
             word_ratio_check=WordRatioResult(
                 source_words=100, target_words=110, ratio=1.1, flag=None
             ),
-            jaccard_check=None,
+            recall_check=None,
             statistics_check=None,
             glossary_missing=[],
         )
@@ -586,7 +617,7 @@ class TestBlockingVsWarning:
             QualityCheckResults,
             SentenceCountResult,
             WordRatioResult,
-            JaccardResult,
+            GlossaryRecallResult,
             StatisticsResult,
         )
 
@@ -598,8 +629,8 @@ class TestBlockingVsWarning:
             word_ratio_check=WordRatioResult(
                 source_words=100, target_words=110, ratio=1.1, flag=None
             ),
-            jaccard_check=JaccardResult(
-                similarity=0.5, expected_words=set(), actual_words=set(),
+            recall_check=GlossaryRecallResult(
+                recall=0.5, expected_words=set(), actual_words=set(),
                 missing_expected=[], flag="WORDDRIFT"
             ),
             statistics_check=StatisticsResult(
@@ -631,7 +662,7 @@ class TestBlockingVsWarning:
             word_ratio_check=WordRatioResult(
                 source_words=100, target_words=200, ratio=2.0, flag="WORDMIS"
             ),
-            jaccard_check=None,
+            recall_check=None,
             statistics_check=StatisticsResult(
                 source_numbers=["42"], target_numbers=[],
                 missing=["42"], added=[], flag="STATMIS"

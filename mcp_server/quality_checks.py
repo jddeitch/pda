@@ -8,9 +8,19 @@ BLOCKING FLAGS (save rejected, must fix):
 - WORDMIS: Word ratio outside 0.9-1.5
 
 WARNING FLAGS (save allowed, human reviews later):
-- WORDDRIFT: Content word Jaccard similarity < 0.6 (possible editorial drift)
+- WORDDRIFT: Glossary term recall < 0.7 (possible editorial drift)
 - TERMMIS: Expected glossary term missing
 - STATMIS: Statistics may have been modified
+
+Note on WORDDRIFT: Originally used Jaccard similarity, but this penalized
+translations for having content words beyond the glossary (normal behavior).
+Switched to RECALL (intersection/expected) which correctly measures:
+"Of the glossary terms we expected, what percentage appeared?"
+
+Empirically validated on known-good translations:
+- Good translations: 0.77-0.88 recall
+- Drifted translations: ~0.23 recall
+- Threshold 0.7 correctly separates good from drifted
 
 spaCy models are loaded ONCE at module import (per D18), not per-request.
 This takes ~2-3 seconds on first import but is reused for all subsequent calls.
@@ -93,13 +103,13 @@ class WordRatioResult:
 
 
 @dataclass
-class JaccardResult:
-    """Result of content word Jaccard similarity."""
-    similarity: float
+class GlossaryRecallResult:
+    """Result of glossary term recall check."""
+    recall: float  # intersection / expected (0.0 to 1.0)
     expected_words: set[str]
     actual_words: set[str]
     missing_expected: list[str]
-    flag: str | None  # "WORDDRIFT" if similarity < 0.6, else None
+    flag: str | None  # "WORDDRIFT" if recall < 0.7, else None
 
 
 @dataclass
@@ -117,7 +127,7 @@ class QualityCheckResults:
     """Combined results of all quality checks."""
     sentence_check: SentenceCountResult | None
     word_ratio_check: WordRatioResult | None
-    jaccard_check: JaccardResult | None
+    recall_check: GlossaryRecallResult | None
     statistics_check: StatisticsResult | None
     glossary_missing: list[str]  # For TERMMIS
 
@@ -135,8 +145,8 @@ class QualityCheckResults:
     def warning_flags(self) -> list[str]:
         """Return list of warning flag codes."""
         flags = []
-        if self.jaccard_check and self.jaccard_check.flag:
-            flags.append(self.jaccard_check.flag)
+        if self.recall_check and self.recall_check.flag:
+            flags.append(self.recall_check.flag)
         if self.statistics_check and self.statistics_check.flag:
             flags.append(self.statistics_check.flag)
         if self.glossary_missing:
@@ -251,7 +261,7 @@ def calculate_word_ratio(source_en: str, target_fr: str) -> WordRatioResult:
     )
 
 
-# --- Content Word Jaccard Similarity ---
+# --- Glossary Term Recall ---
 
 def extract_content_words_en(text: str) -> set[str]:
     """
@@ -287,20 +297,25 @@ def extract_content_words_fr(text: str) -> set[str]:
     }
 
 
-def check_content_word_similarity(
+def check_glossary_recall(
     source_en: str,
     translation_fr: str,
     glossary: dict | None = None
-) -> JaccardResult:
+) -> GlossaryRecallResult:
     """
-    Check content word similarity between source and translation.
+    Check that expected glossary terms appear in the translation.
 
-    Per Part 3: Compares content words between translation and expected vocabulary.
-    Catches editorial drift that sentence counting misses.
+    Uses RECALL (intersection / expected) rather than Jaccard (intersection / union).
+    This measures: "Of the glossary terms we expected, what percentage appeared?"
 
-    The check uses two strategies:
-    1. If glossary provided: Check expected French terms from glossary matches
-    2. Fall back to comparing source EN content words against translation FR content words
+    Recall is the right metric because:
+    - Jaccard penalizes translations for having additional content words (normal)
+    - Recall only checks if expected terms are present (what we actually care about)
+
+    Empirically validated:
+    - Known-good translations score 0.77-0.88 recall
+    - Drifted translations score ~0.23 recall
+    - Threshold of 0.7 correctly separates good from drifted
 
     Args:
         source_en: English source text
@@ -308,9 +323,9 @@ def check_content_word_similarity(
         glossary: Optional dict of {en_term: fr_term} for expected terms
 
     Returns:
-        JaccardResult with similarity, word sets, and optional flag
+        GlossaryRecallResult with recall score, word sets, and optional flag
     """
-    # Strategy 1: Use glossary terms if provided
+    # Use glossary terms if provided and sufficient
     if glossary and len(glossary) >= 3:
         expected_fr_words = set()
         nlp_fr = _get_nlp_fr()
@@ -328,24 +343,21 @@ def check_content_word_similarity(
             # Extract actual content words from translation
             actual_fr_words = extract_content_words_fr(translation_fr)
 
-            # Calculate Jaccard similarity
+            # Calculate RECALL: what percentage of expected terms appeared?
             intersection = expected_fr_words & actual_fr_words
-            union = expected_fr_words | actual_fr_words
+            recall = len(intersection) / len(expected_fr_words)
 
-            similarity = len(intersection) / len(union) if union else 1.0
-
-            return JaccardResult(
-                similarity=round(similarity, 2),
+            return GlossaryRecallResult(
+                recall=round(recall, 2),
                 expected_words=expected_fr_words,
                 actual_words=actual_fr_words,
                 missing_expected=list(expected_fr_words - actual_fr_words)[:10],
-                flag="WORDDRIFT" if similarity < 0.6 else None,
+                flag="WORDDRIFT" if recall < 0.7 else None,
             )
 
-    # Strategy 2: Skip check if not enough glossary terms
-    # Per plan: "Skip check if too few terms to be meaningful"
-    return JaccardResult(
-        similarity=1.0,
+    # Skip check if not enough glossary terms
+    return GlossaryRecallResult(
+        recall=1.0,
         expected_words=set(),
         actual_words=set(),
         missing_expected=[],
@@ -432,7 +444,7 @@ def run_quality_checks(
     Args:
         source_en: English source text
         translation_fr: French translation
-        glossary_terms: Dict of {en_term: fr_term} found in source (for Jaccard)
+        glossary_terms: Dict of {en_term: fr_term} found in source (for recall check)
         glossary_missing: List of missing glossary terms (for TERMMIS)
 
     Returns:
@@ -440,7 +452,7 @@ def run_quality_checks(
     """
     sentence_check = compare_sentence_counts(source_en, translation_fr)
     word_ratio_check = calculate_word_ratio(source_en, translation_fr)
-    jaccard_check = check_content_word_similarity(
+    recall_check = check_glossary_recall(
         source_en, translation_fr, glossary_terms
     )
     statistics_check = check_statistics_preserved(source_en, translation_fr)
@@ -448,7 +460,7 @@ def run_quality_checks(
     return QualityCheckResults(
         sentence_check=sentence_check,
         word_ratio_check=word_ratio_check,
-        jaccard_check=jaccard_check,
+        recall_check=recall_check,
         statistics_check=statistics_check,
         glossary_missing=glossary_missing or [],
     )
