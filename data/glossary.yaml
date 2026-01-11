@@ -30,6 +30,10 @@ core_terms:
   - en: PDA presentation
     fr: présentation PDA
 
+  - en: PDA people and families
+    fr: personnes PDA et proches
+    note: Inclusive term for adults with PDA, children with PDA, and their family members/caregivers
+
 # Autism Spectrum Terms
 autism_terms:
   - en: Autism Spectrum Disorder (ASD)

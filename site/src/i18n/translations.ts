@@ -17,11 +17,13 @@ export const translations = {
     // Navigation
     nav: {
       home: "Accueil",
+      articles: "Articles",
       professionals: "Professionnels",
       families: "Familles",
       about: "À propos",
       search: "Rechercher",
-      categories: "Thèmes",
+      categories: "Catégories",
+      glossary: "Glossaire",
     },
 
     // Homepage - ICP cards
@@ -40,11 +42,54 @@ export const translations = {
 
     // Homepage sections
     home: {
-      heroTitle: "Évitement Pathologique des Demandes",
+      // Hero
+      heroBadge: "52 articles traduits · Sources évaluées par les pairs",
+      heroTitle: "La bibliothèque de recherche sur le PDA",
       heroSubtitle:
-        "Un profil comportemental au sein de l'autisme, pratiquement inconnu en France",
-      browseByTheme: "Parcourir par thème",
-      latestTranslations: "Dernières traductions",
+        "Littérature scientifique sur le Profil d'Évitement Pathologique des Demandes, traduite en français pour les cliniciens et familles francophones.",
+      heroDisclaimer: "Traductions d'articles publiés — pas de contenu original. Sources toujours citées.",
+
+      // Featured section
+      featuredTitle: "Pour commencer",
+      featuredIntro:
+        "Le PDA est un profil du spectre autistique caractérisé par un évitement intense des demandes du quotidien. Peu connu en France, il est souvent confondu avec un trouble oppositionnel ou une difficulté éducative. Les approches classiques aggravent fréquemment la situation.",
+      featuredSubtitle: "Ces articles offrent une introduction aux enjeux clés.",
+
+      // Featured cards
+      featuredWhatIs: "Qu'est-ce que le PDA ?",
+      featuredWhatIsDesc: "Définition, caractéristiques principales et place dans le spectre autistique.",
+      featuredRecognize: "Reconnaître le profil PDA",
+      featuredRecognizeDesc: "Signes cliniques, outils de dépistage et diagnostics différentiels.",
+      featuredApproaches: "Approches adaptées",
+      featuredApproachesDesc: "Stratégies éducatives et thérapeutiques spécifiques au profil PDA.",
+
+      // Categories section
+      browseByTheme: "Explorer par catégorie",
+      browseByThemeSubtitle: "Tous les articles, organisés par thème clinique.",
+      viewAllArticles: "Voir tous les articles",
+      articleCount: "{count} articles",
+
+      // Recent section
+      latestTranslations: "Ajouts récents",
+      latestSubtitle: "Dernières traductions publiées.",
+      readArticle: "Lire",
+
+      // Mission section
+      missionTitle: "Pourquoi ce site existe",
+      missionText:
+        "Il existe un seul article évalué par les pairs en français sur le PDA. Plus de 50 études ont été publiées en anglais — inaccessibles aux cliniciens francophones.",
+      missionCta: "En savoir plus",
+
+      // Footer
+      footerTagline: "Traductions de la littérature scientifique sur le Profil d'Évitement Pathologique des Demandes.",
+      footerDisclaimer: "Ce site traduit des articles publiés. Les sources originales sont toujours citées et liées.",
+      footerNavigation: "Navigation",
+      footerAbout: "À propos",
+      footerMethodology: "Méthodologie",
+      footerContact: "Contact",
+      footerGlossary: "Glossaire",
+
+      // Legacy (keep for compatibility)
       viewAll: "Voir tout",
     },
 
@@ -86,6 +131,7 @@ export const translations = {
       prise_en_charge: "Prise en charge",
       comorbidites: "Comorbidités",
       trajectoire: "Trajectoire développementale",
+      temoignages: "Témoignages",
     },
 
     // Category descriptions for cards
@@ -97,6 +143,7 @@ export const translations = {
       prise_en_charge: "Stratégies d'intervention, approches éducatives",
       comorbidites: "Anxiété, TDAH, conditions associées",
       trajectoire: "Enfants, adolescents, adultes",
+      temoignages: "Récits de personnes PDA et de leurs proches",
     },
 
     // Professionals landing page
@@ -170,11 +217,13 @@ export const translations = {
     // Navigation
     nav: {
       home: "Home",
+      articles: "Articles",
       professionals: "Professionals",
       families: "Families",
       about: "About",
       search: "Search",
-      categories: "Topics",
+      categories: "Categories",
+      glossary: "Glossary",
     },
 
     // Homepage - ICP cards
@@ -193,10 +242,54 @@ export const translations = {
 
     // Homepage sections
     home: {
-      heroTitle: "Pathological Demand Avoidance",
-      heroSubtitle: "A behavioral profile within autism, virtually unknown in France",
-      browseByTheme: "Browse by topic",
-      latestTranslations: "Latest translations",
+      // Hero
+      heroBadge: "52 articles translated · Peer-reviewed sources",
+      heroTitle: "The PDA Research Library",
+      heroSubtitle:
+        "Scientific literature on Pathological Demand Avoidance, translated into French for French-speaking clinicians and families.",
+      heroDisclaimer: "Translations of published articles — no original content. Sources always cited.",
+
+      // Featured section
+      featuredTitle: "Getting started",
+      featuredIntro:
+        "PDA is an autism spectrum profile characterized by intense avoidance of everyday demands. Little known in France, it is often mistaken for oppositional defiant disorder or a parenting issue. Standard approaches frequently make things worse.",
+      featuredSubtitle: "These articles offer an introduction to the key issues.",
+
+      // Featured cards
+      featuredWhatIs: "What is PDA?",
+      featuredWhatIsDesc: "Definition, key characteristics, and place within the autism spectrum.",
+      featuredRecognize: "Recognizing the PDA profile",
+      featuredRecognizeDesc: "Clinical signs, screening tools, and differential diagnosis.",
+      featuredApproaches: "Adapted approaches",
+      featuredApproachesDesc: "Educational and therapeutic strategies specific to the PDA profile.",
+
+      // Categories section
+      browseByTheme: "Browse by category",
+      browseByThemeSubtitle: "All articles, organized by clinical topic.",
+      viewAllArticles: "View all articles",
+      articleCount: "{count} articles",
+
+      // Recent section
+      latestTranslations: "Recent additions",
+      latestSubtitle: "Latest translations published.",
+      readArticle: "Read",
+
+      // Mission section
+      missionTitle: "Why this site exists",
+      missionText:
+        "There is only one peer-reviewed article on PDA in French. Over 50 studies have been published in English — inaccessible to French-speaking clinicians.",
+      missionCta: "Learn more",
+
+      // Footer
+      footerTagline: "Translations of scientific literature on Pathological Demand Avoidance.",
+      footerDisclaimer: "This site translates published articles. Original sources are always cited and linked.",
+      footerNavigation: "Navigation",
+      footerAbout: "About",
+      footerMethodology: "Methodology",
+      footerContact: "Contact",
+      footerGlossary: "Glossary",
+
+      // Legacy (keep for compatibility)
       viewAll: "View all",
     },
 
@@ -238,6 +331,7 @@ export const translations = {
       prise_en_charge: "Management",
       comorbidites: "Comorbidities",
       trajectoire: "Developmental Trajectory",
+      temoignages: "Lived Experience",
     },
 
     // Category descriptions
@@ -249,6 +343,7 @@ export const translations = {
       prise_en_charge: "Intervention strategies, educational approaches",
       comorbidites: "Anxiety, ADHD, overlapping conditions",
       trajectoire: "Children, adolescents, adults",
+      temoignages: "Accounts from PDA people and their families",
     },
 
     // Professionals landing page
