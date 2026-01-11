@@ -150,3 +150,74 @@ flags:
       - "Open Access" label
       - Creative Commons license
       - hosted on institutional repository
+
+# Processing flags — Single source of truth for all flag codes
+# MCP server loads these at startup for validation
+processing_flags:
+  # Content flags — Claude sets these based on article content
+  content:
+    TBL:
+      description: Article contains tables requiring special attention
+    FIG:
+      description: Article contains figures/images
+    META:
+      description: Article has significant metadata (appendices, supplementary)
+    LONG:
+      description: Article exceeds 15 pages / 5000 words
+    TERM:
+      description: Used terminology not in glossary
+    AMBIG:
+      description: Source text ambiguous or unclear
+
+  # Access flags — set based on how content was accessed
+  access:
+    PAYWALL:
+      description: Full text behind paywall, summary only translated
+    "404":
+      description: Source URL returned 404
+    NOURL:
+      description: No source URL available
+    PDFEXTRACT:
+      description: PDF extraction failed, needs manual preprocessing
+
+  # Classification uncertainty — Claude sets when unsure
+  classification:
+    METHUNC:
+      description: Uncertain about method classification
+    VOICEUNC:
+      description: Uncertain about voice classification
+    PEERUNC:
+      description: Uncertain about peer-reviewed status
+    NOSUMM:
+      description: No summary available in source
+    SRCUNK:
+      description: Could not derive source (journal/institution) automatically
+
+  # Relevance flags — for filtering/skipping
+  relevance:
+    TANGENT:
+      description: Article tangentially related to PDA
+    QUALITY:
+      description: Source quality concerns
+    SKIP:
+      description: Article should be skipped (with reason)
+
+  # Automated flags — MCP server sets these based on quality checks
+  automated:
+    blocking:
+      SENTMIS:
+        description: Sentence count mismatch >15% (spaCy tokenizer)
+        action: Must fix before save
+      WORDMIS:
+        description: Word count ratio outside 0.9-1.5 range
+        action: Must fix before save
+    warning:
+      WORDDRIFT:
+        description: Content word Jaccard similarity < 0.6 (possible editorial drift)
+        action: Human review recommended
+      TERMMIS:
+        description: Expected glossary term missing in translation
+        action: Human review recommended
+      STATMIS:
+        description: Statistics may have been modified
+        action: Human review recommended
