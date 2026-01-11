@@ -17,6 +17,8 @@ These decisions resolve ambiguities in the implementation:
 ### D1: Chunk Accumulation
 Claude holds translated chunks in memory during the loop. At save time, Claude concatenates and submits `translated_full_text`. If session crashes mid-article, work is lost — but this is acceptable because articles take 5-10 minutes max and `processing_status = 'in_progress'` means next session picks it up fresh.
 
+**Crash recovery clarification:** Partial translations are NOT persisted. If a crash occurs mid-article, the next session starts fresh from chunk 1. The `in_progress` status signals "restart this article from the beginning" not "resume from where you left off."
+
 ### D2: Classification Signals
 The `signals:` lists in taxonomy.yaml are decision aids for Claude, not machine-readable rules. Claude observes these while reading chunks (e.g., "University of X" suggests `academic`) and makes the classification call at the end. No server-side signal detection.
 
@@ -177,7 +179,7 @@ IF save_article() returns BLOCKING flags:
 # save_article() requires:
 save_article(article_id, validation_token="abc123-def456", ...)
 ```
-Tokens are single-use and expire after 10 minutes. This makes the workflow dependency explicit without server-side state tracking.
+Tokens are single-use and expire after 30 minutes. This makes the workflow dependency explicit without server-side state tracking. The 30-minute window accommodates long articles with many chunks while still preventing stale tokens from being reused across sessions.
 
 ### D9: skip_article() Semantics
 ```python
@@ -415,7 +417,7 @@ This means:
 
 **Token lifecycle:**
 1. `validate_classification()` creates token, stores classification data in `classification_data` JSON blob
-2. `save_article()` validates token exists, not used, not expired (10 min)
+2. `save_article()` validates token exists, not used, not expired (30 min)
 3. `save_article()` retrieves classification from token — Claude doesn't re-pass classification params
 4. On successful save, marks token as used
 5. Expired/used tokens cleaned up hourly
@@ -746,6 +748,38 @@ def clear_chunk_cache(article_id: str = None):
 - After `skip_article()` — article is skipped
 - On server restart — memory lost anyway
 - After 1 hour — prevents stale data if session interrupted
+
+### D27: Glossary Versioning
+
+The glossary may be updated during the project (new terms added, corrections made). To track which glossary version was used for each translation:
+
+```sql
+-- Add to articles table (migration)
+ALTER TABLE articles ADD COLUMN glossary_version TEXT;
+```
+
+**How it works:**
+1. `glossary.yaml` includes a `version` field at the top (e.g., `version: "2025-01-11"`)
+2. `save_article()` records the current glossary version in the article record
+3. TERMMIS checks are evaluated against the glossary version active at translation time
+4. If glossary is updated, previously translated articles are NOT automatically re-flagged
+
+**Re-validation (optional admin feature):**
+- Admin dashboard can show articles translated with older glossary versions
+- Human can trigger re-validation against current glossary if needed
+- This is informational only — doesn't invalidate existing translations
+
+```python
+# In glossary.py
+def get_glossary_version() -> str:
+    """Returns version string from glossary.yaml header."""
+    with open(GLOSSARY_PATH) as f:
+        glossary = yaml.safe_load(f)
+    return glossary.get('version', 'unknown')
+
+# In save_article()
+article_data['glossary_version'] = get_glossary_version()
+```
 
 ---
 
@@ -1142,7 +1176,7 @@ def validate_classification(
     {
         "valid": true,
         "token": "abc123-def456",  # Required for save_article()
-        "next_step": "Call save_article() with this token within 10 minutes."
+        "next_step": "Call save_article() with this token within 30 minutes."
     }
 
     Returns on failure:
@@ -1155,9 +1189,9 @@ def validate_classification(
     ERROR HANDLING:
     - If errors are returned, fix them and retry validate_classification()
     - Do NOT proceed to save_article() without a valid token
-    - Token expires after 10 minutes — if you take too long, re-validate
+    - Token expires after 30 minutes — if you take too long, re-validate
 
-    Token expires after 10 minutes. Single use.
+    Token expires after 30 minutes. Single use.
     """
 
 # Tool 4: Save completed article
@@ -1176,7 +1210,7 @@ def save_article(
 
     Workflow enforcement:
     - Validates token from validate_classification() — rejects if invalid/expired
-    - Tokens are single-use and expire after 10 minutes
+    - Tokens are single-use and expire after 30 minutes
 
     Quality checks (run automatically):
     - Sentence count ratio (SENTMIS if >15% variance)
@@ -1883,35 +1917,96 @@ processing_flags:
 
 ## Part 12: Implementation Plan
 
-### Phase 1: MCP Server Core (2-3 hours)
-- server.py, database.py, taxonomy.py
-- get_next_article(), get_progress()
-- Test basic tool invocation
+**Each phase is a gate.** A phase is complete when:
+1. All code for that phase is implemented
+2. All tests for that phase pass (`test_phase{N}.py`)
+3. All tests from previous phases still pass (regression check)
 
-### Phase 2: Chunked Delivery (2 hours)
-- get_chunk() with PDF extraction
-- Chunk splitting logic
-- Glossary term extraction per chunk
+Run `pytest tests/ -v` after completing each phase.
 
-### Phase 3: Quality Checks (1-2 hours)
-- spaCy sentence counting
-- Word ratio, glossary verification
-- BLOCKING vs WARNING classification
+### Phase 1: MCP Server Core
 
-### Phase 4: Validation + Save (1-2 hours)
-- validate_classification()
-- save_article() with transaction
-- human_review_interval enforcement
+**Implement:**
+- `server.py` — MCP server entry point with FastMCP
+- `database.py` — SQLite operations, session state, validation tokens
+- `taxonomy.py` — Load and validate against taxonomy.yaml
+- Tools: `get_next_article()`, `get_progress()`, `skip_article()`, `set_human_review_interval()`, `reset_session_counter()`
 
-### Phase 5: Admin Interface (2-3 hours)
-- Dashboard with progress
-- Article list with filters
-- Side-by-side review
+**Test (`tests/test_phase1.py`):**
+- `TestGetNextArticle`: returns pending article, marks in_progress, prioritizes crash recovery, SESSION_PAUSE when limit reached, COMPLETE when all done
+- `TestGetProgress`: accurate counts, includes session state
+- `TestSkipArticle`: marks skipped with flag, rejects invalid flags, doesn't increment counter
+- `TestSessionManagement`: interval validation (1-20), reset counter
+- `TestTaxonomy`: loads from YAML, validates methods/voices/flags, identifies blocking flags
+- `TestDatabase`: token lifecycle (create/validate/use), wrong article rejection, cleanup
 
-### Phase 6: Integration Testing (1-2 hours)
-- Process 3 articles end-to-end
-- Test crash recovery
-- Test SESSION_PAUSE
+### Phase 2: Chunked Delivery
+
+**Implement:**
+- `pdf_extraction.py` — PyMuPDF → pdfminer.six → pdfplumber fallback chain
+- `glossary.py` — Load glossary, match terms, verify translations
+- `tools.py` additions: `get_chunk()`, chunk splitting, cache management
+
+**Test (`tests/test_phase2.py`):**
+- `TestGetChunk`: article not found, paywalled returns error, no cache returns NOT_CACHED, response schema, chunk caching, complete response, extraction metadata
+- `TestPdfExtraction`: real PDF extraction, problem detection (TOOSHORT, NOPARAGRAPHS), .txt precedence, cache path lookup
+- `TestGlossary`: loads from YAML, has version, exact match, case-insensitive, word boundaries, French translations, verify missing terms, accepts fr_alt variants
+- `TestChunking`: splits on paragraphs, respects target count, handles long paragraphs, empty text
+- `TestChunkCache`: cleared on skip, article isolation, stores extraction metadata
+
+### Phase 3: Quality Checks
+
+**Implement:**
+- `quality_checks.py` — spaCy sentence counting, word ratios, Jaccard similarity, statistics check
+- Integrate checks into save workflow
+
+**Test (`tests/test_phase3.py`):**
+- `TestSentenceCounting`: accurate count for EN and FR, handles abbreviations (Dr., U.S.A.), ratio calculation, SENTMIS flag when >15% variance
+- `TestWordRatio`: calculates correctly, WORDMIS flag outside 0.9-1.5 range
+- `TestJaccardSimilarity`: content word extraction, similarity calculation, WORDDRIFT flag when <0.6
+- `TestGlossaryVerification`: TERMMIS for missing terms, accepts fr_alt variants, handles quotes edge case
+- `TestStatisticsCheck`: detects numbers in source, STATMIS when numbers differ
+- `TestBlockingVsWarning`: correctly classifies blocking (SENTMIS, WORDMIS) vs warning flags
+
+### Phase 4: Validation + Save
+
+**Implement:**
+- `tools.py` additions: `validate_classification()`, `save_article()`
+- Transaction handling, token validation, review interval enforcement
+
+**Test (`tests/test_phase4.py`):**
+- `TestValidateClassification`: validates method/voice/categories/keywords, rejects invalid values, returns token, suggests corrections
+- `TestSaveArticle`: requires valid token, rejects expired token, rejects used token, runs quality checks, blocks on SENTMIS/WORDMIS, accepts with warnings, increments session counter, writes all tables in transaction
+- `TestWorkflowEnforcement`: save without validate fails, token expires after 30 min, SESSION_PAUSE after interval reached
+- `TestTransactionRollback`: partial failure rolls back all changes
+- `TestCategoryStorage`: primary vs secondary, no duplicates, 1-3 categories
+
+### Phase 5: Admin Interface
+
+**Implement:**
+- Astro pages: `/admin/`, `/admin/articles/`, `/admin/articles/[id]`, `/admin/preprocessing`, `/admin/settings`
+- API routes for live stats refresh
+- Local-only access (ENABLE_ADMIN env var)
+
+**Test (`tests/test_phase5.py`):**
+- `TestAdminQueries`: getProgress, getSessionState, getFlaggedArticles return correct data
+- `TestAdminAccess`: routes redirect when ENABLE_ADMIN not set (if testable)
+- Integration testing via browser/Playwright is optional; focus on data layer
+
+### Phase 6: Integration Testing
+
+**Implement:**
+- End-to-end workflow tests with real or realistic data
+- Crash recovery scenarios
+- Full translation cycle
+
+**Test (`tests/test_phase6.py`):**
+- `TestEndToEnd`: complete article workflow (get_next → chunks → validate → save)
+- `TestCrashRecovery`: in_progress article picked up on restart, chunk cache regenerated
+- `TestSessionPause`: pause triggers at interval, continues after reset
+- `TestPaywalledFlow`: title/summary only, no chunks, save with null full_text
+- `TestSkipFlow`: extraction failure → skip → next article
+- `TestMultipleArticles`: process 3 articles sequentially, verify state consistency
 
 ---
 
@@ -1949,9 +2044,226 @@ This plan creates a translation machine that:
 6. **Handles edge cases explicitly**
    - Paywalled articles: title + summary translated, chunk loop skipped
    - Title/summary always translated BEFORE chunk loop
-   - Validation tokens expire after 10 minutes, single-use
+   - Validation tokens expire after 30 minutes, single-use
 
 The key insight: **chunked delivery is the quality control mechanism**, not logging or paragraph-by-paragraph enforcement. By controlling what Claude sees, we prevent the failure modes that matter.
+
+---
+
+## Part 13: Multi-Language Support
+
+The Translation Machine is designed to support additional target languages (Spanish, German, etc.) with minimal changes.
+
+### What's Language-Agnostic (No Changes Needed)
+
+- MCP server architecture (chunking, validation tokens, workflow enforcement)
+- Database schema (`translations` table already has `language` column)
+- PDF extraction pipeline
+- Human review interval mechanism
+- Admin interface structure
+- Validation token system
+
+### What Requires Language-Specific Additions
+
+| Component | Current State | For New Language |
+|-----------|---------------|------------------|
+| Glossary files | `data/glossary_fr.yaml` | Add `glossary_es.yaml`, `glossary_de.yaml` |
+| spaCy models | `fr_core_news_sm` | Add `es_core_news_sm`, `de_core_news_sm` |
+| Taxonomy labels | FR labels in `taxonomy.yaml` | Add ES/DE label columns |
+| Astro i18n | FR/EN in `translations.ts` | Add ES/DE UI strings |
+| Quality check ratios | FR word ratio 1.1-1.2x | Calibrate per language |
+
+### Glossary File Structure
+
+Separate files per language (easier to manage, cleaner diffs, different reviewers):
+
+```
+data/
+├── glossary_fr.yaml    # EN→FR (~200 terms)
+├── glossary_es.yaml    # EN→ES (future)
+├── glossary_de.yaml    # EN→DE (future)
+└── glossary_schema.yaml # Shared structure definition
+```
+
+Each glossary file:
+```yaml
+version: "2025-01-11"
+language: "fr"  # or "es", "de"
+terms:
+  demand_avoidance:
+    en: "demand avoidance"
+    target: "évitement des demandes"
+    target_alt: ["évitement de la demande"]
+    abbreviation: "DA"
+  # ...
+```
+
+### Tool Changes for Multi-Language
+
+Add `target_language` parameter to:
+
+```python
+def get_next_article(target_language: str = "fr") -> dict:
+    """
+    Returns next article needing translation into target_language.
+    Filters by: translations table WHERE language = target_language AND status != 'translated'
+    """
+
+def get_chunk(article_id: str, chunk_number: int, target_language: str = "fr") -> dict:
+    """
+    Returns glossary terms from glossary_{target_language}.yaml
+    """
+
+def save_article(..., target_language: str = "fr") -> dict:
+    """
+    Saves to translations table with language = target_language
+    Uses appropriate spaCy model for quality checks
+    """
+```
+
+### spaCy Model Loading
+
+```python
+# Load models for all configured languages at startup
+LANGUAGE_MODELS = {
+    "en": spacy.load("en_core_web_sm"),
+    "fr": spacy.load("fr_core_news_sm"),
+    # Add as needed:
+    # "es": spacy.load("es_core_news_sm"),
+    # "de": spacy.load("de_core_news_sm"),
+}
+
+def get_target_nlp(language: str):
+    if language not in LANGUAGE_MODELS:
+        raise ValueError(f"No spaCy model configured for language: {language}")
+    return LANGUAGE_MODELS[language]
+```
+
+### Word Ratio Calibration
+
+Different language pairs have different expansion ratios:
+
+| Source → Target | Typical Ratio | Acceptable Range |
+|-----------------|---------------|------------------|
+| EN → FR | 1.1-1.2x | 0.9-1.5 |
+| EN → ES | 1.2-1.3x | 0.95-1.6 |
+| EN → DE | 1.1-1.2x | 0.9-1.5 |
+
+Store in config, not hardcoded:
+```python
+WORD_RATIO_RANGES = {
+    "fr": (0.9, 1.5),
+    "es": (0.95, 1.6),
+    "de": (0.9, 1.5),
+}
+```
+
+### The Real Work: Glossaries
+
+The ~200 clinical terms need expert translation for each language. This is domain expertise, not engineering:
+
+1. **Find a domain expert** — Clinician or academic translator familiar with autism/PDA literature in target language
+2. **Translate the glossary** — Not just words, but the right clinical register
+3. **Find reference material** — Equivalent of Philippe & Contejean for each language (if it exists)
+4. **Validate with native speakers** — Clinicians in target country
+
+The Translation Machine handles the workflow; the glossary handles the quality.
+
+---
+
+## Part 14: Testing Strategy
+
+### Philosophy
+
+**Tests are phase gates.** A phase is not complete until:
+1. All tests for that phase pass
+2. All tests from previous phases still pass (regression check)
+
+This prevents "it works in isolation but breaks integration" problems. Run the full test suite after every phase.
+
+### Test Structure
+
+```
+tests/
+├── __init__.py
+├── conftest.py           # Shared fixtures: test_db, sample_articles, cached_pdf, etc.
+├── test_phase1.py        # Core tools, session management, taxonomy validation
+├── test_phase2.py        # Chunked delivery, PDF extraction, glossary matching
+├── test_phase3.py        # Quality checks (spaCy sentence counting, ratios, Jaccard)
+├── test_phase4.py        # Validation + save workflow, transactions, token lifecycle
+├── test_phase5.py        # Admin interface data layer (optional: browser tests)
+└── test_phase6.py        # Integration: end-to-end workflows, crash recovery
+```
+
+### Running Tests
+
+```bash
+# Run all tests (do this after every phase)
+/opt/homebrew/bin/python3.11 -m pytest tests/ -v
+
+# Run specific phase tests
+/opt/homebrew/bin/python3.11 -m pytest tests/test_phase3.py -v
+
+# Run with coverage report
+/opt/homebrew/bin/python3.11 -m pytest tests/ --cov=mcp_server --cov-report=term-missing
+
+# Run tests matching a pattern
+/opt/homebrew/bin/python3.11 -m pytest tests/ -k "sentence" -v
+```
+
+### Fixtures (conftest.py)
+
+The shared fixtures provide:
+
+| Fixture | Purpose |
+|---------|---------|
+| `test_db` | Fresh SQLite database with schema, isolated per test |
+| `sample_articles` | Inserts 5 test articles (pending, translated, skipped, paywalled) |
+| `db_with_articles` | Database with articles + patches module to use it |
+| `cached_pdf` | Real or mock PDF in cache directory for extraction tests |
+| `sample_text` | Multi-paragraph English text for chunking tests |
+| `clear_chunk_cache` | Clears chunk cache before/after test |
+
+### Test Dependencies
+
+Add to `pyproject.toml`:
+```toml
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio",
+    "pytest-cov",
+]
+```
+
+### Writing Good Tests
+
+1. **One assertion per concept** — Test one behavior, even if it needs multiple asserts
+2. **Use descriptive names** — `test_returns_session_pause_when_limit_reached` not `test_limit`
+3. **Test edge cases** — Empty strings, None values, boundary conditions
+4. **Test error paths** — Invalid inputs should return structured errors, not exceptions
+5. **Don't test implementation** — Test behavior, not internal state
+
+### Continuous Integration (Future)
+
+When ready, add GitHub Actions:
+```yaml
+# .github/workflows/test.yml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e ".[dev]"
+      - run: python -m spacy download en_core_web_sm
+      - run: python -m spacy download fr_core_news_sm
+      - run: pytest tests/ -v --cov=mcp_server
+```
 
 ---
 
@@ -1988,3 +2300,8 @@ The key insight: **chunked delivery is the quality control mechanism**, not logg
 | 2025-01-11 | **Ambiguity resolutions:** Updated D12 with fr_alt variant support and quote edge case documentation |
 | 2025-01-11 | **Ambiguity resolutions:** Clarified get_chunk() response schema with error/success distinction and extraction_warnings field |
 | 2025-01-11 | **Ambiguity resolutions:** Fixed spaCy installation instructions — use standard download commands, pin library not models |
+| 2025-01-11 | **Pre-build review:** Extended validation token expiry from 10 to 30 minutes (accommodates long articles) |
+| 2025-01-11 | **Pre-build review:** Added D27 (glossary versioning) — tracks which glossary version was used per article |
+| 2025-01-11 | **Pre-build review:** Added crash recovery clarification to D1 — partial translations not persisted, restart from chunk 1 |
+| 2025-01-11 | Added Part 13 (Multi-Language Support) — glossary file structure, tool parameters, spaCy model loading, word ratio calibration |
+| 2026-01-11 | **Testing requirements:** Expanded Part 12 phases with explicit test requirements per phase; added Part 14 (Testing Strategy) with test structure, fixtures, commands, and CI config |
