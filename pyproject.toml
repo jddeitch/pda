@@ -1,0 +1,31 @@
+[project]
+name = "pda-translation-machine"
+version = "0.1.0"
+description = "MCP server for PDA France translation pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "PyMuPDF",
+    "pdfminer.six",
+    "pdfplumber",
+    "spacy>=3.7,<4.0",
+    "rapidfuzz",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[project.scripts]
+pda-mcp = "mcp_server.server:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mcp_server*"]
