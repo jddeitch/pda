@@ -368,6 +368,8 @@ The `classification_data` JSON blob stores ALL validated classification fields:
 }
 ```
 
+This matches the `validate_classification()` parameter format (see D20).
+
 This means:
 - Claude passes classification to `validate_classification()` ONCE
 - Server validates and stores in token
@@ -978,17 +980,20 @@ def validate_classification(
     voice: str,
     peer_reviewed: bool,
     open_access: bool,
-    categories: list[dict],  # [{"id": "fondements", "is_primary": true}, ...]
+    primary_category: str,              # Required, e.g., "fondements"
+    secondary_categories: list[str],    # 0-2 items, e.g., ["presentation_clinique"]
     keywords: list[str]
 ) -> dict:
     """
     Validates all classification fields against taxonomy.yaml.
     MUST be called before save_article() — returns token required for save.
+    See D20 for categories parameter format.
 
     Checks:
     - method is one of: empirical, synthesis, theoretical, lived_experience
     - voice is one of: academic, practitioner, organization, individual
-    - categories: 1-3 entries, all valid IDs, exactly one is_primary=true
+    - primary_category: required, must exist in taxonomy.yaml
+    - secondary_categories: 0-2 items, all must exist, no duplicates with primary
     - keywords: 5-15 entries
 
     Returns on success:
@@ -1822,3 +1827,4 @@ The key insight: **chunked delivery is the quality control mechanism**, not logg
 | 2025-01-11 | **Plan review edits:** Updated save_article() signature to use simplified flags: list[dict] format |
 | 2025-01-11 | **Plan review edits:** Added Tool 9 (ingest_article) to Part 4.1 tools list |
 | 2025-01-11 | **Final review:** Confirmed Jaccard check stays at 0.6 threshold with ≥3 term minimum; glossary (~200 terms) provides sufficient coverage. No rollback mechanism needed — re-translation overwrites. |
+| 2025-01-11 | **Consistency fix:** Aligned validate_classification() signature with D20 — uses `primary_category: str` + `secondary_categories: list[str]` instead of `categories: list[dict]` |
