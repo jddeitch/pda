@@ -11,9 +11,11 @@ Phase 1 tools:
 Phase 2 tools:
 - get_chunk() — get a chunk of article text for translation
 
+Phase 4 tools:
+- validate_classification() — validate classification fields, return token
+- save_article() — save article with quality checks
+
 Later phases will add:
-- validate_classification()
-- save_article()
 - ingest_article()
 """
 
@@ -25,12 +27,13 @@ from typing import Any
 
 from .database import get_database
 from .taxonomy import get_taxonomy
-from .glossary import find_glossary_terms_in_text
+from .glossary import find_glossary_terms_in_text, get_glossary_version, verify_glossary_terms
 from .pdf_extraction import (
     extract_article_text,
     get_cached_path,
     CACHE_DIR,
 )
+from .quality_checks import run_quality_checks
 
 logger = logging.getLogger(__name__)
 
@@ -576,3 +579,393 @@ def get_chunk(article_id: str, chunk_number: int) -> dict[str, Any]:
         "extraction_warnings": extraction_warnings,
         "complete": False,
     }
+
+
+# --- Phase 4: validate_classification() and save_article() ---
+
+def validate_classification(
+    article_id: str,
+    method: str,
+    voice: str,
+    peer_reviewed: bool,
+    open_access: bool,
+    primary_category: str,
+    secondary_categories: list[str],
+    keywords: list[str]
+) -> dict[str, Any]:
+    """
+    Validate classification fields against taxonomy.yaml.
+
+    MUST be called before save_article() — returns token required for save.
+
+    Per D17 and D20:
+    - method must be one of: empirical, synthesis, theoretical, lived_experience
+    - voice must be one of: academic, practitioner, organization, individual
+    - primary_category: required, must exist in taxonomy.yaml
+    - secondary_categories: 0-2 items, all must exist, no duplicates with primary
+    - keywords: 5-15 entries
+
+    Response schemas:
+
+    SUCCESS:
+    {
+        "valid": true,
+        "token": "abc123...",
+        "next_step": "Call save_article() with this token within 30 minutes."
+    }
+
+    FAILURE:
+    {
+        "valid": false,
+        "errors": ["Invalid method: 'empiric' — did you mean 'empirical'?", ...],
+        "action": "Fix the errors and call validate_classification() again."
+    }
+    """
+    db = get_database()
+    taxonomy = get_taxonomy()
+
+    errors: list[str] = []
+
+    # Validate method
+    if not taxonomy.is_valid_method(method):
+        suggestion = _suggest_correction(method, taxonomy.methods)
+        errors.append(f"Invalid method: '{method}'{suggestion}")
+
+    # Validate voice
+    if not taxonomy.is_valid_voice(voice):
+        suggestion = _suggest_correction(voice, taxonomy.voices)
+        errors.append(f"Invalid voice: '{voice}'{suggestion}")
+
+    # Validate primary_category
+    if not primary_category:
+        errors.append("primary_category is required.")
+    elif not taxonomy.is_valid_category(primary_category):
+        suggestion = _suggest_correction(primary_category, taxonomy.categories)
+        errors.append(f"Invalid primary_category: '{primary_category}'{suggestion}")
+
+    # Validate secondary_categories
+    if secondary_categories:
+        if len(secondary_categories) > 2:
+            errors.append(
+                f"Too many secondary_categories: {len(secondary_categories)} provided, max 2 allowed."
+            )
+
+        for cat in secondary_categories:
+            if not taxonomy.is_valid_category(cat):
+                suggestion = _suggest_correction(cat, taxonomy.categories)
+                errors.append(f"Invalid secondary_category: '{cat}'{suggestion}")
+
+        # Check for duplicates between primary and secondary
+        if primary_category in secondary_categories:
+            errors.append(
+                f"Duplicate category: '{primary_category}' appears in both primary and secondary."
+            )
+
+        # Check for duplicates within secondary
+        if len(secondary_categories) != len(set(secondary_categories)):
+            errors.append("Duplicate categories in secondary_categories.")
+
+    # Validate keywords
+    if not keywords:
+        errors.append("keywords is required (5-15 items).")
+    elif len(keywords) < 5:
+        errors.append(f"Too few keywords: {len(keywords)} provided, minimum 5 required.")
+    elif len(keywords) > 15:
+        errors.append(f"Too many keywords: {len(keywords)} provided, maximum 15 allowed.")
+
+    # If errors, return failure
+    if errors:
+        return {
+            "valid": False,
+            "errors": errors,
+            "action": "Fix the errors and call validate_classification() again.",
+        }
+
+    # Store classification data and create token
+    classification_data = {
+        "method": method,
+        "voice": voice,
+        "peer_reviewed": peer_reviewed,
+        "open_access": open_access,
+        "primary_category": primary_category,
+        "secondary_categories": secondary_categories,
+        "keywords": keywords,
+    }
+
+    token = db.create_validation_token(article_id, classification_data)
+
+    return {
+        "valid": True,
+        "token": token,
+        "next_step": "Call save_article() with this token within 30 minutes.",
+    }
+
+
+def _suggest_correction(value: str, valid_options: list[str]) -> str:
+    """
+    Suggest a correction for an invalid value.
+
+    Uses simple string matching to find similar valid options.
+    """
+    value_lower = value.lower()
+
+    # Check for prefix match
+    for opt in valid_options:
+        if opt.lower().startswith(value_lower) or value_lower.startswith(opt.lower()):
+            return f" — did you mean '{opt}'?"
+
+    # Check for substring match
+    for opt in valid_options:
+        if value_lower in opt.lower() or opt.lower() in value_lower:
+            return f" — did you mean '{opt}'?"
+
+    # No close match found — list valid options
+    return f". Valid options: {', '.join(valid_options)}"
+
+
+def save_article(
+    article_id: str,
+    validation_token: str,
+    source: str,
+    doi: str | None,
+    translated_title: str,
+    translated_summary: str,
+    translated_full_text: str | None,
+    flags: list[dict[str, str]]
+) -> dict[str, Any]:
+    """
+    Save completed article to database in single transaction.
+
+    Per D8, D17, D22, and Part 4.1:
+    - Validates token from validate_classification() — rejects if invalid/expired
+    - Tokens are single-use and expire after 30 minutes
+    - Runs quality checks (sentence count, word ratio, glossary recall)
+    - BLOCKING flags reject the save; WARNING flags allow save with human review
+
+    Flag handling (per D22):
+    - flags: list of {"code": str, "detail": str}
+    - Server validates each code against taxonomy.yaml
+    - Server stores processing_flags = JSON array of codes
+    - Server stores processing_notes = formatted string from details
+
+    Response schemas:
+
+    SUCCESS:
+    {
+        "success": true,
+        "warning_flags": ["TERMMIS"],  # Empty if none
+        "next_step": "Call get_next_article() to continue, or stop if SESSION_PAUSE."
+    }
+
+    BLOCKING FLAGS (save rejected):
+    {
+        "success": false,
+        "blocking_flags": ["SENTMIS"],
+        "details": {"SENTMIS": "Source: 45 sentences, Target: 32 sentences (ratio: 0.71)"},
+        "action": "Fix the translation to address the blocking issue, then re-validate and save."
+    }
+
+    INVALID TOKEN:
+    {
+        "success": false,
+        "error": "INVALID_TOKEN",
+        "message": "Token not found.",
+        "action": "Call validate_classification() again to get a fresh token."
+    }
+    """
+    db = get_database()
+    taxonomy = get_taxonomy()
+
+    # Validate token
+    token_result = db.validate_token(validation_token, article_id)
+    if not token_result.get("valid"):
+        return {
+            "success": False,
+            "error": token_result.get("error", "INVALID_TOKEN"),
+            "message": token_result.get("message", "Token validation failed."),
+            "action": "Call validate_classification() again to get a fresh token.",
+        }
+
+    # Extract classification data from token
+    classification = token_result["classification_data"]
+
+    # Validate flags format
+    for flag in flags:
+        if not isinstance(flag, dict):
+            return {
+                "success": False,
+                "error": "INVALID_FLAGS",
+                "message": "Each flag must be a dict with 'code' and 'detail' keys.",
+                "action": "Fix flag format and retry.",
+            }
+        if "code" not in flag or "detail" not in flag:
+            return {
+                "success": False,
+                "error": "INVALID_FLAGS",
+                "message": "Each flag must have 'code' and 'detail' keys.",
+                "action": "Fix flag format and retry.",
+            }
+        if not taxonomy.is_valid_flag(flag["code"]):
+            return {
+                "success": False,
+                "error": "INVALID_FLAGS",
+                "message": f"Invalid flag code: '{flag['code']}'",
+                "valid_flags": list(taxonomy.get_all_flag_codes()),
+                "action": "Fix flag code and retry.",
+            }
+
+    # Get article to retrieve source text for quality checks
+    article = db.get_article_by_id(article_id)
+    if not article:
+        return {
+            "success": False,
+            "error": "ARTICLE_NOT_FOUND",
+            "message": f"Article '{article_id}' not found.",
+            "action": "Call get_next_article() to get a valid article.",
+        }
+
+    # Run quality checks if we have full text translation
+    blocking_flags: dict[str, str] = {}
+    warning_flags: list[str] = []
+
+    if translated_full_text and classification.get("open_access"):
+        # Get source text from cache for comparison
+        cache_entry = _get_cached_entry(article_id)
+        if cache_entry:
+            # Join all chunks to get full source text
+            source_text = "\n\n".join(cache_entry.chunks)
+
+            # Get glossary terms found in source
+            glossary_terms = find_glossary_terms_in_text(source_text)
+
+            # Run glossary verification
+            missing_terms = verify_glossary_terms(source_text, translated_full_text)
+
+            # Run quality checks
+            quality_results = run_quality_checks(
+                source_en=source_text,
+                translation_fr=translated_full_text,
+                glossary_terms=glossary_terms,
+                glossary_missing=missing_terms,
+            )
+
+            # Check for blocking flags
+            if quality_results.sentence_check and quality_results.sentence_check.flag:
+                sc = quality_results.sentence_check
+                blocking_flags["SENTMIS"] = (
+                    f"Source: {sc.source_count} sentences, "
+                    f"Target: {sc.target_count} sentences (ratio: {sc.ratio})"
+                )
+
+            if quality_results.word_ratio_check and quality_results.word_ratio_check.flag:
+                wc = quality_results.word_ratio_check
+                blocking_flags["WORDMIS"] = (
+                    f"Source: {wc.source_words} words, "
+                    f"Target: {wc.target_words} words (ratio: {wc.ratio})"
+                )
+
+            # Collect warning flags
+            warning_flags.extend(quality_results.warning_flags)
+
+    # If blocking flags, reject save
+    if blocking_flags:
+        return {
+            "success": False,
+            "blocking_flags": list(blocking_flags.keys()),
+            "details": blocking_flags,
+            "action": "Fix the translation to address the blocking issue, then re-validate and save.",
+        }
+
+    # Prepare flag data for storage
+    all_flag_codes = [f["code"] for f in flags]
+    all_flag_codes.extend(warning_flags)
+
+    # Format processing_notes from flag details
+    notes_parts = []
+    for flag in flags:
+        if flag["detail"]:
+            notes_parts.append(f"[{flag['code']}] {flag['detail']}")
+    processing_notes = "; ".join(notes_parts)
+
+    # Add warning flag notes
+    if warning_flags:
+        warning_note = f"[QUALITY] Auto-detected: {', '.join(warning_flags)}"
+        if processing_notes:
+            processing_notes = f"{processing_notes}; {warning_note}"
+        else:
+            processing_notes = warning_note
+
+    # Get extraction metadata if available
+    cache_entry = _get_cached_entry(article_id)
+    extraction_method = cache_entry.extractor_used if cache_entry else None
+    extraction_problems = cache_entry.extraction_problems if cache_entry else []
+
+    # Get glossary version
+    glossary_version = get_glossary_version()
+
+    # Execute save in transaction
+    try:
+        # Update article with classification and status
+        db.mark_article_translated(
+            article_id=article_id,
+            method=classification["method"],
+            voice=classification["voice"],
+            peer_reviewed=classification["peer_reviewed"],
+            source=source,
+            processing_flags=all_flag_codes,
+            processing_notes=processing_notes,
+            extraction_method=extraction_method,
+            extraction_problems=extraction_problems,
+            glossary_version=glossary_version,
+        )
+
+        # Save translation
+        db.save_translation(
+            article_id=article_id,
+            target_language="fr",
+            translated_title=translated_title,
+            translated_summary=translated_summary,
+            translated_full_text=translated_full_text,
+        )
+
+        # Set categories
+        db.set_article_categories(
+            article_id=article_id,
+            primary_category=classification["primary_category"],
+            secondary_categories=classification["secondary_categories"],
+        )
+
+        # Set keywords
+        db.set_article_keywords(
+            article_id=article_id,
+            keywords=classification["keywords"],
+        )
+
+        # Mark token as used
+        db.mark_token_used(validation_token)
+
+        # Commit transaction
+        db.commit()
+
+        # Increment session counter
+        db.increment_session_count()
+
+        # Clear chunk cache for this article
+        clear_chunk_cache(article_id)
+
+        return {
+            "success": True,
+            "warning_flags": warning_flags,
+            "next_step": "Call get_next_article() to continue, or stop if SESSION_PAUSE.",
+        }
+
+    except Exception as e:
+        # Rollback on any failure
+        db.rollback()
+        logger.error(f"Save failed for article {article_id}: {e}")
+        return {
+            "success": False,
+            "error": "SAVE_FAILED",
+            "message": str(e),
+            "action": "Retry save_article() or contact support if error persists.",
+        }
