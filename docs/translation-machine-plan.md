@@ -504,11 +504,26 @@ secondary_categories: list[str] = ["presentation_clinique"]  # May be empty
 
 The `ingest_article()` tool completes the automation loop by allowing new PDFs to enter the translation pipeline without manual database insertion.
 
-**Workflow:**
+**Workflow (single step — URL optional):**
 1. Human drops PDF into `intake/articles/`
 2. Claude (or human) calls `ingest_article(filename)`
-3. Server extracts metadata, derives source, creates article record
-4. Article becomes available via `get_next_article()`
+3. Server extracts metadata (title, DOI), derives source
+4. Server extracts text and generates `summary_original` from first ~150 words
+5. If DOI found, auto-populates source_url from doi.org
+6. Article created with `processing_status = 'pending'` — ready immediately
+7. Translation can begin via `get_next_article()`
+8. URL can be added/updated anytime via `set_article_url()` or admin interface (required before publishing)
+
+**Summary generation:** The server extracts the first ~150 words from the article, skipping header material (short lines, metadata, all-caps text). This provides Claude with source material to translate `translated_summary` without needing to process the full article first.
+
+**URL lookup workflow (for articles without DOI):**
+1. After ingestion, articles without DOI have `source_url = null`
+2. Call `search_article_url(article_id)` to get title/source for web search
+3. Claude uses WebSearch to find the canonical URL
+4. Call `set_article_url(article_id, url)` to save it
+5. Admin interface also provides URL editing and a "Missing URL" filter
+
+**Why single step?** URL shouldn't block translation. The real work is translation — URL is just metadata needed for the published site. Papers with DOIs get URLs automatically; others can have URLs added later.
 
 ```python
 def ingest_article(filename: str) -> dict:
@@ -518,11 +533,13 @@ def ingest_article(filename: str) -> dict:
     Steps:
     1. Verify file exists in intake/articles/
     2. Extract PDF metadata (title, authors, DOI if present)
-    3. Generate article_id from slugified title + year
-    4. Derive source using D14 cascade
-    5. Create article record with processing_status = 'pending'
-    6. Move PDF to cache/articles/{article_id}.pdf
-    7. Return article details for verification
+    3. Extract text and generate summary from first ~150 words
+    4. Generate article_id from slugified title + year
+    5. Derive source using D14 cascade
+    6. If DOI found: auto-populate source_url (https://doi.org/{doi})
+    7. Create article record with processing_status = 'pending'
+    8. Copy PDF to cache/articles/{article_id}.pdf
+    9. Return article details — ready for translation
 
     Parameters:
         filename: Name of PDF file in intake/articles/ (e.g., "smith-2024-pda.pdf")
@@ -536,10 +553,11 @@ def ingest_article(filename: str) -> dict:
             "authors": "Smith, J., Jones, M.",
             "source": "Journal of Autism Research",  # Derived or SRCUNK flag
             "doi": "10.1234/jar.2024.001",  # Or null
-            "source_url": null,  # No URL for manually added PDFs
+            "source_url": "https://doi.org/10.1234/jar.2024.001",  # Auto from DOI, or null
+            "summary_preview": "First 200 chars of extracted summary...",
             "open_access": true  # We have the PDF, so we can translate full text
         },
-        "next_step": "Verify details are correct, then call get_next_article() to begin translation."
+        "next_step": "Article added to queue. Call get_next_article() to begin translation."
     }
 
     Returns on failure:
@@ -554,6 +572,53 @@ def ingest_article(filename: str) -> dict:
     - Slugify: lowercase, replace spaces with hyphens, remove special chars
     - Example: "Smith (2024) Demand Avoidance Study" → "smith-2024-demand-avoidance-study"
     - If duplicate, append -2, -3, etc.
+    """
+
+def search_article_url(article_id: str) -> dict:
+    """
+    Get article details to search for its canonical URL.
+
+    Use for articles without a source_url. Returns title and search hints.
+    Claude should then use WebSearch to find the URL and call set_article_url().
+
+    Returns:
+    {
+        "success": true,
+        "has_url": false,  # true if URL already exists
+        "article_id": "smith-2024-demand-avoidance-study",
+        "title": "A Study of Demand Avoidance in Children",
+        "doi": null,
+        "source": "Journal of Autism Research",
+        "search_query": "A Study of Demand Avoidance in Children Journal of Autism Research",
+        "instructions": "Search the web for this article..."
+    }
+    """
+
+def set_article_url(article_id: str, source_url: str) -> dict:
+    """
+    Sets or updates the source URL for an article.
+
+    Can be called at any time — before, during, or after translation.
+    URL is required before publishing but not for translation workflow.
+
+    Parameters:
+        article_id: The article ID
+        source_url: The canonical URL where the original article can be found
+
+    Returns on success:
+    {
+        "success": true,
+        "article_id": "smith-2024-demand-avoidance-study",
+        "source_url": "https://doi.org/10.1234/jar.2024.001",
+        "message": "Source URL updated."
+    }
+
+    Returns on failure:
+    {
+        "success": false,
+        "error": "NOT_FOUND" | "INVALID_URL",
+        "details": "..."
+    }
     """
 ```
 
@@ -1292,6 +1357,13 @@ def ingest_article(filename: str) -> dict:
     Ingests a PDF from intake/articles/ into the database.
     See D21 for full specification.
 
+    Creates article with status 'pending' — ready for translation immediately.
+    Extracts metadata (title, authors, DOI) and generates a summary from
+    the first ~150 words of the article.
+
+    If DOI found, source_url is auto-populated from doi.org.
+    URL can be updated later via set_article_url() or admin interface.
+
     Parameters:
         filename: Name of PDF file in intake/articles/ (e.g., "smith-2024-pda.pdf")
 
@@ -1304,15 +1376,70 @@ def ingest_article(filename: str) -> dict:
             "authors": "Smith, J., Jones, M.",
             "source": "Journal of Autism Research",
             "doi": "10.1234/jar.2024.001",
+            "source_url": "https://doi.org/10.1234/jar.2024.001",  // May be null if no DOI
+            "summary_preview": "First 200 chars of extracted summary...",
             "open_access": true
         },
-        "next_step": "Verify details, then call get_next_article() to begin translation."
+        "next_step": "Article added to queue. Call get_next_article() to begin translation."
     }
 
     Returns on failure:
     {
         "success": false,
         "error": "FILE_NOT_FOUND" | "EXTRACTION_FAILED" | "DUPLICATE",
+        "details": "..."
+    }
+    """
+
+# Tool 10: Search for article URL
+def search_article_url(article_id: str) -> dict:
+    """
+    Get article details to search for its canonical URL.
+
+    Use this for articles without a source_url. Returns the title and
+    search hints. Claude should then use web search to find the URL
+    and call set_article_url() to save it.
+
+    Parameters:
+        article_id: The article ID
+
+    Returns:
+    {
+        "success": true,
+        "has_url": false,
+        "article_id": "smith-2024-demand-avoidance-study",
+        "title": "A Study of Demand Avoidance in Children",
+        "doi": null,
+        "source": "Journal of Autism Research",
+        "search_query": "A Study of Demand Avoidance in Children Journal of Autism Research",
+        "instructions": "Search the web for this article..."
+    }
+    """
+
+# Tool 11: Set article URL
+def set_article_url(article_id: str, source_url: str) -> dict:
+    """
+    Set or update the source URL for an article.
+
+    Can be called at any time — before, during, or after translation.
+    URL is needed before publishing but not required for translation.
+
+    Parameters:
+        article_id: The article ID
+        source_url: Canonical URL where the original can be found
+
+    Returns on success:
+    {
+        "success": true,
+        "article_id": "smith-2024-demand-avoidance-study",
+        "source_url": "https://doi.org/10.1234/jar.2024.001",
+        "message": "Source URL updated."
+    }
+
+    Returns on failure:
+    {
+        "success": false,
+        "error": "NOT_FOUND" | "INVALID_URL",
         "details": "..."
     }
     """
@@ -2313,3 +2440,4 @@ jobs:
 | 2025-01-11 | Added Part 13 (Multi-Language Support) — glossary file structure, tool parameters, spaCy model loading, word ratio calibration |
 | 2026-01-11 | **Testing requirements:** Expanded Part 12 phases with explicit test requirements per phase; added Part 14 (Testing Strategy) with test structure, fixtures, commands, and CI config |
 | 2026-01-11 | **Metric change:** Replaced Jaccard similarity with Recall for WORDDRIFT check. Jaccard (intersection/union) penalized translations for having additional content words — normal behavior. Recall (intersection/expected) correctly measures "what % of expected glossary terms appeared." Empirically validated: good translations 0.77-0.88 recall, drifted 0.23. Threshold changed from 0.6 to 0.7. |
+| 2026-01-11 | **Workflow change (D21) REVISED:** Article ingestion now single-step. `ingest_article()` creates with `pending` status immediately, extracts metadata AND generates summary from first ~150 words. If DOI found, auto-populates source_url. URLs can be added/updated via `set_article_url()` or admin interface. Added `search_article_url()` tool to help find canonical URLs for articles without DOI. Admin interface now has URL editing and "Missing URL" filter. |

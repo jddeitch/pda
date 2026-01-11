@@ -162,8 +162,8 @@ function getFlagColor(flag: string): string {
       </div>
     </div>
 
-    <!-- Links -->
-    <div class="rounded-lg bg-white p-4 shadow-sm">
+    <!-- Links & URL Editor -->
+    <div class="rounded-lg bg-white p-4 shadow-sm space-y-4">
       <div class="flex flex-wrap gap-4 text-sm">
         {article.source_url && (
           <a
@@ -185,6 +185,33 @@ function getFlagColor(flag: string): string {
             Processed: <span class="text-stone-700">{new Date(article.processed_at).toLocaleString()}</span>
           </span>
         )}
+      </div>
+
+      <!-- URL Editor -->
+      <div class="border-t border-stone-200 pt-4">
+        <div class="flex items-end gap-3">
+          <div class="flex-1">
+            <label for="source-url" class="block text-xs font-medium text-stone-500 mb-1">
+              Source URL {!article.source_url && <span class="text-amber-600">(missing)</span>}
+            </label>
+            <input
+              type="url"
+              id="source-url"
+              name="source_url"
+              value={article.source_url || ""}
+              placeholder="https://..."
+              class="w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+          <button
+            id="save-url-btn"
+            type="button"
+            class="rounded-md bg-primary-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            Save URL
+          </button>
+        </div>
+        <p id="url-status" class="mt-1 text-xs text-stone-500 hidden"></p>
       </div>
     </div>
 
@@ -305,6 +332,9 @@ function getFlagColor(flag: string): string {
   <script define:vars={{ articleId: id }}>
     const markReviewedBtn = document.getElementById('mark-reviewed-btn');
     const resetPendingBtn = document.getElementById('reset-pending-btn');
+    const saveUrlBtn = document.getElementById('save-url-btn');
+    const sourceUrlInput = document.getElementById('source-url');
+    const urlStatus = document.getElementById('url-status');
 
     async function performAction(action, button) {
       const originalText = button.textContent;
@@ -335,6 +365,72 @@ function getFlagColor(flag: string): string {
       }
     }
 
+    // URL save handler
+    async function saveUrl() {
+      const url = sourceUrlInput?.value?.trim();
+
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        showUrlStatus('URL must start with http:// or https://', 'error');
+        return;
+      }
+
+      saveUrlBtn.textContent = 'Saving...';
+      saveUrlBtn.disabled = true;
+
+      try {
+        const response = await fetch('/api/update-article', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            articleId,
+            field: 'source_url',
+            value: url || null,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+
+        showUrlStatus('URL saved successfully', 'success');
+
+        // Update the View Source link if it exists
+        const viewSourceLink = document.querySelector('a[href*="View Source"]')?.parentElement?.querySelector('a');
+        if (url) {
+          if (viewSourceLink) {
+            viewSourceLink.href = url;
+          } else {
+            // Reload to show the new link
+            window.location.reload();
+          }
+        }
+
+      } catch (error) {
+        console.error('Save URL failed:', error);
+        showUrlStatus(`Failed: ${error.message}`, 'error');
+      } finally {
+        saveUrlBtn.textContent = 'Save URL';
+        saveUrlBtn.disabled = false;
+      }
+    }
+
+    function showUrlStatus(message, type) {
+      if (urlStatus) {
+        urlStatus.textContent = message;
+        urlStatus.classList.remove('hidden', 'text-stone-500', 'text-green-600', 'text-red-600');
+        urlStatus.classList.add(type === 'success' ? 'text-green-600' : type === 'error' ? 'text-red-600' : 'text-stone-500');
+
+        // Hide after 3 seconds for success
+        if (type === 'success') {
+          setTimeout(() => {
+            urlStatus.classList.add('hidden');
+          }, 3000);
+        }
+      }
+    }
+
     markReviewedBtn?.addEventListener('click', () => {
       if (confirm('Mark this article as reviewed? This will clear all flags.')) {
         performAction('mark_reviewed', markReviewedBtn);
@@ -344,6 +440,16 @@ function getFlagColor(flag: string): string {
     resetPendingBtn?.addEventListener('click', () => {
       if (confirm('Reset this article to pending? It will need to be re-translated.')) {
         performAction('reset_to_pending', resetPendingBtn);
+      }
+    });
+
+    saveUrlBtn?.addEventListener('click', saveUrl);
+
+    // Also save on Enter key in the URL input
+    sourceUrlInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveUrl();
       }
     });
   </script>

@@ -174,14 +174,21 @@ class Database:
 
         return state["articles_processed_count"] >= state["human_review_interval"]
 
-    def increment_session_count(self) -> None:
-        """Increment articles_processed_count after successful save."""
+    def increment_session_count(self, auto_commit: bool = True) -> None:
+        """
+        Increment articles_processed_count after successful save.
+
+        Args:
+            auto_commit: If True (default), commits immediately.
+                         If False, caller is responsible for commit.
+        """
         self.execute("""
             UPDATE session_state
             SET articles_processed_count = articles_processed_count + 1
             WHERE id = 1
         """)
-        self.commit()
+        if auto_commit:
+            self.commit()
 
     def reset_session_counter(self) -> dict[str, Any]:
         """Reset the session counter. Called after human review."""
@@ -266,13 +273,21 @@ class Database:
             "classification_data": json.loads(row["classification_data"])
         }
 
-    def mark_token_used(self, token: str) -> None:
-        """Mark a token as used after successful save."""
+    def mark_token_used(self, token: str, auto_commit: bool = True) -> None:
+        """
+        Mark a token as used after successful save.
+
+        Args:
+            token: The validation token to mark as used.
+            auto_commit: If True (default), commits immediately.
+                         If False, caller is responsible for commit.
+        """
         self.execute(
             "UPDATE validation_tokens SET used = 1 WHERE token = ?",
             (token,)
         )
-        self.commit()
+        if auto_commit:
+            self.commit()
 
     def cleanup_expired_tokens(self) -> int:
         """
@@ -301,7 +316,7 @@ class Database:
         counts = {row["processing_status"]: row["count"] for row in cursor.fetchall()}
 
         # Ensure all statuses are present
-        for status in ("pending", "in_progress", "translated", "skipped"):
+        for status in ("pending", "pending_url", "in_progress", "translated", "skipped"):
             counts.setdefault(status, 0)
 
         return counts
@@ -433,6 +448,114 @@ class Database:
         )
         self.commit()
         return {"success": True, "article_id": article_id}
+
+    def create_article(
+        self,
+        article_id: str,
+        source_title: str,
+        source_url: str | None,
+        summary_original: str | None,
+        doi: str | None,
+        source: str | None,
+        open_access: bool,
+        processing_status: str = "pending",
+    ) -> None:
+        """
+        Create a new article record.
+
+        Used by ingest_article() for PDFs from intake/ folder.
+        Default status is 'pending' — ready for translation immediately.
+        """
+        self.execute(
+            """
+            INSERT INTO articles (
+                id, source_title, source_url, summary_original,
+                doi, source, open_access, processing_status, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """,
+            (
+                article_id,
+                source_title,
+                source_url,
+                summary_original,
+                doi,
+                source,
+                1 if open_access else 0,
+                processing_status,
+            )
+        )
+        self.commit()
+
+    def article_exists(self, article_id: str) -> bool:
+        """Check if an article with this ID already exists."""
+        row = self.execute(
+            "SELECT 1 FROM articles WHERE id = ?",
+            (article_id,)
+        ).fetchone()
+        return row is not None
+
+    def confirm_article_url(self, article_id: str, source_url: str) -> dict[str, Any]:
+        """
+        Confirm the source URL for an article and move to pending status.
+
+        Only works for articles with status 'pending_url'.
+
+        Returns:
+            Success dict or error dict with details.
+        """
+        # Get current article
+        article = self.get_article_by_id(article_id)
+        if not article:
+            return {
+                "success": False,
+                "error": "NOT_FOUND",
+                "details": f"Article '{article_id}' not found.",
+            }
+
+        if article["processing_status"] != "pending_url":
+            return {
+                "success": False,
+                "error": "INVALID_STATUS",
+                "details": f"Article status is '{article['processing_status']}', expected 'pending_url'.",
+            }
+
+        # Basic URL validation
+        if not source_url or not source_url.startswith(("http://", "https://")):
+            return {
+                "success": False,
+                "error": "INVALID_URL",
+                "details": "URL must start with http:// or https://",
+            }
+
+        # Update article
+        self.execute(
+            """
+            UPDATE articles
+            SET source_url = ?,
+                processing_status = 'pending'
+            WHERE id = ?
+            """,
+            (source_url, article_id)
+        )
+        self.commit()
+
+        return {
+            "success": True,
+            "article_id": article_id,
+            "source_url": source_url,
+            "message": "Article added to translation queue.",
+        }
+
+    def get_pending_url_articles(self) -> list[dict[str, Any]]:
+        """Get all articles awaiting URL confirmation."""
+        cursor = self.execute("""
+            SELECT id, source_title, doi, source_url
+            FROM articles
+            WHERE processing_status = 'pending_url'
+            ORDER BY created_at ASC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
 
     # --- Translation Operations ---
 

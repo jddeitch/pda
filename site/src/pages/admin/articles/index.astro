@@ -13,6 +13,7 @@ if (!import.meta.env.ENABLE_ADMIN) {
 const url = new URL(Astro.request.url);
 const statusFilter = url.searchParams.get("status") || undefined;
 const hasFlagsFilter = url.searchParams.get("hasFlags") === "true";
+const missingUrlFilter = url.searchParams.get("missingUrl") === "true";
 const categoryFilter = url.searchParams.get("category") || undefined;
 const methodFilter = url.searchParams.get("method") || undefined;
 const voiceFilter = url.searchParams.get("voice") || undefined;
@@ -21,6 +22,7 @@ const voiceFilter = url.searchParams.get("voice") || undefined;
 const articles = getAdminArticles({
   status: statusFilter,
   hasFlags: hasFlagsFilter || undefined,
+  missingUrl: missingUrlFilter || undefined,
   category: categoryFilter,
   method: methodFilter,
   voice: voiceFilter,
@@ -78,6 +80,7 @@ const voiceLabels: Record<string, string> = {
         <p class="mt-1 text-sm text-stone-500">
           {articles.length} articles {statusFilter ? `with status "${statusFilter}"` : ""}
           {hasFlagsFilter ? "with flags" : ""}
+          {missingUrlFilter ? "missing URL" : ""}
         </p>
       </div>
     </div>
@@ -169,6 +172,19 @@ const voiceLabels: Record<string, string> = {
             class="h-4 w-4 rounded border-stone-300 text-primary-500 focus:ring-primary-500"
           />
           <label for="hasFlags" class="text-sm text-stone-600">Has flags</label>
+        </div>
+
+        <!-- Missing URL -->
+        <div class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="missingUrl"
+            name="missingUrl"
+            value="true"
+            checked={missingUrlFilter}
+            class="h-4 w-4 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
+          />
+          <label for="missingUrl" class="text-sm text-stone-600">Missing URL</label>
         </div>
 
         <!-- Submit -->

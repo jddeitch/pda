@@ -349,6 +349,7 @@ export function getRecentlyCompleted(limit: number = 10): FlaggedArticle[] {
 export function getAdminArticles(filters?: {
   status?: string;
   hasFlags?: boolean;
+  missingUrl?: boolean;
   category?: string;
   method?: string;
   voice?: string;
@@ -387,6 +388,10 @@ export function getAdminArticles(filters?: {
 
   if (filters?.hasFlags) {
     conditions.push("json_array_length(a.processing_flags) > 0");
+  }
+
+  if (filters?.missingUrl) {
+    conditions.push("(a.source_url IS NULL OR a.source_url = '')");
   }
 
   if (filters?.category) {

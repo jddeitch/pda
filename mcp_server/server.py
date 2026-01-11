@@ -10,7 +10,8 @@ This server provides tools for the translation pipeline:
 - skip_article() — skip an article with reason
 - set_human_review_interval() — configure review interval
 - reset_session_counter() — reset after human review
-- ingest_article() — add new article from intake/ folder (Phase 2)
+- ingest_article() — add new article from intake/ folder (Phase 6)
+- set_article_url() — set/update source URL for an article (Phase 6)
 
 Usage:
     python -m mcp_server.server
@@ -178,6 +179,161 @@ def reset_session_counter() -> dict[str, Any]:
         {"success": true, "message": "Session counter reset."}
     """
     return tools.reset_session_counter()
+
+
+# --- Tool: validate_classification (Phase 4) ---
+
+@mcp.tool()
+def validate_classification(
+    article_id: str,
+    method: str,
+    voice: str,
+    peer_reviewed: bool,
+    source: str,
+    primary_category: str,
+    secondary_categories: list[str],
+    keywords: list[str],
+) -> dict[str, Any]:
+    """
+    Validate article classification and get a validation token.
+
+    Call this after translating all chunks. Returns a token needed for save_article().
+
+    Args:
+        article_id: The article ID
+        method: One of: empirical, synthesis, theoretical, lived_experience
+        voice: One of: academic, practitioner, organization, individual
+        peer_reviewed: True if peer-reviewed
+        source: Journal/institution name
+        primary_category: Main category ID
+        secondary_categories: Additional category IDs
+        keywords: 3-7 keywords for search
+
+    Returns on success:
+        {"valid": true, "validation_token": "...", "next_step": "Call save_article()..."}
+
+    Returns on failure:
+        {"valid": false, "errors": [...], "action": "Fix errors and retry"}
+    """
+    return tools.validate_classification(
+        article_id=article_id,
+        method=method,
+        voice=voice,
+        peer_reviewed=peer_reviewed,
+        source=source,
+        primary_category=primary_category,
+        secondary_categories=secondary_categories,
+        keywords=keywords,
+    )
+
+
+# --- Tool: save_article (Phase 4) ---
+
+@mcp.tool()
+def save_article(
+    article_id: str,
+    validation_token: str,
+    translated_title: str,
+    translated_summary: str,
+    translated_full_text: str | None,
+    flags: list[dict[str, str]],
+) -> dict[str, Any]:
+    """
+    Save translated article with quality checks.
+
+    Requires a validation_token from validate_classification().
+    Runs quality checks and saves if passing.
+
+    Args:
+        article_id: The article ID
+        validation_token: Token from validate_classification()
+        translated_title: French title
+        translated_summary: French summary
+        translated_full_text: French full text (or null if summary-only)
+        flags: List of {"code": "...", "detail": "..."} for any issues
+
+    Returns on success:
+        {"success": true, "warning_flags": [...], "next_step": "..."}
+
+    Returns on quality failure:
+        {"success": false, "error": "QUALITY_CHECK_FAILED", "blocking_flags": [...], "action": "..."}
+    """
+    return tools.save_article(
+        article_id=article_id,
+        validation_token=validation_token,
+        translated_title=translated_title,
+        translated_summary=translated_summary,
+        translated_full_text=translated_full_text,
+        flags=flags,
+    )
+
+
+# --- Tool: ingest_article (Phase 6) ---
+
+@mcp.tool()
+def ingest_article(filename: str) -> dict[str, Any]:
+    """
+    Ingest a PDF from intake/articles/ into the database.
+
+    Creates article with status 'pending' — ready for translation immediately.
+    If DOI is found, source_url is auto-populated from doi.org.
+
+    Args:
+        filename: Name of PDF in intake/articles/ (e.g., "smith-2024-pda.pdf")
+
+    Returns on success:
+        {
+            "success": true,
+            "article": {"id": "...", "source_title": "...", "doi": "...", "source_url": "..."},
+            "next_step": "Article added to queue. Call get_next_article() to begin."
+        }
+
+    Returns on failure:
+        {"success": false, "error": "FILE_NOT_FOUND|EXTRACTION_FAILED|DUPLICATE", "details": "..."}
+    """
+    return tools.ingest_article(filename)
+
+
+# --- Tool: search_article_url (Phase 6) ---
+
+@mcp.tool()
+def search_article_url(article_id: str) -> dict[str, Any]:
+    """
+    Get article details to search for its canonical URL.
+
+    Use this for articles without a source_url. Returns the title and search hints.
+    After finding the URL via web search, call set_article_url() to save it.
+
+    Args:
+        article_id: The article ID
+
+    Returns:
+        Article details for searching, or indicates URL already exists.
+    """
+    return tools.search_article_url(article_id)
+
+
+# --- Tool: set_article_url (Phase 6) ---
+
+@mcp.tool()
+def set_article_url(article_id: str, source_url: str) -> dict[str, Any]:
+    """
+    Set or update the source URL for an article.
+
+    Can be called at any time — before, during, or after translation.
+    URL is needed before publishing but not required for translation.
+
+    Args:
+        article_id: The article ID
+        source_url: The canonical URL where the original can be found
+
+    Returns on success:
+        {"success": true, "article_id": "...", "source_url": "...", "message": "Source URL updated."}
+
+    Returns on failure:
+        {"success": false, "error": "NOT_FOUND|INVALID_URL", "details": "..."}
+    """
+    return tools.set_article_url(article_id, source_url)
 
 
 # --- Main entry point ---

@@ -30,9 +30,15 @@ from .taxonomy import get_taxonomy
 from .glossary import find_glossary_terms_in_text, get_glossary_version, verify_glossary_terms
 from .pdf_extraction import (
     extract_article_text,
+    extract_pdf_metadata,
     get_cached_path,
+    fetch_and_cache,
     CACHE_DIR,
+    extract_pymupdf,
 )
+from pathlib import Path
+import re
+import shutil
 from .quality_checks import run_quality_checks
 
 logger = logging.getLogger(__name__)
@@ -502,14 +508,36 @@ def get_chunk(article_id: str, chunk_number: int) -> dict[str, Any]:
                     "action": f"Call skip_article('{article_id}', 'No source URL available', 'NOURL')",
                 }
 
-            # For Phase 2, we expect files to be pre-cached
-            # URL fetching will be added in a later phase
-            return {
-                "error": True,
-                "error_code": "NOT_CACHED",
-                "problems": [],
-                "action": f"Call skip_article('{article_id}', 'Source file not cached. Place PDF in cache/articles/{article_id}.pdf or wait for URL fetching (future phase).', 'PDFEXTRACT')",
-            }
+            # Try to fetch from source URL
+            logger.info(f"Fetching {article_id} from {source_url}")
+            fetch_result = fetch_and_cache(article_id, source_url)
+
+            if not fetch_result.success:
+                # Map fetch errors to appropriate skip actions
+                error_code = fetch_result.error_code
+                if error_code == "PAYWALL":
+                    return {
+                        "error": True,
+                        "error_code": "PAYWALL",
+                        "problems": ["PAYWALL"],
+                        "action": f"Call skip_article('{article_id}', '{fetch_result.error_message}', 'PAYWALL')",
+                    }
+                elif error_code == "NOT_FOUND":
+                    return {
+                        "error": True,
+                        "error_code": "NOT_FOUND",
+                        "problems": ["404"],
+                        "action": f"Call skip_article('{article_id}', '{fetch_result.error_message}', '404')",
+                    }
+                else:
+                    return {
+                        "error": True,
+                        "error_code": "FETCH_FAILED",
+                        "problems": ["PDFEXTRACT"],
+                        "action": f"Call skip_article('{article_id}', '{fetch_result.error_message}', 'PDFEXTRACT')",
+                    }
+
+            cached_path = fetch_result.path
 
         # Extract text
         result = extract_article_text(cached_path)
@@ -904,6 +932,7 @@ def save_article(
     glossary_version = get_glossary_version()
 
     # Execute save in transaction
+    # All operations use auto_commit=False to stay in one transaction
     try:
         # Update article with classification and status
         db.mark_article_translated(
@@ -941,16 +970,16 @@ def save_article(
             keywords=classification["keywords"],
         )
 
-        # Mark token as used
-        db.mark_token_used(validation_token)
+        # Mark token as used (within transaction)
+        db.mark_token_used(validation_token, auto_commit=False)
 
-        # Commit transaction
+        # Increment session counter (within transaction)
+        db.increment_session_count(auto_commit=False)
+
+        # Single commit for entire transaction
         db.commit()
 
-        # Increment session counter
-        db.increment_session_count()
-
-        # Clear chunk cache for this article
+        # Clear chunk cache for this article (after successful commit)
         clear_chunk_cache(article_id)
 
         return {
@@ -960,7 +989,7 @@ def save_article(
         }
 
     except Exception as e:
-        # Rollback on any failure
+        # Rollback on any failure — everything reverts including token and counter
         db.rollback()
         logger.error(f"Save failed for article {article_id}: {e}")
         return {
@@ -969,3 +998,367 @@ def save_article(
             "message": str(e),
             "action": "Retry save_article() or contact support if error persists.",
         }
+
+
+# --- Phase 6: Article Ingestion (per D21) ---
+
+# Paths for intake folder
+PROJECT_ROOT = Path(__file__).parent.parent
+INTAKE_DIR = PROJECT_ROOT / "intake" / "articles"
+
+
+def _extract_summary_from_text(text: str, max_words: int = 150) -> str | None:
+    """
+    Extract a summary from the beginning of article text.
+
+    Assumes the lede is not buried — takes content from the start
+    after skipping obvious header material.
+
+    Returns ~150 words from the beginning of the substantive content.
+    """
+    if not text or len(text.strip()) < 100:
+        return None
+
+    # Split into paragraphs
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+
+    if not paragraphs:
+        return None
+
+    # Skip header-like paragraphs (very short, all caps, metadata)
+    content_paragraphs = []
+    for para in paragraphs:
+        # Skip very short paragraphs (likely headers)
+        if len(para.split()) < 10:
+            continue
+        # Skip paragraphs that look like metadata
+        if any(marker in para.lower()[:50] for marker in ['doi:', 'issn:', '©', 'copyright', 'abstract']):
+            continue
+        # Skip all-caps paragraphs
+        if para.isupper():
+            continue
+        content_paragraphs.append(para)
+        # Collect enough for summary
+        total_words = sum(len(p.split()) for p in content_paragraphs)
+        if total_words >= max_words * 1.5:
+            break
+
+    if not content_paragraphs:
+        # Fallback: just use first paragraphs
+        content_paragraphs = paragraphs[:3]
+
+    # Join and truncate to max_words
+    combined = ' '.join(content_paragraphs)
+    words = combined.split()
+    if len(words) > max_words:
+        # Find a sentence boundary near max_words
+        truncated = ' '.join(words[:max_words])
+        # Try to end at a sentence
+        last_period = truncated.rfind('.')
+        if last_period > len(truncated) * 0.6:  # At least 60% of the way through
+            truncated = truncated[:last_period + 1]
+        return truncated
+    return combined
+
+
+def _slugify(text: str) -> str:
+    """
+    Convert text to URL-safe slug.
+
+    Lowercase, replace spaces with hyphens, remove special chars.
+    """
+    # Lowercase
+    slug = text.lower()
+    # Replace spaces and underscores with hyphens
+    slug = re.sub(r'[\s_]+', '-', slug)
+    # Remove anything that isn't alphanumeric or hyphen
+    slug = re.sub(r'[^a-z0-9-]', '', slug)
+    # Collapse multiple hyphens
+    slug = re.sub(r'-+', '-', slug)
+    # Strip leading/trailing hyphens
+    slug = slug.strip('-')
+    return slug
+
+
+def _generate_article_id(title: str, author: str | None, doi: str | None) -> str:
+    """
+    Generate article ID from metadata.
+
+    Format: {first-author-surname}-{year}-{title-words}
+    Falls back to title-only if no author.
+    """
+    db = get_database()
+    parts = []
+
+    # Try to extract first author surname
+    if author:
+        # Handle "Smith, J." or "Smith, John" or "John Smith"
+        first_author = author.split(",")[0].split(";")[0].strip()
+        # If it has a space, take the last word (surname usually last in "First Last")
+        if " " in first_author:
+            first_author = first_author.split()[-1]
+        parts.append(_slugify(first_author))
+
+    # Try to extract year from title or DOI
+    year_match = re.search(r'\b(19|20)\d{2}\b', title or "")
+    if year_match:
+        parts.append(year_match.group())
+
+    # Add title words (first 5 significant words)
+    if title:
+        title_words = _slugify(title).split("-")
+        # Skip common words
+        skip_words = {"the", "a", "an", "of", "in", "on", "for", "and", "to", "with"}
+        significant = [w for w in title_words if w and w not in skip_words][:5]
+        parts.extend(significant)
+
+    base_id = "-".join(parts) or "untitled-article"
+
+    # Check for duplicates and append suffix if needed
+    candidate_id = base_id
+    counter = 2
+    while db.article_exists(candidate_id):
+        candidate_id = f"{base_id}-{counter}"
+        counter += 1
+
+    return candidate_id
+
+
+def ingest_article(filename: str) -> dict[str, Any]:
+    """
+    Ingest a PDF from intake/articles/ into the database.
+
+    Creates article with status 'pending' — ready for translation immediately.
+    Source URL can be added later via set_article_url() or during save.
+
+    WORKFLOW:
+    1. Verify file exists in intake/articles/
+    2. Extract PDF metadata (title, authors, DOI)
+    3. Extract text and generate summary from first ~150 words
+    4. Generate article_id from metadata
+    5. If DOI found, construct suggested URL (for convenience)
+    6. Create article record with status 'pending'
+    7. Copy PDF to cache/articles/{article_id}.pdf
+    8. Return article details — ready for get_next_article()
+
+    Args:
+        filename: Name of PDF in intake/articles/ (e.g., "smith-2024-pda.pdf")
+
+    Returns:
+        Success dict with article details, or error dict.
+    """
+    db = get_database()
+
+    # 1. Verify file exists
+    source_path = INTAKE_DIR / filename
+    if not source_path.exists():
+        return {
+            "success": False,
+            "error": "FILE_NOT_FOUND",
+            "details": f"File not found: {source_path}",
+        }
+
+    if not filename.lower().endswith(".pdf"):
+        return {
+            "success": False,
+            "error": "INVALID_FILE",
+            "details": "Only PDF files are supported.",
+        }
+
+    # 2. Extract PDF metadata
+    try:
+        metadata = extract_pdf_metadata(source_path)
+    except Exception as e:
+        logger.error(f"Failed to extract metadata from {filename}: {e}")
+        return {
+            "success": False,
+            "error": "EXTRACTION_FAILED",
+            "details": f"Could not extract metadata: {e}",
+        }
+
+    title = metadata.get("title") or filename.replace(".pdf", "").replace("-", " ").replace("_", " ")
+    author = metadata.get("author")
+    doi = metadata.get("doi")
+    source = metadata.get("creator")  # Often contains journal name
+
+    # 3. Extract text and generate summary
+    summary_original = None
+    try:
+        # Use PyMuPDF for quick extraction (we'll do full extraction later during translation)
+        text = extract_pymupdf(source_path)
+        if text:
+            summary_original = _extract_summary_from_text(text, max_words=150)
+            if summary_original:
+                logger.info(f"Generated summary ({len(summary_original.split())} words) for {filename}")
+    except Exception as e:
+        logger.warning(f"Could not generate summary for {filename}: {e}")
+        # Not fatal — continue without summary
+
+    # 4. Generate article ID
+    article_id = _generate_article_id(title, author, doi)
+
+    # 5. Construct URL from DOI if available (for convenience, not required)
+    suggested_url = None
+    if doi:
+        clean_doi = doi.rstrip(".")
+        suggested_url = f"https://doi.org/{clean_doi}"
+
+    # 6. Create article record — directly in 'pending' status
+    try:
+        db.create_article(
+            article_id=article_id,
+            source_title=title,
+            source_url=suggested_url,  # Use DOI URL if available, can be updated later
+            summary_original=summary_original,
+            doi=doi,
+            source=source,
+            open_access=True,  # We have the PDF
+            processing_status="pending",  # Ready for translation immediately
+        )
+    except Exception as e:
+        logger.error(f"Failed to create article record: {e}")
+        return {
+            "success": False,
+            "error": "DATABASE_ERROR",
+            "details": str(e),
+        }
+
+    # 7. Copy PDF to cache
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_path = CACHE_DIR / f"{article_id}.pdf"
+    try:
+        shutil.copy(source_path, cache_path)
+        logger.info(f"Cached PDF: {cache_path}")
+    except Exception as e:
+        logger.error(f"Failed to copy PDF to cache: {e}")
+        db.execute("DELETE FROM articles WHERE id = ?", (article_id,))
+        db.commit()
+        return {
+            "success": False,
+            "error": "CACHE_FAILED",
+            "details": str(e),
+        }
+
+    # 8. Return success — article is ready for translation
+    return {
+        "success": True,
+        "article": {
+            "id": article_id,
+            "source_title": title,
+            "authors": author,
+            "source": source,
+            "doi": doi,
+            "source_url": suggested_url,
+            "summary_preview": summary_original[:200] + "..." if summary_original and len(summary_original) > 200 else summary_original,
+            "open_access": True,
+        },
+        "next_step": f"Article '{article_id}' added to queue. Call get_next_article() to begin translation.",
+    }
+
+
+def search_article_url(article_id: str) -> dict[str, Any]:
+    """
+    Search the web for the canonical URL of an article.
+
+    Uses the article's title and authors to search for the original source.
+    Returns candidate URLs for the user to verify.
+
+    This is meant to be called by Claude, who will then use web search
+    to find the canonical URL and report back.
+
+    Args:
+        article_id: The article ID to search for
+
+    Returns:
+        Article details needed for searching, or error if not found.
+    """
+    db = get_database()
+
+    article = db.get_article_by_id(article_id)
+    if not article:
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"Article '{article_id}' not found.",
+        }
+
+    # If URL already exists, inform the caller
+    if article.get("source_url"):
+        return {
+            "success": True,
+            "has_url": True,
+            "current_url": article["source_url"],
+            "message": "Article already has a source URL. Use set_article_url() to update if needed.",
+        }
+
+    # Return search hints
+    title = article.get("source_title", "")
+    doi = article.get("doi")
+    source = article.get("source")
+
+    # Build search query suggestion
+    search_terms = [title]
+    if source:
+        search_terms.append(source)
+
+    return {
+        "success": True,
+        "has_url": False,
+        "article_id": article_id,
+        "title": title,
+        "doi": doi,
+        "source": source,
+        "search_query": " ".join(search_terms[:2]),  # Title + source usually enough
+        "instructions": (
+            "Search the web for this article to find its canonical URL. "
+            "Look for the original publication on the journal/publisher website, "
+            "or on repositories like PubMed, Google Scholar, or ResearchGate. "
+            "Once found, call set_article_url(article_id, url) to save it."
+        ),
+    }
+
+
+def set_article_url(article_id: str, source_url: str) -> dict[str, Any]:
+    """
+    Set or update the source URL for an article.
+
+    Can be called at any time — before, during, or after translation.
+    URL is required before publishing but not for translation.
+
+    Args:
+        article_id: The article ID
+        source_url: The canonical URL where the original can be found
+
+    Returns:
+        Success dict or error dict with details.
+    """
+    db = get_database()
+
+    article = db.get_article_by_id(article_id)
+    if not article:
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"Article '{article_id}' not found.",
+        }
+
+    # Basic URL validation
+    if not source_url or not source_url.startswith(("http://", "https://")):
+        return {
+            "success": False,
+            "error": "INVALID_URL",
+            "details": "URL must start with http:// or https://",
+        }
+
+    db.execute(
+        "UPDATE articles SET source_url = ? WHERE id = ?",
+        (source_url, article_id)
+    )
+    db.commit()
+
+    return {
+        "success": True,
+        "article_id": article_id,
+        "source_url": source_url,
+        "message": "Source URL updated.",
+    }
