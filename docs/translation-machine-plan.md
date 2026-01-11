@@ -33,14 +33,129 @@ Add pages to existing Astro site under `/admin/`. Uses same SQLite database via 
 - **Chunk cache**: In-memory dict keyed by article_id. Lost on server restart but cheap to regenerate.
 - **Session counter**: SQLite table `session_state` with `articles_processed_count` and `last_reset_at`. Resets via `reset_session_counter()` or automatically at midnight.
 
-### D7: Claude's Behavior During Chunk Loop
-Claude maintains a running `translated_chunks: list[str]` in working memory during the session. After each `get_chunk()` call, Claude:
-1. Translates the chunk
-2. Appends the translation to `translated_chunks`
-3. Notes any classification signals observed
-4. Notes any flags to report
+### D7: Claude's Complete Workflow Behavior
 
-At `save_article()` time, Claude joins chunks with `\n\n` and submits as `translated_full_text`. This is explicit Claude-side behavior, not server-side magic.
+**This is the single source of truth for Claude's expected behavior during translation.**
+
+Claude maintains these in working memory during the session:
+- `translated_title: str` — translated after receiving article
+- `translated_summary: str` — translated after receiving article
+- `translated_chunks: list[str]` — accumulated during chunk loop
+- `observed_signals: dict` — method/voice/peer_reviewed signals seen
+- `flags_to_report: list[dict]` — flags with details
+
+**Complete workflow:**
+
+```
+1. RECEIVE ARTICLE
+   response = get_next_article()
+   IF response.status == "SESSION_PAUSE": STOP, inform user
+   IF response.status == "COMPLETE": STOP, inform user
+   article = response.article
+
+2. TRANSLATE TITLE + SUMMARY
+   translated_title = translate(article.source_title)
+   translated_summary = translate(article.summary_original)
+
+3. CHUNK LOOP (if open_access = true)
+   IF article.open_access == false: SKIP to step 4
+
+   translated_chunks = []
+   chunk_number = 1
+
+   LOOP:
+     response = get_chunk(article.id, chunk_number)
+
+     IF response.error:
+       # Extraction failed — skip this article
+       skip_article(article.id, response.error, "PDFEXTRACT")
+       GOTO step 1
+
+     IF response.complete == true:
+       # No more chunks — exit loop
+       BREAK
+
+     # Translate this chunk using provided glossary terms
+     translation = translate(response.text, response.glossary_terms)
+     translated_chunks.append(translation)
+
+     # Note any signals for classification
+     observe_signals(response.text)
+
+     # Note any flags (tables, figures, ambiguity, etc.)
+     note_flags(response.text)
+
+     # Handle extraction warnings (proceed but flag)
+     IF response.extraction_problems:
+       flags_to_report.extend([
+         {"code": p, "detail": "Extraction warning"}
+         for p in response.extraction_problems
+       ])
+
+     chunk_number += 1
+
+   translated_full_text = "\n\n".join(translated_chunks)
+
+4. CLASSIFY
+   # Synthesize classification from observed signals
+   method = determine_method(observed_signals)
+   voice = determine_voice(observed_signals)
+   peer_reviewed = determine_peer_reviewed(observed_signals)
+   categories = determine_categories(article_content)
+   keywords = extract_keywords(article_content)
+
+   response = validate_classification(
+     article_id=article.id,
+     method=method,
+     voice=voice,
+     peer_reviewed=peer_reviewed,
+     open_access=article.open_access,
+     primary_category=categories[0],
+     secondary_categories=categories[1:],
+     keywords=keywords
+   )
+
+   IF response.valid == false:
+     # Fix errors and retry
+     fix_errors(response.errors)
+     RETRY validate_classification()
+
+   validation_token = response.token
+
+5. SAVE
+   response = save_article(
+     article_id=article.id,
+     validation_token=validation_token,
+     source=derive_source(),  # Or flag SRCUNK if unknown
+     doi=article.doi,
+     translated_title=translated_title,
+     translated_summary=translated_summary,
+     translated_full_text=translated_full_text,  # NULL if paywalled
+     flags=flags_to_report
+   )
+
+   IF response.success == false AND response.blocking_flags:
+     # Must fix translation issues
+     fix_translation(response.blocking_flags)
+     # Re-validate (token expired) and retry save
+     RETRY from step 4
+
+   IF response.success == false AND response.error == "INVALID_TOKEN":
+     # Token expired — re-validate
+     RETRY from step 4
+
+6. CONTINUE OR PAUSE
+   IF response contains SESSION_PAUSE indicator:
+     STOP, inform user to review in /admin
+   ELSE:
+     GOTO step 1
+```
+
+**Key behaviors:**
+- Title and summary are ALWAYS translated, even for paywalled articles
+- Extraction warnings (COLUMNJUMBLE, etc.) don't stop translation — they become flags
+- Extraction blockers (UNUSABLE, GARBLED) trigger skip_article()
+- After 2 failed save attempts on same article, call skip_article() with justification
 
 ### D8: Validation Token Mechanism
 `validate_classification()` returns a token on success that must be passed to `save_article()`:
@@ -132,8 +247,8 @@ def find_glossary_terms_in_text(text: str, glossary: dict) -> dict[str, str]:
 
 **intake/articles/**:
 - Human drops new PDFs here
-- Separate ingestion script reads these into database
-- Not addressed in this plan (future batch)
+- `ingest_article()` tool reads these into database (see D21)
+- After ingestion, PDF moves to cache/articles/
 
 ### D14: Source Field Derivation
 
@@ -237,7 +352,29 @@ CREATE TABLE IF NOT EXISTS validation_tokens (
 DELETE FROM validation_tokens WHERE created_at < datetime('now', '-1 hour');
 ```
 
-Token lifecycle:
+**Token classification_data contents:**
+
+The `classification_data` JSON blob stores ALL validated classification fields:
+
+```json
+{
+  "method": "empirical",
+  "voice": "academic",
+  "peer_reviewed": true,
+  "open_access": true,
+  "primary_category": "fondements",
+  "secondary_categories": ["presentation_clinique"],
+  "keywords": ["PDA", "demand avoidance", "autism", "anxiety", "children"]
+}
+```
+
+This means:
+- Claude passes classification to `validate_classification()` ONCE
+- Server validates and stores in token
+- `save_article()` retrieves classification FROM the token
+- Claude does NOT re-pass classification params to `save_article()`
+
+**Token lifecycle:**
 1. `validate_classification()` creates token, stores classification data in `classification_data` JSON blob
 2. `save_article()` validates token exists, not used, not expired (10 min)
 3. `save_article()` retrieves classification from token — Claude doesn't re-pass classification params
@@ -320,6 +457,162 @@ secondary_categories: list[str] = ["presentation_clinique"]  # May be empty
 # INSERT INTO article_categories (article_id, category_id, is_primary)
 # VALUES ('post-id-16054', 'fondements', 1),
 #        ('post-id-16054', 'presentation_clinique', 0);
+```
+
+### D21: Article Ingestion from intake/ Folder
+
+The `ingest_article()` tool completes the automation loop by allowing new PDFs to enter the translation pipeline without manual database insertion.
+
+**Workflow:**
+1. Human drops PDF into `intake/articles/`
+2. Claude (or human) calls `ingest_article(filename)`
+3. Server extracts metadata, derives source, creates article record
+4. Article becomes available via `get_next_article()`
+
+```python
+def ingest_article(filename: str) -> dict:
+    """
+    Ingests a PDF from intake/articles/ into the database.
+
+    Steps:
+    1. Verify file exists in intake/articles/
+    2. Extract PDF metadata (title, authors, DOI if present)
+    3. Generate article_id from slugified title + year
+    4. Derive source using D14 cascade
+    5. Create article record with processing_status = 'pending'
+    6. Move PDF to cache/articles/{article_id}.pdf
+    7. Return article details for verification
+
+    Parameters:
+        filename: Name of PDF file in intake/articles/ (e.g., "smith-2024-pda.pdf")
+
+    Returns on success:
+    {
+        "success": true,
+        "article": {
+            "id": "smith-2024-demand-avoidance-study",
+            "source_title": "A Study of Demand Avoidance in Children",
+            "authors": "Smith, J., Jones, M.",
+            "source": "Journal of Autism Research",  # Derived or SRCUNK flag
+            "doi": "10.1234/jar.2024.001",  # Or null
+            "source_url": null,  # No URL for manually added PDFs
+            "open_access": true  # We have the PDF, so we can translate full text
+        },
+        "next_step": "Verify details are correct, then call get_next_article() to begin translation."
+    }
+
+    Returns on failure:
+    {
+        "success": false,
+        "error": "FILE_NOT_FOUND" | "EXTRACTION_FAILED" | "DUPLICATE",
+        "details": "..."
+    }
+
+    Article ID generation:
+    - Extract first author surname, year, and key title words
+    - Slugify: lowercase, replace spaces with hyphens, remove special chars
+    - Example: "Smith (2024) Demand Avoidance Study" → "smith-2024-demand-avoidance-study"
+    - If duplicate, append -2, -3, etc.
+    """
+```
+
+**PDF metadata extraction:**
+```python
+def extract_pdf_metadata(pdf_path: Path) -> dict:
+    """
+    Extracts metadata from PDF using PyMuPDF.
+    Falls back to text extraction for title if metadata missing.
+    """
+    doc = fitz.open(pdf_path)
+    metadata = doc.metadata
+
+    result = {
+        "title": metadata.get("title"),
+        "author": metadata.get("author"),
+        "subject": metadata.get("subject"),
+        "keywords": metadata.get("keywords"),
+        "creator": metadata.get("creator"),  # Often contains journal name
+    }
+
+    # If no title in metadata, try first page header
+    if not result["title"]:
+        first_page = doc[0].get_text()
+        # Look for title-like text (large font, centered, first lines)
+        result["title"] = extract_title_from_text(first_page)
+
+    # Look for DOI in first page
+    doi_match = re.search(r'10\.\d{4,}/[^\s]+', first_page)
+    if doi_match:
+        result["doi"] = doi_match.group(0).rstrip('.')
+
+    return result
+```
+
+### D22: Flags Parameter Format
+
+Flags are passed as a single list of dicts, each with `code` and `detail`:
+
+```python
+# In save_article()
+flags: list[dict]  # [{"code": "TBL", "detail": "2 tables on pages 5-6"}, ...]
+
+# Validation:
+# - Each dict must have "code" (string) and "detail" (string)
+# - "code" must be a valid flag from taxonomy.yaml processing_flags
+# - "detail" can be empty string but must be present
+
+# Server converts to storage:
+# processing_flags = json.dumps([f["code"] for f in flags])
+# processing_notes = "; ".join(f"[{f['code']}] {f['detail']}" for f in flags if f['detail'])
+
+# Example input:
+flags = [
+    {"code": "TBL", "detail": "2 tables on pages 5-6"},
+    {"code": "TERM", "detail": "Used 'interoception' not in glossary"},
+    {"code": "COLUMNJUMBLE", "detail": ""}  # Extraction warning, no detail needed
+]
+
+# Stored as:
+# processing_flags: ["TBL", "TERM", "COLUMNJUMBLE"]
+# processing_notes: "[TBL] 2 tables on pages 5-6; [TERM] Used 'interoception' not in glossary"
+```
+
+### D23: Session State Timezone
+
+The session counter uses **local time** for midnight reset to match human work patterns:
+
+```sql
+-- Use localtime for date comparison
+CREATE TABLE IF NOT EXISTS session_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    articles_processed_count INTEGER DEFAULT 0,
+    human_review_interval INTEGER DEFAULT 5,
+    last_reset_at TEXT DEFAULT (datetime('now', 'localtime')),
+    last_reset_date TEXT DEFAULT (date('now', 'localtime'))
+);
+```
+
+```python
+def check_session_limit() -> bool:
+    """Returns True if SESSION_PAUSE should be returned."""
+    row = db.execute("""
+        SELECT articles_processed_count, human_review_interval, last_reset_date
+        FROM session_state WHERE id = 1
+    """).fetchone()
+
+    # Auto-reset at local midnight
+    today_local = date.today().isoformat()  # Uses system timezone
+    if row['last_reset_date'] != today_local:
+        db.execute("""
+            UPDATE session_state
+            SET articles_processed_count = 0,
+                last_reset_date = date('now', 'localtime'),
+                last_reset_at = datetime('now', 'localtime')
+            WHERE id = 1
+        """)
+        return False
+
+    return row['articles_processed_count'] >= row['human_review_interval']
 ```
 
 ---
@@ -553,6 +846,10 @@ def check_content_word_similarity(source_en: str, translation_fr: str, glossary:
     if not expected_fr_words:
         return {"similarity": 1.0, "flag": None}  # No expected terms to check
 
+    # Skip check if too few terms to be meaningful
+    if len(expected_fr_words) < 3:
+        return {"similarity": 1.0, "flag": None}
+
     intersection = expected_fr_words & actual_fr_words
     union = expected_fr_words | actual_fr_words
     similarity = len(intersection) / len(union) if union else 1.0
@@ -563,6 +860,8 @@ def check_content_word_similarity(source_en: str, translation_fr: str, glossary:
         "flag": "WORDDRIFT" if similarity < 0.6 else None
     }
 ```
+
+**Glossary coverage note:** The glossary contains ~200 domain-specific terms across 18 categories (core PDA terms, behavioral, clinical, emotional, etc.). For PDA research articles, expect 5-15 glossary terms per chunk — sufficient coverage for the Jaccard check to be meaningful. The ≥3 term minimum handles edge cases like methodology sections with fewer domain terms.
 
 **BLOCKING FLAGS (save rejected):**
 - `SENTMIS` — sentence count mismatch >15%
@@ -723,8 +1022,7 @@ def save_article(
     translated_title: str,
     translated_summary: str,
     translated_full_text: str | None,  # NULL allowed if open_access=0
-    flags: list[str],               # Claude-reported flags (e.g., ["TBL", "TERM"])
-    flag_details: dict[str, str]    # Context for each flag (e.g., {"TBL": "2 tables on pages 5-6"})
+    flags: list[dict]               # [{"code": "TBL", "detail": "2 tables on pages 5-6"}, ...]
 ) -> dict:
     """
     Saves article to database in single transaction.
@@ -740,11 +1038,11 @@ def save_article(
     - Glossary term verification (TERMMIS if missing)
     - Statistics preservation (STATMIS if numbers differ)
 
-    Flag handling:
-    - Claude provides `flags` and `flag_details` separately
-    - Server stores `processing_flags` = JSON array of flag codes
-    - Server stores `processing_notes` = formatted string:
-      processing_notes = "; ".join(f"[{flag}] {flag_details.get(flag, '')}" for flag in flags)
+    Flag handling (see D22 for format):
+    - Claude provides flags as list of {"code": str, "detail": str}
+    - Server validates each code against taxonomy.yaml
+    - Server stores processing_flags = JSON array of codes
+    - Server stores processing_notes = formatted string from details
     - NO duplication in translations table — all flag info on articles table only
 
     Returns on success:
@@ -798,6 +1096,37 @@ def set_human_review_interval(interval: int) -> dict:
 def reset_session_counter() -> dict:
     """
     Called after human review. Resets counter, allows processing to continue.
+    """
+
+# Tool 9: Ingest new article from intake folder
+def ingest_article(filename: str) -> dict:
+    """
+    Ingests a PDF from intake/articles/ into the database.
+    See D21 for full specification.
+
+    Parameters:
+        filename: Name of PDF file in intake/articles/ (e.g., "smith-2024-pda.pdf")
+
+    Returns on success:
+    {
+        "success": true,
+        "article": {
+            "id": "smith-2024-demand-avoidance-study",
+            "source_title": "A Study of Demand Avoidance in Children",
+            "authors": "Smith, J., Jones, M.",
+            "source": "Journal of Autism Research",
+            "doi": "10.1234/jar.2024.001",
+            "open_access": true
+        },
+        "next_step": "Verify details, then call get_next_article() to begin translation."
+    }
+
+    Returns on failure:
+    {
+        "success": false,
+        "error": "FILE_NOT_FOUND" | "EXTRACTION_FAILED" | "DUPLICATE",
+        "details": "..."
+    }
     """
 ```
 
@@ -953,11 +1282,11 @@ def increment_session_count():
 [project]
 dependencies = [
     "mcp",
-    "PyMuPDF",          # Primary PDF extraction
-    "pdfminer.six",     # Fallback 1: better for two-column layouts
-    "pdfplumber",       # Fallback 2: different algorithm
-    "spacy",            # Sentence tokenization + glossary lemmatization
-    "rapidfuzz",        # Fuzzy matching for glossary
+    "PyMuPDF",                # Primary PDF extraction
+    "pdfminer.six",           # Fallback 1: better for two-column layouts
+    "pdfplumber",             # Fallback 2: different algorithm
+    "spacy>=3.7,<4.0",        # Sentence tokenization + glossary lemmatization (pinned major)
+    "rapidfuzz",              # Fuzzy matching for glossary
     "pyyaml",
 ]
 
@@ -968,11 +1297,18 @@ dev = [
 ]
 ```
 
-**spaCy models required:**
+**spaCy models required (pinned versions for consistent tokenization):**
 ```bash
-python -m spacy download en_core_web_sm
-python -m spacy download fr_core_news_sm
+# Install specific model versions to ensure consistent sentence counts
+python -m spacy download en_core_web_sm-3.7.1
+python -m spacy download fr_core_news_sm-3.7.0
+
+# Verify versions match
+python -c "import spacy; print(spacy.load('en_core_web_sm').meta['version'])"
+python -c "import spacy; print(spacy.load('fr_core_news_sm').meta['version'])"
 ```
+
+**Why pin spaCy?** Sentence tokenization rules change between versions. If SENTMIS threshold is calibrated on v3.7 and someone installs v4.0, the same translation might suddenly fail validation. Pinning prevents this drift.
 
 ---
 
@@ -1367,21 +1703,7 @@ processing_flags:
 
 ---
 
-## Part 11: Operational Procedures
-
-**NOTE:** This section describes Claude's expected behavior. When implementing the MCP server, these procedures should be embedded as docstrings in the tool implementations, so Claude sees them in tool descriptions during actual use.
-
-The MCP server's tool docstrings will include:
-- **get_next_article()**: Returns workflow reminder in response
-- **get_chunk()**: Returns translation instruction with every chunk
-- **validate_classification()**: Documents retry behavior on errors
-- **save_article()**: Documents error handling and retry flow
-
-See Part 4 tool specifications for the docstrings that will be implemented.
-
----
-
-## Part 12: What Automation Can and Cannot Catch
+## Part 11: What Automation Can and Cannot Catch
 
 **CAN catch (high confidence):**
 - Gross omissions (sentence count)
@@ -1399,7 +1721,7 @@ See Part 4 tool specifications for the docstrings that will be implemented.
 
 ---
 
-## Part 13: Implementation Plan
+## Part 12: Implementation Plan
 
 ### Phase 1: MCP Server Core (2-3 hours)
 - server.py, database.py, taxonomy.py
@@ -1492,3 +1814,11 @@ The key insight: **chunked delivery is the quality control mechanism**, not logg
 | 2025-01-11 | **Review changes:** Enhanced tool docstrings with workflow reminders, next_step hints, and error handling instructions |
 | 2025-01-11 | **Ambiguity resolutions:** Added D16 (article_id is TEXT string), D17 (validation token SQLite storage), D18 (spaCy loads at startup), D19 (cache path convention with .txt precedence), D20 (categories parameter format) |
 | 2025-01-11 | **Ambiguity resolutions:** Added SRCUNK flag to taxonomy.yaml for source derivation failures |
+| 2025-01-11 | **Plan review edits:** Expanded D7 to complete workflow behavior (single source of truth for Claude behavior) |
+| 2025-01-11 | **Plan review edits:** Added D21 (ingest_article tool for intake/ folder), D22 (simplified flags parameter format), D23 (session state timezone as localtime) |
+| 2025-01-11 | **Plan review edits:** Made D17 token contents explicit with JSON schema |
+| 2025-01-11 | **Plan review edits:** Removed Part 11 (consolidated into D7 and tool docstrings), renumbered Part 12 |
+| 2025-01-11 | **Plan review edits:** Pinned spaCy version (>=3.7,<4.0) and model versions in dependencies |
+| 2025-01-11 | **Plan review edits:** Updated save_article() signature to use simplified flags: list[dict] format |
+| 2025-01-11 | **Plan review edits:** Added Tool 9 (ingest_article) to Part 4.1 tools list |
+| 2025-01-11 | **Final review:** Confirmed Jaccard check stays at 0.6 threshold with ≥3 term minimum; glossary (~200 terms) provides sufficient coverage. No rollback mechanism needed — re-translation overwrites. |
