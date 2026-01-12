@@ -380,10 +380,21 @@ def parse_extracted_article(slug: str) -> dict[str, Any]:
 @mcp.tool()
 def get_article_for_review(slug: str) -> dict[str, Any]:
     """
-    Get parsed article + suggestions + raw blocks sample for review.
+    Get parsed article data + raw blocks for Claude to review and classify.
 
-    Returns parsed data, auto-detected suggestions (method, voice, peer_reviewed),
-    and a sample of raw blocks from pages 0-1 so Claude can find missing info.
+    Returns:
+    - parser_extracted: What the mechanical parser found (claims to verify)
+    - raw_blocks: First 2 pages of content to verify extractions and derive classifications
+    - classification_guide: Definitions for method/voice/peer_reviewed (no suggestions)
+
+    Claude must:
+    1. Verify parser extractions against raw_blocks (confirm or correct title/authors/abstract)
+    2. Derive year from raw_blocks if not extracted
+    3. Derive method by reading the content (empirical/synthesis/theoretical/lived_experience)
+    4. Derive voice by reading the content (academic/practitioner/organization/individual)
+    5. Derive peer_reviewed from evidence in raw_blocks (DOI, journal name, etc.)
+
+    NO SUGGESTIONS PROVIDED. Claude must derive all classifications from the content.
 
     Args:
         slug: The article slug
@@ -392,65 +403,111 @@ def get_article_for_review(slug: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def apply_enhancements(
+def complete_article_review(
     slug: str,
-    authors: str | None = None,
-    year: str | None = None,
+    title: str,
+    authors: str,
+    year: str,
+    abstract_confirmed: bool,
+    method: str,
+    voice: str,
+    peer_reviewed: bool,
+    corrected_abstract: str | None = None,
     citation: str | None = None,
-    title: str | None = None,
-    abstract: str | None = None,
-    keywords: str | None = None,
-    method: str | None = None,
-    voice: str | None = None,
-    peer_reviewed: bool | None = None,
-    apply_suggestions: bool = True
+    notes: str | None = None,
 ) -> dict[str, Any]:
     """
-    Apply corrections to parsed article JSON.
+    Complete the article review by stating all values explicitly.
 
-    If apply_suggestions=True, auto-detected values are applied first,
-    then explicit parameters override them.
+    You must STATE the title, authors, and year — not just confirm them.
+    Compare parser_extracted with raw_blocks and write what you found.
+
+    You must DERIVE method, voice, and peer_reviewed from reading the content.
+    No suggestions are provided. Read the raw_blocks and decide.
 
     Args:
         slug: The article slug
-        authors: Authors string (e.g., "E. O'Nions, J. Gould, P. Christie")
-        year: Publication year
-        citation: Full citation string
-        title: Article title
-        abstract: Abstract text
-        keywords: Keywords string
-        method: One of: empirical, synthesis, theoretical, lived_experience
-        voice: One of: academic, practitioner, organization, individual
-        peer_reviewed: True if peer-reviewed
-        apply_suggestions: Apply auto-detected values first (default: True)
+        title: REQUIRED — state the title you found in raw_blocks
+        authors: REQUIRED — state the authors (e.g., "E. O'Nions, J. Gould, P. Christie")
+        year: REQUIRED — publication year (4 digits, e.g., "2018")
+        abstract_confirmed: True if parser's abstract is correct, False if correcting
+        method: REQUIRED — one of: empirical, synthesis, theoretical, lived_experience
+        voice: REQUIRED — one of: academic, practitioner, organization, individual
+        peer_reviewed: REQUIRED — True if peer-reviewed, False otherwise
+        corrected_abstract: Only required if abstract_confirmed=False
+        citation: Optional full citation string
+        notes: Optional notes about issues or flags
     """
-    return preprocessing.apply_enhancements(
+    return preprocessing.complete_article_review(
         slug=slug,
+        title=title,
         authors=authors,
         year=year,
-        citation=citation,
-        title=title,
-        abstract=abstract,
-        keywords=keywords,
+        abstract_confirmed=abstract_confirmed,
         method=method,
         voice=voice,
         peer_reviewed=peer_reviewed,
-        apply_suggestions=apply_suggestions
+        corrected_abstract=corrected_abstract,
+        citation=citation,
+        notes=notes,
     )
 
 
 @mcp.tool()
-def submit_for_review(slug: str) -> dict[str, Any]:
+def get_body_for_review(slug: str, chunk: int = 0) -> dict[str, Any]:
     """
-    Create article record in database with status='preprocessing'.
+    Get body_html in chunks for structural review.
 
-    Requires all required fields to be present (title, authors, abstract,
-    method, voice, peer_reviewed). After submission, human reviews in /admin/review.
+    Returns paragraphs with flagged issues:
+    - ORPHAN: Starts lowercase — split from previous
+    - INCOMPLETE: No ending punctuation — continues in next
+    - CAPTION: Figure/table caption in body
+    - PAGE_ARTIFACT: Page number/header leaked through
+    - SHORT_FRAGMENT: Very short text — cruft?
+    - REFERENCE_LEAK: Reference in body
+
+    Call with chunk=0, then chunk=1, etc. until all reviewed.
 
     Args:
         slug: The article slug
+        chunk: Which chunk to return (0-indexed, 10 paragraphs each)
     """
-    return preprocessing.submit_for_review(slug)
+    return preprocessing.get_body_for_review(slug, chunk)
+
+
+@mcp.tool()
+def complete_body_review(
+    slug: str,
+    body_approved: bool,
+    fixes: list[dict] | None = None,
+    issues_acknowledged: list[int] | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Complete the body review — confirm clean or apply fixes.
+
+    If get_body_for_review() flagged issues, you MUST either:
+    1. Fix them (provide in fixes list), OR
+    2. Acknowledge them as false positives (list indices in issues_acknowledged)
+
+    You CANNOT approve the body while ignoring flagged issues.
+
+    Args:
+        slug: The article slug
+        body_approved: True if body is clean (after fixes), False if issues remain
+        fixes: List of fixes. Each is {"index": N, "action": ACTION}
+            Actions: "join_previous", "join_next", "delete", "replace"
+            For replace: {"index": N, "action": "replace", "text": "new text"}
+        issues_acknowledged: List of paragraph indices where issues are false positives
+        notes: Explain why acknowledged issues are false positives
+    """
+    return preprocessing.complete_body_review(
+        slug=slug,
+        body_approved=body_approved,
+        fixes=fixes,
+        issues_acknowledged=issues_acknowledged,
+        notes=notes,
+    )
 
 
 @mcp.tool()
