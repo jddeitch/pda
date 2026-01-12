@@ -426,13 +426,78 @@ No icon. Text-only with raised teal dot:
 
 See `docs/decisions.md` for rationale. Summary:
 
-1. **Link to originals, don't host** — copyright clean, original gets credit
+1. **Host originals AND link to source** — complete resource with full attribution (see Copyright Position below)
 2. **Article-by-article workflow** — keeps context tight, nothing half-done
 3. **Multi-language support** — French now, structure supports Spanish/German later
 4. **SQLite over YAML at scale** — queryable, handles relationships
 5. **Static site** — no runtime, fast, cheap hosting
 6. **Single source of truth for taxonomy** — `data/taxonomy.yaml` is canonical for all classification terms and their translations
 7. **MCP-based Translation Machine** — enforces workflow deterministically, prevents Claude failure modes (summarizing, skipping, editorial drift) via chunked delivery and automated quality checks
+
+---
+
+## Copyright Position
+
+**Decision (January 2025):** Host original English articles alongside French translations, with full attribution and links to canonical sources.
+
+### Rationale
+
+The original position ("link to originals, don't host") was based on a flawed premise — that linking somehow reduces copyright exposure. It doesn't. **The translation itself is the derivative work.** Whether we host the original alongside it is legally irrelevant to that infringement.
+
+What hosting the original DOES provide:
+- **Scholarly completeness** — readers can verify translations against source
+- **User utility** — no paywalls, no link rot, no broken URLs
+- **Resilience** — academic URLs die; our archive survives
+- **Honesty** — we have the content in our cache anyway; pretending otherwise is theater
+
+### Legal Landscape (France/EU)
+
+**France's Loi République Numérique (2016), Article 30:**
+- Researchers have an inalienable right to republish publicly-funded work after 6-12 months embargo
+- This right is "d'ordre public" — contract clauses contradicting it are void
+- Applies to research funded ≥50% by public money (grants, EU funds, universities)
+
+**Secondary Publication Rights in EU:**
+- Six member states (Germany, France, Austria, Belgium, Netherlands, Bulgaria) have similar laws
+- EU moving toward mandatory research exceptions
+- 2024 European Commission study recommends EU-wide secondary publication right
+
+**Article Tiers:**
+| Tier | Source | Status |
+|------|--------|--------|
+| Open Access | CC-BY or similar | Fully clear to host + translate |
+| Publicly-funded | University researchers on grants | Authors have secondary publication rights |
+| Proprietary | Private publishers | Technical infringement, but... |
+
+### Practical Enforcement Reality
+
+For Tier 3 (proprietary) articles, we accept calculated risk based on:
+
+1. **No damages** — We're not selling anything, not diverting subscription revenue
+2. **Reputation cost to plaintiff** — Suing a father's free resource helping autistic kids? PR disaster
+3. **Cost-benefit** — International litigation for niche autism papers exceeds any recovery
+4. **Actual effect** — We increase citation/visibility, credit authors, link to originals
+
+**The posture:** We're building a public educational resource. We link to canonical sources, we credit fully, we make no money. If anyone objects, we comply with takedown requests promptly and politely.
+
+### Implementation
+
+Each article displays:
+- Full citation (authors, journal, year, pages)
+- Link to canonical source (journal/publisher URL)
+- Archived PDF copy for reference
+- French translation
+
+**Example attribution block:**
+> **Source:** Philippe, A. & Contejean, Y. (2018). Le syndrome d'évitement pathologique des demandes. *Neuropsychiatrie de l'enfance et de l'adolescence*, 66, 103-108.
+>
+> [Article original (journal)] | [Version PDF archivée]
+
+### References
+
+- [Loi République Numérique, Article 30](https://www.ouvrirlascience.fr/guide-application-loi-republique-numerique-article-30-ecrits-scientifiques-version-courte/)
+- [Secondary Publication Rights in Europe](https://link.springer.com/article/10.1007/s40319-025-01620-6)
+- [EU Copyright Exceptions for Research](https://libereurope.eu/wp-content/uploads/2020/09/A-Basic-Guide-to-Limitations-and-Exceptions-in-EU-Copyright-Law-for-Libraries-Educational-and-Research-FINAL-ONLINE-1.pdf)
 
 ---
 
