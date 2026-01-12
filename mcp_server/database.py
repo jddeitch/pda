@@ -316,7 +316,7 @@ class Database:
         counts = {row["processing_status"]: row["count"] for row in cursor.fetchall()}
 
         # Ensure all statuses are present
-        for status in ("pending", "pending_url", "in_progress", "translated", "skipped"):
+        for status in ("preprocessing", "pending", "pending_url", "in_progress", "translated", "skipped"):
             counts.setdefault(status, 0)
 
         return counts
@@ -556,6 +556,67 @@ class Database:
             ORDER BY created_at ASC
         """)
         return [dict(row) for row in cursor.fetchall()]
+
+    # --- Preprocessing Operations ---
+
+    def create_preprocessing_article(
+        self,
+        article_id: str,
+        source_title: str,
+        authors: str,
+        abstract: str,
+        body_html: str,
+        doi: str | None,
+        citation: str | None,
+        year: str | None,
+        method: str,
+        voice: str,
+        peer_reviewed: bool,
+        references_json: str | None,
+        source_url: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create article record with status='preprocessing' for human review.
+
+        This is used by the preprocessing pipeline to create articles that
+        need human approval before entering the translation queue.
+        """
+        # Check for duplicates
+        if self.article_exists(article_id):
+            return {
+                "success": False,
+                "error": "DUPLICATE",
+                "details": f"Article '{article_id}' already exists.",
+            }
+
+        self.execute(
+            """
+            INSERT INTO articles (
+                id, source_title, source_url, authors, year,
+                doi, citation, abstract, body_html, references_json,
+                method, voice, peer_reviewed, source,
+                open_access, processing_status, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preprocessing-mcp', 1, 'preprocessing', datetime('now'))
+            """,
+            (
+                article_id,
+                source_title,
+                source_url,
+                authors,
+                year,
+                doi,
+                citation,
+                abstract,
+                body_html,
+                references_json,
+                method,
+                voice,
+                1 if peer_reviewed else 0,
+            )
+        )
+        self.commit()
+        return {"success": True, "article_id": article_id}
 
     # --- Translation Operations ---
 

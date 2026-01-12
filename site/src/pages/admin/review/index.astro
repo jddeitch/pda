@@ -12,52 +12,67 @@ if (!import.meta.env.ENABLE_ADMIN) {
 
 const CACHE_DIR = "/Users/jd/Projects/pda/cache/articles";
 
-// Get all HTML files in cache
-let htmlFiles: string[] = [];
+// Get all Marker JSON files in cache (Datalab Marker API output)
+let jsonFiles: string[] = [];
 try {
   const files = fs.readdirSync(CACHE_DIR);
-  htmlFiles = files
-    .filter((f) => f.endsWith(".html"))
+  jsonFiles = files
+    .filter((f) => f.endsWith(".json") && !f.endsWith("_parsed.json"))
     .sort((a, b) => a.localeCompare(b));
 } catch (e) {
   console.error("Could not read cache directory:", e);
 }
 
-// For each file, read basic info (we'll do full parsing on detail page)
+// For each file, read basic info from the JSON
 interface CacheFile {
   slug: string;
   filename: string;
   size: number;
-  hasJson: boolean;
+  hasParsed: boolean;
+  blockCount: number;
+  pageCount: number;
 }
 
-const cacheFiles: CacheFile[] = htmlFiles.map((filename) => {
+const cacheFiles: CacheFile[] = jsonFiles.map((filename) => {
   const filepath = path.join(CACHE_DIR, filename);
   const stats = fs.statSync(filepath);
-  const slug = filename.replace(".html", "");
-  const jsonPath = path.join(CACHE_DIR, slug + ".json");
-  const hasJson = fs.existsSync(jsonPath);
+  const slug = filename.replace(".json", "");
+  const parsedPath = path.join(CACHE_DIR, slug + "_parsed.json");
+  const hasParsed = fs.existsSync(parsedPath);
+
+  // Read basic stats from JSON
+  let blockCount = 0;
+  let pageCount = 0;
+  try {
+    const data = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+    blockCount = data.blocks?.length || 0;
+    pageCount = data.page_count || 0;
+  } catch (e) {
+    // Ignore parse errors
+  }
 
   return {
     slug,
     filename,
     size: stats.size,
-    hasJson,
+    hasParsed,
+    blockCount,
+    pageCount,
   };
 });
 
 // Summary stats
 const totalFiles = cacheFiles.length;
-const parsedFiles = cacheFiles.filter((f) => f.hasJson).length;
+const parsedFiles = cacheFiles.filter((f) => f.hasParsed).length;
 ---
 
 <AdminLayout title="Review Parsed Articles">
   <div class="space-y-6">
     <!-- Page Header -->
     <div>
-      <h1 class="text-2xl font-bold text-stone-900">Review Parsed Articles</h1>
+      <h1 class="text-2xl font-bold text-stone-900">Review Extracted Articles</h1>
       <p class="mt-1 text-sm text-stone-500">
-        Review extracted HTML from Datalab before importing to database
+        Review parsed articles from Marker JSON before importing to database
       </p>
     </div>
 
@@ -96,8 +111,9 @@ const parsedFiles = cacheFiles.filter((f) => f.hasJson).length;
             <thead>
               <tr class="border-b border-stone-200 bg-stone-50">
                 <th class="px-4 py-3 text-left font-medium text-stone-500">Article</th>
-                <th class="px-4 py-3 text-left font-medium text-stone-500">Size</th>
-                <th class="px-4 py-3 text-left font-medium text-stone-500">Parsed</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Pages</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Blocks</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Status</th>
                 <th class="px-4 py-3 text-right font-medium text-stone-500">Actions</th>
               </tr>
             </thead>
@@ -112,16 +128,19 @@ const parsedFiles = cacheFiles.filter((f) => f.hasJson).length;
                     </div>
                   </td>
                   <td class="px-4 py-3 text-stone-500">
-                    {Math.round(file.size / 1024)} KB
+                    {file.pageCount}
+                  </td>
+                  <td class="px-4 py-3 text-stone-500">
+                    {file.blockCount}
                   </td>
                   <td class="px-4 py-3">
-                    {file.hasJson ? (
+                    {file.hasParsed ? (
                       <span class="rounded bg-green-100 text-green-800 px-2 py-0.5 text-xs font-medium">
-                        Yes
+                        Ready for Review
                       </span>
                     ) : (
                       <span class="rounded bg-stone-100 text-stone-500 px-2 py-0.5 text-xs font-medium">
-                        No
+                        Not Parsed
                       </span>
                     )}
                   </td>
@@ -143,7 +162,7 @@ const parsedFiles = cacheFiles.filter((f) => f.hasJson).length;
       <div class="rounded-lg bg-white p-8 shadow-sm text-center">
         <h3 class="text-lg font-medium text-stone-900 mb-1">No Files Found</h3>
         <p class="text-sm text-stone-500">
-          No HTML files in cache/articles/. Run batch_extract.py first.
+          No JSON files in cache/articles/. Run batch_extract.py first.
         </p>
       </div>
     )}

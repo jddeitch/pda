@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-Batch extract PDFs via Datalab API with rate limiting and image embedding.
+Batch extract PDFs via Datalab API with structured JSON output.
+
+Outputs structured JSON with block-level content including:
+- PageHeader/PageFooter (for DOI, citation extraction)
+- SectionHeader, Text, Table, Figure blocks
+- Embedded images as base64 data URIs
 """
 
 import requests
 import os
 import time
 import re
+import json
 from pathlib import Path
 
 API_KEY = os.environ.get('DATALAB_API_KEY', '-vPPAEwkoYbtFa9oa6cQRV1Gef8O1LaTSha-TZq5Yso')
@@ -24,34 +30,43 @@ BATCH_SIZE = 5  # Submit this many, then wait for all to complete
 
 def slugify(filename: str) -> str:
     """Convert filename to a clean slug for output."""
-    # Remove extension
     name = Path(filename).stem
-    # Lowercase
     name = name.lower()
-    # Replace spaces and special chars with hyphens
     name = re.sub(r'[^a-z0-9]+', '-', name)
-    # Remove leading/trailing hyphens
     name = name.strip('-')
-    # Collapse multiple hyphens
     name = re.sub(r'-+', '-', name)
     return name
 
 
 def get_existing_files() -> set:
-    """Get set of already-processed slugs."""
+    """Get set of already-processed slugs (check for .json now)."""
     existing = set()
-    for f in CACHE_DIR.glob("*.html"):
+    for f in CACHE_DIR.glob("*.json"):
         existing.add(f.stem)
     return existing
 
 
 def submit_pdf(pdf_path: Path) -> dict:
-    """Submit a PDF for extraction. Returns request info."""
+    """Submit a PDF for extraction with structured JSON output."""
+
+    # Additional config for keeping page headers/footers
+    additional_config = json.dumps({
+        "keep_pageheader_in_output": True,
+        "keep_pagefooter_in_output": True
+    })
+
     with open(pdf_path, 'rb') as f:
         response = requests.post(
             API_URL,
             files={'file': (pdf_path.name, f, 'application/pdf')},
-            data={'output_format': 'html', 'mode': 'accurate'},
+            data={
+                'output_format': 'json',  # Get structured blocks
+                'mode': 'accurate',
+                'paginate': 'true',
+                'skip_cache': 'true',
+                'extras': 'extract_links',
+                'additional_config': additional_config
+            },
             headers={'X-API-Key': API_KEY}
         )
 
@@ -64,7 +79,7 @@ def submit_pdf(pdf_path: Path) -> dict:
 
 
 def poll_and_save(request_id: str, output_path: Path) -> bool:
-    """Poll for completion and save with embedded images."""
+    """Poll for completion and save structured JSON with embedded images."""
     for attempt in range(MAX_POLL_ATTEMPTS):
         response = requests.get(
             f"{API_URL}/{request_id}",
@@ -74,27 +89,35 @@ def poll_and_save(request_id: str, output_path: Path) -> bool:
         status = data.get('status')
 
         if status == 'complete':
-            html = data.get('html', '')
+            chunks = data.get('chunks', {})
+            blocks = chunks.get('blocks', [])
             images = data.get('images', {})
 
-            if not html:
-                print(f"  WARNING: No HTML content returned")
+            if not blocks:
+                print(f"  WARNING: No blocks returned")
                 return False
 
-            # Embed images as base64 data URIs
-            for filename, b64_data in images.items():
-                ext = filename.split('.')[-1].lower()
-                mime = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png'}.get(ext, 'image/jpeg')
-                data_uri = f'data:{mime};base64,{b64_data}'
-                html = html.replace(f'src="{filename}"', f'src="{data_uri}"')
+            # Embed images as base64 data URIs in block HTML
+            for block in blocks:
+                html = block.get('html', '')
+                for filename, b64_data in images.items():
+                    if filename in html:
+                        ext = filename.split('.')[-1].lower()
+                        mime = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png'}.get(ext, 'image/jpeg')
+                        data_uri = f'data:{mime};base64,{b64_data}'
+                        html = html.replace(f'src="{filename}"', f'src="{data_uri}"')
+                        block['html'] = html
 
-            # Verify all images were embedded
-            remaining_refs = re.findall(r'src="([a-f0-9]+_img\.[a-z]+)"', html)
-            if remaining_refs:
-                print(f"  WARNING: {len(remaining_refs)} images not embedded: {remaining_refs[:3]}")
+            # Save the full structured response
+            output_data = {
+                'status': 'complete',
+                'blocks': blocks,
+                'images_count': len(images),
+                'page_count': max((b.get('page', 0) for b in blocks), default=0) + 1
+            }
 
-            output_path.write_text(html)
-            print(f"  COMPLETE - {len(html):,} bytes, {len(images)} images")
+            output_path.write_text(json.dumps(output_data, indent=2, ensure_ascii=False))
+            print(f"  COMPLETE - {len(blocks)} blocks, {len(images)} images, {output_data['page_count']} pages")
             return True
 
         elif status == 'error':
@@ -155,7 +178,7 @@ def main():
 
         # Poll all submissions
         for request_id, slug, filename in submissions:
-            output_path = CACHE_DIR / f"{slug}.html"
+            output_path = CACHE_DIR / f"{slug}.json"
             print(f"Waiting for: {filename[:50]}...")
             poll_and_save(request_id, output_path)
 

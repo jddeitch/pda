@@ -29,6 +29,7 @@ from mcp.server.fastmcp import FastMCP
 from .database import get_database
 from .taxonomy import get_taxonomy
 from . import tools
+from . import preprocessing
 
 
 # Configure logging
@@ -334,6 +335,133 @@ def set_article_url(article_id: str, source_url: str) -> dict[str, Any]:
         {"success": false, "error": "NOT_FOUND|INVALID_URL", "details": "..."}
     """
     return tools.set_article_url(article_id, source_url)
+
+
+# --- Preprocessing Tools ---
+
+@mcp.tool()
+def list_intake_pdfs() -> dict[str, Any]:
+    """
+    List PDFs in intake/articles/ awaiting processing.
+
+    Returns PDFs that haven't been extracted yet, plus those already extracted.
+    Use this to see what's available before calling extract_pdf().
+    """
+    return preprocessing.list_intake_pdfs()
+
+
+@mcp.tool()
+def extract_pdf(filename: str) -> dict[str, Any]:
+    """
+    Submit PDF to Datalab Marker API and wait for completion.
+
+    This is a blocking operation that typically takes 30-120 seconds.
+    Requires DATALAB_API_KEY environment variable.
+
+    Args:
+        filename: Name of PDF in intake/articles/ (e.g., "smith-2024-pda.pdf")
+    """
+    return preprocessing.extract_pdf(filename)
+
+
+@mcp.tool()
+def parse_extracted_article(slug: str) -> dict[str, Any]:
+    """
+    Run mechanical parser on Datalab JSON, create structured article data.
+
+    Extracts title, authors, abstract, body, references from the raw blocks.
+
+    Args:
+        slug: The article slug (filename without extension, slugified)
+    """
+    return preprocessing.parse_extracted_article(slug)
+
+
+@mcp.tool()
+def get_article_for_review(slug: str) -> dict[str, Any]:
+    """
+    Get parsed article + suggestions + raw blocks sample for review.
+
+    Returns parsed data, auto-detected suggestions (method, voice, peer_reviewed),
+    and a sample of raw blocks from pages 0-1 so Claude can find missing info.
+
+    Args:
+        slug: The article slug
+    """
+    return preprocessing.get_article_for_review(slug)
+
+
+@mcp.tool()
+def apply_enhancements(
+    slug: str,
+    authors: str | None = None,
+    year: str | None = None,
+    citation: str | None = None,
+    title: str | None = None,
+    abstract: str | None = None,
+    keywords: str | None = None,
+    method: str | None = None,
+    voice: str | None = None,
+    peer_reviewed: bool | None = None,
+    apply_suggestions: bool = True
+) -> dict[str, Any]:
+    """
+    Apply corrections to parsed article JSON.
+
+    If apply_suggestions=True, auto-detected values are applied first,
+    then explicit parameters override them.
+
+    Args:
+        slug: The article slug
+        authors: Authors string (e.g., "E. O'Nions, J. Gould, P. Christie")
+        year: Publication year
+        citation: Full citation string
+        title: Article title
+        abstract: Abstract text
+        keywords: Keywords string
+        method: One of: empirical, synthesis, theoretical, lived_experience
+        voice: One of: academic, practitioner, organization, individual
+        peer_reviewed: True if peer-reviewed
+        apply_suggestions: Apply auto-detected values first (default: True)
+    """
+    return preprocessing.apply_enhancements(
+        slug=slug,
+        authors=authors,
+        year=year,
+        citation=citation,
+        title=title,
+        abstract=abstract,
+        keywords=keywords,
+        method=method,
+        voice=voice,
+        peer_reviewed=peer_reviewed,
+        apply_suggestions=apply_suggestions
+    )
+
+
+@mcp.tool()
+def submit_for_review(slug: str) -> dict[str, Any]:
+    """
+    Create article record in database with status='preprocessing'.
+
+    Requires all required fields to be present (title, authors, abstract,
+    method, voice, peer_reviewed). After submission, human reviews in /admin/review.
+
+    Args:
+        slug: The article slug
+    """
+    return preprocessing.submit_for_review(slug)
+
+
+@mcp.tool()
+def get_preprocessing_status() -> dict[str, Any]:
+    """
+    Get overview of preprocessing pipeline status.
+
+    Returns counts of PDFs in intake, extracted/parsed in cache,
+    and database status by processing_status.
+    """
+    return preprocessing.get_preprocessing_status()
 
 
 # --- Main entry point ---

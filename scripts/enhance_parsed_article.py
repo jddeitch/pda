@@ -2,20 +2,33 @@
 """
 Step 4: AI Enhancement Pass
 
-Reads a parsed article JSON and suggests:
-1. Method classification (from article_type mapping)
-2. Voice classification (from author affiliations)
-3. Peer reviewed status (from citation patterns)
-4. Missing metadata (authors, year, citation)
+This script is run by Claude after reviewing the mechanical parser output.
+It applies corrections that require judgment (missing authors, malformed
+citations, classification, etc.).
 
-Can be run in two modes:
-- --suggest: Print suggestions without modifying
-- --apply: Apply the suggested values to JSON
+Two modes:
+- --suggest: Auto-detect and print suggestions (uses CrossRef, heuristics)
+- --apply: Apply suggestions AND/OR manual overrides
+
+Manual overrides (Claude extracts these from reading the raw HTML):
+    --authors "E. O'Nions, J. Gould, ..."
+    --year "2015"
+    --citation "Eur Child Adolesc Psychiatry (2015) 24:1–13"
+    --title "New title"
+    --abstract "New abstract"
+    --acknowledgements "Thanks to..."
+    --keywords "autism, PDA, demand avoidance"
+
+Classification overrides:
+    --method empirical|synthesis|theoretical|lived_experience
+    --voice academic|practitioner|organization|individual
+    --peer-reviewed (flag)
 
 Usage:
     python enhance_parsed_article.py <json_path> --suggest
     python enhance_parsed_article.py <json_path> --apply
     python enhance_parsed_article.py <json_path> --authors "A. Smith" --year 2018
+    python enhance_parsed_article.py <json_path> --apply --authors "A. Smith" --citation "..."
 """
 
 import argparse
@@ -298,12 +311,25 @@ def main():
     parser.add_argument('json_path', type=Path, help='Path to the parsed JSON file')
     parser.add_argument('--suggest', action='store_true', help='Print suggestions without modifying')
     parser.add_argument('--apply', action='store_true', help='Apply suggested values to JSON')
+
+    # Manual field overrides (Claude extracts from reading raw HTML)
     parser.add_argument('--authors', type=str, help='Override: Authors string')
     parser.add_argument('--year', type=str, help='Override: Publication year')
     parser.add_argument('--citation', type=str, help='Override: Full citation')
-    parser.add_argument('--method', type=str, help='Override: Method classification')
-    parser.add_argument('--voice', type=str, help='Override: Voice classification')
+    parser.add_argument('--title', type=str, help='Override: Article title')
+    parser.add_argument('--abstract', type=str, help='Override: Abstract text')
+    parser.add_argument('--acknowledgements', type=str, help='Override: Acknowledgements')
+    parser.add_argument('--keywords', type=str, help='Override: Keywords')
+
+    # Classification overrides
+    parser.add_argument('--method', type=str,
+                        choices=['empirical', 'synthesis', 'theoretical', 'lived_experience'],
+                        help='Override: Method classification')
+    parser.add_argument('--voice', type=str,
+                        choices=['academic', 'practitioner', 'organization', 'individual'],
+                        help='Override: Voice classification')
     parser.add_argument('--peer-reviewed', action='store_true', help='Override: Mark as peer reviewed')
+    parser.add_argument('--not-peer-reviewed', action='store_true', help='Override: Mark as NOT peer reviewed')
 
     args = parser.parse_args()
 
@@ -391,7 +417,7 @@ def main():
                 data[field] = info['value']
                 changes.append(f"{field}: {info['value']} ({info['reason']})")
 
-    # Apply manual overrides
+    # Apply manual overrides (these always take precedence)
     if args.authors:
         data['authors'] = args.authors
         changes.append(f"authors: {args.authors}")
@@ -404,6 +430,22 @@ def main():
         data['citation'] = args.citation
         changes.append(f"citation: {args.citation[:50]}...")
 
+    if args.title:
+        data['title'] = args.title
+        changes.append(f"title: {args.title[:50]}...")
+
+    if args.abstract:
+        data['abstract'] = args.abstract
+        changes.append(f"abstract: {args.abstract[:50]}...")
+
+    if args.acknowledgements:
+        data['acknowledgements'] = args.acknowledgements
+        changes.append(f"acknowledgements: {args.acknowledgements[:50]}...")
+
+    if args.keywords:
+        data['keywords'] = args.keywords
+        changes.append(f"keywords: {args.keywords[:50]}...")
+
     if args.method:
         data['method'] = args.method
         changes.append(f"method: {args.method}")
@@ -415,6 +457,10 @@ def main():
     if args.peer_reviewed:
         data['peer_reviewed'] = True
         changes.append("peer_reviewed: True")
+
+    if args.not_peer_reviewed:
+        data['peer_reviewed'] = False
+        changes.append("peer_reviewed: False")
 
     if changes:
         save_json(args.json_path, data)
