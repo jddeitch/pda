@@ -1,0 +1,40 @@
+# Section Headings - Multilingual patterns for parsing article structure
+#
+# Each section type has patterns that match common heading variations.
+# Patterns are matched case-insensitively against heading text.
+# Use partial strings that will match variations (e.g., "REFERENCE" matches "References")
+
+abstract:
+  en: ["abstract", "summary"]
+  fr: ["résumé", "resume"]
+  es: ["resumen"]
+  de: ["zusammenfassung", "kurzfassung"]
+  it: ["sommario", "riassunto"]
+  pt: ["resumo"]
+
+references:
+  en: ["reference", "bibliography", "works cited", "literature cited"]
+  fr: ["référence", "bibliographie"]
+  es: ["referencia", "bibliografía", "literatura citada"]
+  de: ["literatur", "quellenverzeichnis", "literaturverzeichnis"]
+  it: ["riferiment", "bibliografia"]
+  pt: ["referência", "bibliografia"]
+
+acknowledgements:
+  en: ["acknowledgement", "acknowledgment", "funding"]
+  fr: ["remerciement"]
+  es: ["agradecimiento", "reconocimiento"]
+  de: ["danksagung", "dank"]
+  it: ["ringraziament"]
+  pt: ["agradecimento"]
+
+keywords:
+  en: ["keyword", "key word", "index term"]
+  fr: ["mots clé", "mot-clé", "mots-clés"]
+  es: ["palabra clave", "palabras clave"]
+  de: ["schlüsselwort", "schlagwort"]
+  it: ["parole chiave"]
+  pt: ["palavra-chave", "palavras-chave"]
+
+# Future sections can be added here:
+# introduction, methods, results, discussion, conclusion, etc.

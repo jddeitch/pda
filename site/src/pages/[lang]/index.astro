@@ -1,10 +1,9 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import ICPCard from "../../components/ICPCard.astro";
-import CategoryCard from "../../components/CategoryCard.astro";
+import ArticleCard from "../../components/ArticleCard.astro";
 import { isValidLang, type Language } from "../../i18n/config";
 import { t } from "../../i18n/translations";
-import { getAllCategories, getStats } from "../../lib/db";
+import { getAllCategories, getTranslatedArticles } from "../../lib/db";
 
 export function getStaticPaths() {
   return [{ params: { lang: "fr" } }, { params: { lang: "en" } }];
@@ -18,12 +17,17 @@ if (!isValidLang(lang)) {
 
 const translations = t(lang as Language);
 const categories = getAllCategories();
-const stats = getStats();
+const recentArticles = getTranslatedArticles(lang as string).slice(0, 4);
 
 const alternateUrls = {
   fr: "/fr",
   en: "/en",
 };
+
+// Category labels for the featured cards (placeholder until DB-driven)
+const categoryLabels = lang === "fr"
+  ? { fondements: "Fondements", evaluation: "Évaluation", prise_en_charge: "Prise en charge" }
+  : { fondements: "Foundations", evaluation: "Assessment", prise_en_charge: "Management" };
 ---
 
 <BaseLayout
@@ -33,88 +37,152 @@ const alternateUrls = {
   alternateUrls={alternateUrls}
 >
   <!-- Hero Section -->
-  <section class="bg-gradient-to-b from-cream-300 to-cream-200 py-16 sm:py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="text-center">
-        <h1 class="font-literata text-4xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-          {translations.home.heroTitle}
-        </h1>
-        <p class="mx-auto mt-4 max-w-2xl text-lg text-stone-600">
-          {translations.home.heroSubtitle}
-        </p>
+  <section class="bg-gradient-to-b from-cream-300 to-cream-200 border-b border-stone-200">
+    <div class="mx-auto max-w-6xl px-6 py-16 text-center">
+      <div class="inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 bg-accent-100 text-accent-800">
+        {translations.home.heroBadge}
       </div>
+      <h1 class="font-literata text-4xl font-bold text-stone-900 mb-4">
+        {translations.home.heroTitle}
+      </h1>
+      <p class="text-lg text-stone-600 max-w-2xl mx-auto mb-3">
+        {translations.home.heroSubtitle}
+      </p>
+      <p class="text-sm text-stone-500">
+        {translations.home.heroDisclaimer}
+      </p>
+    </div>
+  </section>
 
-      <!-- ICP Cards -->
-      <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:max-w-4xl lg:mx-auto">
-        <ICPCard
-          title={translations.icp.professionals.title}
-          subtitle={translations.icp.professionals.subtitle}
-          cta={translations.icp.professionals.cta}
-          href={`/${lang}/professionnels`}
-          variant="professionals"
-        />
-        <ICPCard
-          title={translations.icp.families.title}
-          subtitle={translations.icp.families.subtitle}
-          cta={translations.icp.families.cta}
-          href={`/${lang}/familles`}
-          variant="families"
-        />
+  <!-- Featured Articles: Pour commencer -->
+  <section class="py-16 bg-white border-b border-stone-200">
+    <div class="mx-auto max-w-6xl px-6">
+      <h2 class="text-2xl font-semibold text-stone-900 mb-2">
+        {translations.home.featuredTitle}
+      </h2>
+      <p class="text-stone-600 mb-6 max-w-3xl">
+        {translations.home.featuredIntro}
+      </p>
+      <p class="text-stone-500 text-sm mb-8">
+        {translations.home.featuredSubtitle}
+      </p>
+
+      <div class="grid gap-6 md:grid-cols-3">
+        <!-- Featured 1: What is PDA? -->
+        <a href={`/${lang}/categories/fondements`} class="block bg-white rounded-xl p-6 border-2 border-primary-200 hover:border-primary-400 hover:shadow-md transition-all group">
+          <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 mb-3">
+            {categoryLabels.fondements}
+          </span>
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">
+            {translations.home.featuredWhatIs}
+          </h3>
+          <p class="text-sm text-stone-600">
+            {translations.home.featuredWhatIsDesc}
+          </p>
+        </a>
+
+        <!-- Featured 2: Recognition -->
+        <a href={`/${lang}/categories/evaluation`} class="block bg-white rounded-xl p-6 border-2 border-primary-200 hover:border-primary-400 hover:shadow-md transition-all group">
+          <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 mb-3">
+            {categoryLabels.evaluation}
+          </span>
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">
+            {translations.home.featuredRecognize}
+          </h3>
+          <p class="text-sm text-stone-600">
+            {translations.home.featuredRecognizeDesc}
+          </p>
+        </a>
+
+        <!-- Featured 3: Approaches -->
+        <a href={`/${lang}/categories/prise-en-charge`} class="block bg-white rounded-xl p-6 border-2 border-primary-200 hover:border-primary-400 hover:shadow-md transition-all group">
+          <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 mb-3">
+            {categoryLabels.prise_en_charge}
+          </span>
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">
+            {translations.home.featuredApproaches}
+          </h3>
+          <p class="text-sm text-stone-600">
+            {translations.home.featuredApproachesDesc}
+          </p>
+        </a>
       </div>
     </div>
   </section>
 
-  <!-- Browse by Theme Section -->
-  <section class="py-16 bg-white">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <h2 class="text-center text-2xl font-semibold text-stone-900">
+  <!-- Categories Grid -->
+  <section class="py-16 border-b border-stone-200">
+    <div class="mx-auto max-w-6xl px-6">
+      <h2 class="text-2xl font-semibold text-stone-900 mb-2">
         {translations.home.browseByTheme}
       </h2>
+      <p class="text-stone-600 mb-8">
+        {translations.home.browseByThemeSubtitle}
+      </p>
 
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {
-          categories.map((category) => (
-            <CategoryCard
-              id={category.id}
-              title={
-                lang === "fr" ? category.label_fr : category.label_en
-              }
-              description={
-                translations.categoryDescriptions[
-                  category.id as keyof typeof translations.categoryDescriptions
-                ]
-              }
-              href={`/${lang}/categories/${category.url_slug}`}
-            />
-          ))
-        }
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {categories.map((category) => (
+          <a
+            href={`/${lang}/categories/${category.url_slug}`}
+            class="bg-white rounded-xl p-5 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group"
+          >
+            <h3 class="font-semibold text-stone-900 group-hover:text-primary-600 mb-1">
+              {lang === "fr" ? category.label_fr : category.label_en}
+            </h3>
+            <p class="text-xs text-stone-500">
+              {translations.home.articleCount.replace("{count}", "—")}
+            </p>
+          </a>
+        ))}
       </div>
+
+      <p class="mt-6 text-center">
+        <a href={`/${lang}/categories`} class="text-sm font-medium text-primary-500 hover:underline">
+          {translations.home.viewAllArticles} →
+        </a>
+      </p>
     </div>
   </section>
 
-  <!-- Stats Section -->
-  <section class="border-t border-stone-200 bg-stone-50 py-12">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-3 gap-8 text-center">
-        <div>
-          <p class="text-3xl font-bold text-stone-900">{stats.total}</p>
-          <p class="mt-1 text-sm text-stone-500">
-            {lang === "fr" ? "Articles" : "Articles"}
-          </p>
+  <!-- Recent Translations -->
+  {recentArticles.length > 0 && (
+    <section class="py-16 bg-white border-b border-stone-200">
+      <div class="mx-auto max-w-6xl px-6">
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <h2 class="text-2xl font-semibold text-stone-900 mb-2">
+              {translations.home.latestTranslations}
+            </h2>
+            <p class="text-stone-600">
+              {translations.home.latestSubtitle}
+            </p>
+          </div>
         </div>
-        <div>
-          <p class="text-3xl font-bold text-stone-900">{stats.translated}</p>
-          <p class="mt-1 text-sm text-stone-500">
-            {lang === "fr" ? "Traduits" : "Translated"}
-          </p>
-        </div>
-        <div>
-          <p class="text-3xl font-bold text-stone-900">{categories.length}</p>
-          <p class="mt-1 text-sm text-stone-500">
-            {lang === "fr" ? "Catégories" : "Categories"}
-          </p>
+
+        <div class="grid gap-6 md:grid-cols-2">
+          {recentArticles.map((article) => (
+            <ArticleCard article={article} lang={lang as Language} />
+          ))}
         </div>
       </div>
+    </section>
+  )}
+
+  <!-- Mission Bar -->
+  <section class="py-12 bg-primary-500">
+    <div class="mx-auto max-w-4xl px-6 text-center">
+      <h2 class="text-2xl font-semibold text-white mb-4">
+        {translations.home.missionTitle}
+      </h2>
+      <p class="text-primary-100 text-lg mb-6">
+        {translations.home.missionText}
+      </p>
+      <a
+        href={`/${lang}/a-propos`}
+        class="inline-block px-6 py-3 rounded-lg font-medium text-primary-600 bg-white hover:bg-cream-100 transition-colors"
+      >
+        {translations.home.missionCta}
+      </a>
     </div>
   </section>
 </BaseLayout>

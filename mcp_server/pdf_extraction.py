@@ -2,7 +2,7 @@
 PDF extraction with fallback chain.
 
 Per Part 5 of the plan:
-- PRIMARY: PyMuPDF (fitz) — fast, handles most single-column PDFs well
+- PRIMARY: PyMuPDF4LLM — outputs Markdown with headings, tables, structure preserved
 - FALLBACK 1: pdfminer.six — better layout analysis for two-column academic papers
 - FALLBACK 2: pdfplumber — good for table extraction, different text flow algorithm
 - FLAG: PDFEXTRACT if all extractors fail — human preprocesses manually
@@ -16,11 +16,14 @@ from __future__ import annotations
 
 import logging
 import re
+import urllib.request
+import urllib.error
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
 import fitz  # PyMuPDF
+import pymupdf4llm
 from pdfminer.high_level import extract_text as pdfminer_extract
 import pdfplumber
 
@@ -42,20 +45,144 @@ class ExtractionResult:
     usable: bool
 
 
+@dataclass
+class FetchResult:
+    """Result of fetching content from URL."""
+    success: bool
+    path: Path | None
+    error_code: str | None  # PAYWALL, FETCH_FAILED, NOT_PDF
+    error_message: str | None
+
+
+# --- Fetch and Cache ---
+
+def fetch_and_cache(article_id: str, source_url: str, timeout: int = 30) -> FetchResult:
+    """
+    Fetch content from URL and cache it.
+
+    Validates that the response is actually a PDF before caching.
+    Returns error if URL is a paywall page, 404, or other non-PDF response.
+
+    Args:
+        article_id: Article ID for cache filename
+        source_url: URL to fetch from
+        timeout: Request timeout in seconds
+
+    Returns:
+        FetchResult with success status, cached path, or error details
+    """
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # Create request with browser-like headers
+        request = urllib.request.Request(
+            source_url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Accept': 'application/pdf,*/*',
+            }
+        )
+
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            content = response.read()
+            content_type = response.headers.get('Content-Type', '')
+
+            # Check if it's a PDF
+            is_pdf = (
+                content[:4] == b'%PDF' or
+                'application/pdf' in content_type.lower()
+            )
+
+            if not is_pdf:
+                # Check for paywall indicators in HTML
+                if b'<html' in content[:1000].lower():
+                    content_lower = content.lower()
+                    paywall_indicators = [
+                        b'purchase', b'subscribe', b'sign in', b'access denied',
+                        b'institutional access', b'buy this article', b'rent this article',
+                        b'full text unavailable', b'abstract only'
+                    ]
+                    if any(indicator in content_lower for indicator in paywall_indicators):
+                        return FetchResult(
+                            success=False,
+                            path=None,
+                            error_code="PAYWALL",
+                            error_message="URL returned a paywall page, not a PDF"
+                        )
+
+                return FetchResult(
+                    success=False,
+                    path=None,
+                    error_code="NOT_PDF",
+                    error_message=f"URL returned non-PDF content (Content-Type: {content_type})"
+                )
+
+            # Cache the PDF
+            cached_path = cache_content(article_id, content, source_url)
+            logger.info(f"Fetched and cached: {article_id} from {source_url}")
+
+            return FetchResult(
+                success=True,
+                path=cached_path,
+                error_code=None,
+                error_message=None
+            )
+
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return FetchResult(
+                success=False,
+                path=None,
+                error_code="NOT_FOUND",
+                error_message=f"URL returned 404 Not Found"
+            )
+        elif e.code in (401, 403):
+            return FetchResult(
+                success=False,
+                path=None,
+                error_code="PAYWALL",
+                error_message=f"URL returned {e.code} (access denied)"
+            )
+        else:
+            return FetchResult(
+                success=False,
+                path=None,
+                error_code="FETCH_FAILED",
+                error_message=f"HTTP error {e.code}: {e.reason}"
+            )
+    except urllib.error.URLError as e:
+        return FetchResult(
+            success=False,
+            path=None,
+            error_code="FETCH_FAILED",
+            error_message=f"URL error: {e.reason}"
+        )
+    except TimeoutError:
+        return FetchResult(
+            success=False,
+            path=None,
+            error_code="FETCH_FAILED",
+            error_message=f"Request timed out after {timeout} seconds"
+        )
+    except Exception as e:
+        return FetchResult(
+            success=False,
+            path=None,
+            error_code="FETCH_FAILED",
+            error_message=f"Unexpected error: {str(e)}"
+        )
+
+
 # --- Extraction Functions ---
 
 def extract_pymupdf(pdf_path: Path) -> str:
     """
-    Extract text using PyMuPDF (fitz).
+    Extract text as Markdown using PyMuPDF4LLM.
 
-    Fast, handles most single-column PDFs well.
+    Preserves document structure: headings, tables, lists, paragraphs.
+    Returns Markdown-formatted text ready for translation.
     """
-    doc = fitz.open(pdf_path)
-    text_parts = []
-    for page in doc:
-        text_parts.append(page.get_text())
-    doc.close()
-    return "\n".join(text_parts)
+    return pymupdf4llm.to_markdown(str(pdf_path))
 
 
 def extract_pdfminer(pdf_path: Path) -> str:
@@ -120,9 +247,18 @@ def detect_extraction_problems(text: str) -> list[str]:
         return problems
 
     # WARNING: Column jumbling (lines too short = bad layout detection)
-    lines = [line for line in text.split('\n') if line.strip()]
-    if lines:
-        avg_line_length = sum(len(line) for line in lines) / len(lines)
+    # Exclude Markdown syntax lines (headers, list items, table rows) from this check
+    content_lines = [
+        line for line in text.split('\n')
+        if line.strip()
+        and not line.strip().startswith('#')      # headers
+        and not line.strip().startswith('-')      # list items
+        and not line.strip().startswith('*')      # list items / bold
+        and not line.strip().startswith('|')      # table rows
+        and not line.strip().startswith('>')      # blockquotes
+    ]
+    if content_lines:
+        avg_line_length = sum(len(line) for line in content_lines) / len(content_lines)
         if avg_line_length < 40:
             problems.append("COLUMNJUMBLE")
 

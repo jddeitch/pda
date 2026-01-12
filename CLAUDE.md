@@ -474,6 +474,129 @@ When working on the Translation Machine:
 
 ---
 
+## Article Intake Workflow
+
+### Preprocessing (Steps 1-5)
+
+```
+1. JD drops PDF into intake/articles/
+
+2. Claude runs Datalab Marker API
+   → cache/articles/{slug}.html (raw HTML with embedded images)
+
+3. Claude runs mechanical parser
+   → Extracts: title, authors, abstract, body_html, references
+   → Flags: warnings (orphan paragraphs, missing fields)
+
+4. Claude does AI enhancement pass
+   → Fills missing metadata (authors, citation)
+   → Fixes warnings (joins orphan paragraphs)
+   → Extracts references parser missed (e.g., French "Références")
+
+5. JD reviews in /admin/review
+   → Verifies extraction is correct
+   → Makes final edits if needed
+   → Submits to database
+
+   → SQLite (articles table) with:
+      raw_html, abstract, body_html,
+      citation, acknowledgements, references_json
+```
+
+### Translation (Step 6+)
+
+```
+SQLite articles                    ← Translation Machine reads from here
+        ↓
+get_chunk() serves body_html       ← Pre-cleaned, cruft removed
+        ↓
+Claude translates chunks           ← Quality checks on each chunk
+        ↓
+SQLite translations                ← Translated content saved
+        ↓
+/admin/articles                    ← Human review of flagged translations
+```
+
+### Step 4: AI Enhancement Procedure
+
+When asked to enhance a parsed article, follow this checklist:
+
+**1. Read both files:**
+```bash
+# Read the parsed JSON (has warnings, extracted fields)
+Read: cache/articles/{slug}.json
+
+# Read the raw HTML (source for anything parser missed)
+Read: cache/articles/{slug}.html
+```
+
+**2. Check for missing/empty fields:**
+- `title` — Should be present; if not, look for `<h1>` or document title in HTML
+- `authors` — Often missing for non-English. Look for byline near title, "by" patterns, affiliation blocks
+- `citation` — Journal name, volume, year, pages. Often in footer or header metadata
+- `abstract` — Look for "Abstract", "Résumé", "Summary" sections
+- `year` — Extract from citation or publication date
+
+**3. Check warnings:**
+- `[ORPHAN?]` — Paragraph starting with lowercase, likely split by table/figure
+  - Find the preceding paragraph in body_html
+  - Determine if they should be joined
+  - If yes, report the fix needed
+
+**4. Check references:**
+- If `references` is empty but article clearly has them
+- Look for "References", "Références", "Bibliography" sections
+- French articles often use "Références" or "Bibliographie"
+
+**5. Apply fixes:**
+```bash
+# Update the JSON with corrections
+/opt/homebrew/bin/python3.11 scripts/enhance_parsed_article.py cache/articles/{slug}.json \
+  --authors "A. Philippe, Y. Contejean" \
+  --year "2018" \
+  --citation "Neuropsychiatrie de l'enfance et de l'adolescence 66 (2018) 103-108"
+```
+
+**6. Report to user:**
+- List what was found/fixed
+- Note any issues that need manual attention
+- Confirm the article is ready for review
+
+### Key Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/batch_extract.py` | Batch process PDFs through Datalab Marker API |
+| `scripts/parse_article_structure.py` | Parse HTML into title, authors, abstract, body, refs |
+| `scripts/enhance_parsed_article.py` | Apply AI-extracted metadata corrections to JSON |
+
+### Admin Access
+
+```bash
+ENABLE_ADMIN=true npm run dev
+# Then visit http://localhost:4321/admin
+```
+
+Admin pages:
+- `/admin` — Dashboard (translation progress, flagged articles)
+- `/admin/articles` — Article list with filters
+- `/admin/articles/[id]` — Individual article review
+- `/admin/preprocessing` — Failed PDF extractions
+- `/admin/review` — **NEW: Review parsed articles before translation**
+- `/admin/settings` — Review interval config
+
+### Database Fields (articles table)
+
+New extraction fields added:
+- `raw_html` — Original Datalab output (backup, always preserved)
+- `abstract` — Extracted abstract from PDF
+- `body_html` — Cleaned main content (cruft stripped, paragraphs joined)
+- `citation` — Journal, volume, pages
+- `acknowledgements` — Acknowledgements section
+- `references_json` — JSON array of reference strings
+
+---
+
 ## Current State
 
 ### Completed

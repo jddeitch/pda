@@ -691,6 +691,51 @@ class TestQualityChecksInSave:
         assert result["success"] is True
         # warning_flags may or may not be populated depending on glossary matches
 
+    def test_paywalled_skips_quality_checks(self, db_with_articles):
+        """Should skip quality checks for paywalled articles (open_access=False)."""
+        from mcp_server.tools import validate_classification, save_article
+
+        # test-article-3 is paywalled (open_access=0)
+        result = validate_classification(
+            article_id="test-article-3",
+            method="empirical",
+            voice="academic",
+            peer_reviewed=True,
+            open_access=False,  # Paywalled
+            primary_category="fondements",
+            secondary_categories=[],
+            keywords=["PDA", "autism", "demand avoidance", "children", "assessment"],
+        )
+        token = result["token"]
+
+        # Save with no full text (paywalled article)
+        result = save_article(
+            article_id="test-article-3",
+            validation_token=token,
+            source="Nature Autism",
+            doi=None,
+            translated_title="Titre traduit",
+            translated_summary="Résumé traduit pour article payant.",
+            translated_full_text=None,  # No full text for paywalled
+            flags=[],
+        )
+
+        # Should succeed without running quality checks
+        assert result["success"] is True
+        assert result["warning_flags"] == []  # No warnings since no quality checks
+
+        # Verify in database
+        article = db_with_articles.get_article_by_id("test-article-3")
+        assert article["processing_status"] == "translated"
+
+        # Verify translation saved with null full_text
+        translation = db_with_articles.execute(
+            "SELECT * FROM translations WHERE article_id = ? AND target_language = ?",
+            ("test-article-3", "fr")
+        ).fetchone()
+        assert translation["translated_title"] == "Titre traduit"
+        assert translation["translated_full_text"] is None
+
 
 class TestWorkflowEnforcement:
     """Tests for workflow enforcement rules."""
@@ -1119,3 +1164,313 @@ class TestKeywordStorage:
         ).fetchone()["count"]
 
         assert final_count > initial_count
+
+
+class TestWarningFlags:
+    """Tests for warning flag detection and storage."""
+
+    def _setup_cached_chunks(self, article_id, chunks, monkeypatch):
+        """Helper to set up cached chunks for quality check testing."""
+        from mcp_server import tools
+        from mcp_server.tools import ChunkCacheEntry
+        from datetime import datetime
+
+        entry = ChunkCacheEntry(
+            chunks=chunks,
+            cached_at=datetime.now(),
+            extractor_used="test",
+            extraction_problems=[],
+        )
+        tools._chunk_cache[article_id] = entry
+
+    def test_worddrift_warning_returned(self, db_with_articles, monkeypatch):
+        """Should return WORDDRIFT in warning_flags when glossary recall is low."""
+        from mcp_server.tools import validate_classification, save_article
+
+        # Source with glossary terms that should appear
+        # "demand avoidance" and "autism spectrum" are in glossary
+        source_text = (
+            "This study examines demand avoidance in children with autism spectrum disorder. "
+            "The findings show patterns of demand avoidance and anxiety. "
+        ) * 5  # Repeat for enough sentences
+
+        self._setup_cached_chunks("test-article-1", [source_text], monkeypatch)
+
+        result = validate_classification(
+            article_id="test-article-1",
+            method="empirical",
+            voice="academic",
+            peer_reviewed=True,
+            open_access=True,
+            primary_category="fondements",
+            secondary_categories=[],
+            keywords=["PDA", "autism", "demand avoidance", "children", "assessment"],
+        )
+        token = result["token"]
+
+        # Translation WITHOUT proper glossary terms (will trigger low recall)
+        # Using completely different words that don't match glossary
+        translation_text = (
+            "Cette étude examine le refus chez les enfants avec des troubles du spectre. "
+            "Les résultats montrent des modèles de refus et de stress. "
+        ) * 5
+
+        result = save_article(
+            article_id="test-article-1",
+            validation_token=token,
+            source="Test Journal",
+            doi=None,
+            translated_title="Titre",
+            translated_summary="Résumé",
+            translated_full_text=translation_text,
+            flags=[],
+        )
+
+        # Should succeed but with WORDDRIFT warning
+        assert result["success"] is True
+        assert "WORDDRIFT" in result["warning_flags"]
+
+    def test_statmis_warning_returned(self, db_with_articles, monkeypatch):
+        """Should return STATMIS in warning_flags when numbers are missing."""
+        from mcp_server.tools import validate_classification, save_article
+
+        # Source with statistics
+        source_text = (
+            "The study included 42 participants aged 5-12 years. "
+            "Results showed p < 0.05 significance with 85% confidence. "
+            "The mean score was 3.7 with SD of 1.2. "
+        ) * 4  # Repeat for enough content
+
+        self._setup_cached_chunks("test-article-1", [source_text], monkeypatch)
+
+        result = validate_classification(
+            article_id="test-article-1",
+            method="empirical",
+            voice="academic",
+            peer_reviewed=True,
+            open_access=True,
+            primary_category="fondements",
+            secondary_categories=[],
+            keywords=["PDA", "autism", "demand avoidance", "children", "assessment"],
+        )
+        token = result["token"]
+
+        # Translation with MISSING numbers
+        translation_text = (
+            "L'étude comprenait des participants âgés de plusieurs années. "
+            "Les résultats ont montré une signification avec confiance. "
+            "Le score moyen était avec un écart type. "
+        ) * 4
+
+        result = save_article(
+            article_id="test-article-1",
+            validation_token=token,
+            source="Test Journal",
+            doi=None,
+            translated_title="Titre",
+            translated_summary="Résumé",
+            translated_full_text=translation_text,
+            flags=[],
+        )
+
+        # Should succeed but with STATMIS warning
+        assert result["success"] is True
+        assert "STATMIS" in result["warning_flags"]
+
+    def test_termmis_warning_stored(self, db_with_articles, monkeypatch):
+        """Should include TERMMIS in stored flags when glossary terms missing."""
+        from mcp_server.tools import validate_classification, save_article
+        import json
+
+        # Source with specific glossary term
+        source_text = (
+            "Children with pathological demand avoidance show extreme anxiety. "
+            "The autism spectrum includes many presentations. "
+        ) * 5
+
+        self._setup_cached_chunks("test-article-1", [source_text], monkeypatch)
+
+        result = validate_classification(
+            article_id="test-article-1",
+            method="empirical",
+            voice="academic",
+            peer_reviewed=True,
+            open_access=True,
+            primary_category="fondements",
+            secondary_categories=[],
+            keywords=["PDA", "autism", "demand avoidance", "children", "assessment"],
+        )
+        token = result["token"]
+
+        # Translation missing the expected French glossary terms
+        # "pathological demand avoidance" should be "évitement pathologique des demandes"
+        # but we use a non-standard translation
+        translation_text = (
+            "Les enfants avec un comportement d'évitement montrent de l'anxiété extrême. "
+            "Le spectre de l'autisme comprend de nombreuses présentations. "
+        ) * 5
+
+        result = save_article(
+            article_id="test-article-1",
+            validation_token=token,
+            source="Test Journal",
+            doi=None,
+            translated_title="Titre",
+            translated_summary="Résumé",
+            translated_full_text=translation_text,
+            flags=[],
+        )
+
+        assert result["success"] is True
+        # TERMMIS should be in warning flags
+        assert "TERMMIS" in result["warning_flags"]
+
+    def test_multiple_warnings_combined(self, db_with_articles, monkeypatch):
+        """Should return multiple warning flags when multiple issues detected."""
+        from mcp_server.tools import validate_classification, save_article
+
+        # Source with both stats and glossary terms
+        source_text = (
+            "The study of demand avoidance included 50 participants. "
+            "Results showed autism spectrum patterns with p < 0.01. "
+        ) * 5
+
+        self._setup_cached_chunks("test-article-1", [source_text], monkeypatch)
+
+        result = validate_classification(
+            article_id="test-article-1",
+            method="empirical",
+            voice="academic",
+            peer_reviewed=True,
+            open_access=True,
+            primary_category="fondements",
+            secondary_categories=[],
+            keywords=["PDA", "autism", "demand avoidance", "children", "assessment"],
+        )
+        token = result["token"]
+
+        # Translation missing BOTH glossary terms AND numbers
+        # But with words in acceptable range (0.9-1.5x source)
+        # Source has ~85 words, so translation needs 77-127 words
+        translation_text = (
+            "L'étude sur le refus a inclus des participants dans cette recherche. "
+            "Les résultats ont montré des modèles avec signification. "
+        ) * 5
+
+        result = save_article(
+            article_id="test-article-1",
+            validation_token=token,
+            source="Test Journal",
+            doi=None,
+            translated_title="Titre",
+            translated_summary="Résumé",
+            translated_full_text=translation_text,
+            flags=[],
+        )
+
+        assert result["success"] is True
+        # Should have multiple warnings
+        assert len(result["warning_flags"]) >= 2
+        # At least STATMIS should be present (numbers missing)
+        assert "STATMIS" in result["warning_flags"]
+
+
+class TestTransactionIntegrity:
+    """Tests for transaction atomicity - all or nothing."""
+
+    def test_session_counter_rolls_back_on_failure(self, db_with_articles):
+        """Session counter should not increment if transaction fails."""
+        from mcp_server.tools import validate_classification, save_article
+        from mcp_server.database import get_database
+        from unittest.mock import patch
+
+        db = get_database()
+
+        # Get initial session count
+        initial_state = db.get_session_state()
+        initial_count = initial_state["articles_processed_count"]
+
+        # Get valid token
+        result = validate_classification(
+            article_id="test-article-1",
+            method="empirical",
+            voice="academic",
+            peer_reviewed=True,
+            open_access=True,
+            primary_category="fondements",
+            secondary_categories=[],
+            keywords=["PDA", "autism", "demand avoidance", "children", "assessment"],
+        )
+        token = result["token"]
+
+        # Force a failure after token marked but before commit
+        with patch.object(db, 'set_article_keywords', side_effect=Exception("Simulated failure")):
+            result = save_article(
+                article_id="test-article-1",
+                validation_token=token,
+                source="Test Journal",
+                doi=None,
+                translated_title="Titre",
+                translated_summary="Résumé",
+                translated_full_text=None,
+                flags=[],
+            )
+
+        assert result["success"] is False
+
+        # Session count should be UNCHANGED (rolled back)
+        final_state = db.get_session_state()
+        assert final_state["articles_processed_count"] == initial_count
+
+    def test_token_and_counter_atomic(self, db_with_articles):
+        """Token marking and counter increment should be atomic with save."""
+        from mcp_server.tools import validate_classification, save_article
+        from mcp_server.database import get_database
+
+        db = get_database()
+
+        # Get initial state
+        initial_state = db.get_session_state()
+        initial_count = initial_state["articles_processed_count"]
+
+        # Successful save
+        result = validate_classification(
+            article_id="test-article-1",
+            method="empirical",
+            voice="academic",
+            peer_reviewed=True,
+            open_access=True,
+            primary_category="fondements",
+            secondary_categories=[],
+            keywords=["PDA", "autism", "demand avoidance", "children", "assessment"],
+        )
+        token = result["token"]
+
+        save_result = save_article(
+            article_id="test-article-1",
+            validation_token=token,
+            source="Test Journal",
+            doi=None,
+            translated_title="Titre",
+            translated_summary="Résumé",
+            translated_full_text=None,
+            flags=[],
+        )
+
+        assert save_result["success"] is True
+
+        # Verify all three happened atomically:
+        # 1. Article saved
+        article = db.get_article_by_id("test-article-1")
+        assert article["processing_status"] == "translated"
+
+        # 2. Token marked used
+        token_row = db.execute(
+            "SELECT used FROM validation_tokens WHERE token = ?",
+            (token,)
+        ).fetchone()
+        assert token_row["used"] == 1
+
+        # 3. Session counter incremented
+        final_state = db.get_session_state()
+        assert final_state["articles_processed_count"] == initial_count + 1

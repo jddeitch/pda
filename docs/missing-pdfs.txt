@@ -1,0 +1,109 @@
+# Missing PDFs
+
+Articles in database without cached PDFs:
+
+- Adult Diagnosis of Pathological Demand Avoidance – Subsequent Care Planning
+  https://www.emerald.com/insight/content/doi/10.1108/20420921211305891/full/html?skipTracking=true
+
+- An Unhelpful Label? Examining PDA from a Critical Perspective
+  https://journals.sagepub.com/doi/full/10.1177/2043610619890070
+
+- Autism, PDA Presentations, and Theory of Mind (PhD thesis)
+  https://discovery.ucl.ac.uk/id/eprint/10057038/
+
+- Behavioural and Emotional Disorders in Childhood: An Overview for Paediatricians
+  https://www.wjgnet.com/2219-2808/full/v7/i1/9.htm
+
+- Being Misunderstood
+  (no URL)
+
+- Commentary: Conceptualising Demand Avoidance
+  https://acamh.onlinelibrary.wiley.com/doi/abs/10.1111/camh.12273
+
+- Commentary: Conceptualising Demand Avoidance in an ASD Context – A Response to Osman Malik & Gillian Baird (2018)
+  https://acamh.onlinelibrary.wiley.com/doi/abs/10.1111/camh.12287
+
+- Demand Avoidance is Not Necessarily Defiance
+  https://drive.google.com/file/d/11h48o2JmbCXjOjeMuZAisawPFfusshOt/view
+
+- Diagnostic Tool: Features of Pathological Demand Avoidance (PDA) Identified Using the DISCO
+  https://drive.google.com/file/d/0B1_tlBvtq7E-NlMxNXhLemRDVDA/view?ths=true
+
+- Differentiating Between Pathological Demand Avoidance and Antisocial Personality Disorder: A Case Study
+  https://www.emerald.com/insight/content/doi/10.1108/jidob-07-2016-0013/full/html
+
+- Dimensions of Difficulty in Children with Autism and Extreme Pathological Demand Avoidance
+  https://acamh.onlinelibrary.wiley.com/doi/epdf/10.1111/camh.12242
+
+- Editorial, commentaries and responses on the paper ‘Role of Intolerance of Uncertainty and Anxiety in Extreme Demand Avoidance’
+  https://acamh.onlinelibrary.wiley.com/toc/14753588/2020/25/2
+
+- Emotion Regulation and Executive Function in Autism and PDA (PhD thesis)
+  https://discovery.ucl.ac.uk/id/eprint/10057420/
+
+- Excluded from School: Autistic Students’ Experiences of School Exclusion and Re-Integration
+  https://journals.sagepub.com/doi/10.1177/2396941517737511
+
+- Extreme Demand Avoidance 8-Item Measure (EDA-8)
+  https://www.pdasociety.org.uk/
+
+- Extreme Demand Avoidance in Children: Refinement of a Caregiver-Report Measure
+  https://link.springer.com/article/10.1007/s41252-021-00203-z
+
+- Identifying Features of Pathological Demand Avoidance (PDA) Using the Diagnostic Interview (DISCO)
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC4820467/
+
+- In Our Words
+  (no URL)
+
+- Individual Differences, ADHD, Adult Pathological Demand Avoidance, and Delinquency
+  https://www.sciencedirect.com/science/article/abs/pii/S0891422220301633
+
+- Mapping experiences of PDA in Ireland
+  https://nasenjournals.onlinelibrary.wiley.com/doi/10.1111/1471-3802.12579
+
+- PDA Behavioural Features: An Examination Using a Semi-Structured Interview
+  https://drive.google.com/file/d/0B1_tlBvtq7E-TWl0QTIwUThNR3M/view
+
+- Parents’ Experiences of Professionals’ Involvement for Children with Extreme Demand Avoidance
+  https://www.tandfonline.com/doi/abs/10.1080/20473869.2016.1204743?needAccess=true&journalCode=yjdd20
+
+- Pathological Demand Avoidance in Children and Adolescents: A Systematic Review
+  https://journals.sagepub.com/doi/10.1177/13623613211034382
+
+- Pathological Demand Avoidance in a Population-Based Cohort of Children with Epilepsy: Four Case Studies
+  https://www.sciencedirect.com/science/article/abs/pii/S0891422214003461?via%3Dihub
+
+- Pathological Demand Avoidance: Exploring the Behavioural Profile
+  https://journals.sagepub.com/doi/pdf/10.1177/1362361313481861
+
+- Pathological Demand Avoidance: Symptoms but Not a Syndrome
+  https://www.thelancet.com/journals/lanchi/article/PIIS2352-4642(18)30044-0/fulltext
+
+- Prevalence Study: Extreme (“Pathological”) Demand Avoidance in Autism
+  https://link.springer.com/article/10.1007/s00787-014-0647-3
+
+- Reflections on the 2014 Paper by O’Nions et al
+  https://acamh.onlinelibrary.wiley.com/doi/full/10.1111/jcpp.12275
+
+- The Educational Experiences of Autistic Children With and Without Extreme Demand Avoidance Behaviours
+  https://www.tandfonline.com/doi/full/10.1080/13603116.2021.1916108
+
+- The Measurement of Adult Pathological Demand Avoidance Traits
+  https://link.springer.com/article/10.1007/s10803-018-3722-7
+
+- The Need for Distinguishing PDA within Pervasive Developmental Disorders
+  https://adc.bmj.com/content/88/7/595
+
+- The Role of Intolerance of Uncertainty and Anxiety in Extreme Demand Avoidance
+  https://acamh.onlinelibrary.wiley.com/doi/abs/10.1111/camh.12336
+
+- Views and Experiences of Teachers Working with LGBT+ Pupils with SEND
+  https://www.tandfonline.com/doi/full/10.1080/19361653.2024.2334065
+
+- What are the experiences and support needs of families of autistic children with Extreme (or ‘Pathological’) Demand Avoidance (E/PDA) behaviours?
+  https://www.sciencedirect.com/science/article/abs/pii/S0891422220301633
+
+- What are the experiences and support needs of families of autistic children with Extreme (or ‘Pathological’) Demand Avoidance (E/PDA) behaviours?
+  https://www.sciencedirect.com/science/article/pii/S1750946724001909?via%3Dihub
+

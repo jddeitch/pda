@@ -36,15 +36,17 @@ class TestGetChunk:
         assert result["error_code"] == "PAYWALLED"
         assert "validate_classification" in result["action"]
 
-    def test_no_cached_file_returns_not_cached(self, db_with_articles, clear_chunk_cache):
-        """Should return NOT_CACHED when file isn't in cache but URL exists."""
+    def test_no_cached_file_attempts_fetch(self, db_with_articles, clear_chunk_cache):
+        """Should attempt fetch when file isn't cached but URL exists."""
         from mcp_server.tools import get_chunk
 
-        # test-article-1 has source_url but no cached file
+        # test-article-1 has source_url https://example.com/1.pdf
+        # example.com won't return a PDF, so fetch should fail
         result = get_chunk("test-article-1", 1)
 
         assert result["error"] is True
-        assert result["error_code"] == "NOT_CACHED"
+        # Should get a fetch-related error, not NOT_CACHED
+        assert result["error_code"] in ("FETCH_FAILED", "NOT_PDF", "PAYWALL", "NOT_FOUND")
 
     def test_no_source_url_returns_no_source(self, db_with_articles, clear_chunk_cache):
         """Should return NO_SOURCE when article has no source_url."""
@@ -435,3 +437,90 @@ class TestChunkCache:
         assert entry is not None
         assert entry.extractor_used == "pymupdf"
         assert entry.extraction_problems == ["COLUMNJUMBLE", "NOREFSSECTION"]
+
+
+class TestFetchAndCache:
+    """Tests for URL fetching and caching."""
+
+    def test_fetch_valid_pdf_url(self, tmp_path, monkeypatch):
+        """Should download and cache a valid PDF."""
+        from mcp_server import pdf_extraction
+        from mcp_server.pdf_extraction import fetch_and_cache, CACHE_DIR
+
+        # Use tmp_path for cache
+        monkeypatch.setattr(pdf_extraction, "CACHE_DIR", tmp_path)
+
+        # Use a real PDA Society PDF URL
+        url = "https://www.pdasociety.org.uk/wp-content/uploads/2025/05/Understanding-Extreme-Pathological-Demand-Avoidance.pdf"
+        result = fetch_and_cache("test-fetch-article", url, timeout=30)
+
+        assert result.success is True
+        assert result.path is not None
+        assert result.path.exists()
+        assert result.path.suffix == ".pdf"
+        # Verify it's actually a PDF
+        assert result.path.read_bytes()[:4] == b"%PDF"
+
+    def test_fetch_paywall_url(self, tmp_path, monkeypatch):
+        """Should detect paywall pages and return error."""
+        from mcp_server import pdf_extraction
+        from mcp_server.pdf_extraction import fetch_and_cache
+
+        monkeypatch.setattr(pdf_extraction, "CACHE_DIR", tmp_path)
+
+        # ScienceDirect article page (not direct PDF)
+        url = "https://www.sciencedirect.com/science/article/abs/pii/S0891422214003461"
+        result = fetch_and_cache("test-paywall", url, timeout=30)
+
+        assert result.success is False
+        assert result.error_code in ("PAYWALL", "NOT_PDF")
+        # Should NOT have cached anything
+        cached_files = list(tmp_path.glob("test-paywall.*"))
+        assert len(cached_files) == 0
+
+    def test_fetch_404_url(self, tmp_path, monkeypatch):
+        """Should handle 404 errors gracefully."""
+        from mcp_server import pdf_extraction
+        from mcp_server.pdf_extraction import fetch_and_cache
+
+        monkeypatch.setattr(pdf_extraction, "CACHE_DIR", tmp_path)
+
+        # Note: Some servers return HTML error pages instead of HTTP 404
+        url = "https://www.pdasociety.org.uk/definitely-not-a-real-page-12345.pdf"
+        result = fetch_and_cache("test-404", url, timeout=10)
+
+        assert result.success is False
+        # Server might return 404, or might return HTML error page
+        assert result.error_code in ("NOT_FOUND", "NOT_PDF", "PAYWALL")
+
+    def test_fetch_creates_cache_dir(self, tmp_path, monkeypatch):
+        """Should create cache directory if it doesn't exist."""
+        from mcp_server import pdf_extraction
+        from mcp_server.pdf_extraction import fetch_and_cache
+
+        new_cache = tmp_path / "new_cache" / "articles"
+        monkeypatch.setattr(pdf_extraction, "CACHE_DIR", new_cache)
+
+        # Directory shouldn't exist yet
+        assert not new_cache.exists()
+
+        url = "https://www.pdasociety.org.uk/wp-content/uploads/2025/05/Understanding-Extreme-Pathological-Demand-Avoidance.pdf"
+        result = fetch_and_cache("test-create-dir", url, timeout=30)
+
+        # Directory should now exist
+        assert new_cache.exists()
+        assert result.success is True
+
+    def test_fetch_non_pdf_content(self, tmp_path, monkeypatch):
+        """Should reject non-PDF content that isn't obviously a paywall."""
+        from mcp_server import pdf_extraction
+        from mcp_server.pdf_extraction import fetch_and_cache
+
+        monkeypatch.setattr(pdf_extraction, "CACHE_DIR", tmp_path)
+
+        # This URL returns HTML, not PDF
+        url = "https://www.pdasociety.org.uk/"
+        result = fetch_and_cache("test-html", url, timeout=10)
+
+        assert result.success is False
+        assert result.error_code in ("NOT_PDF", "PAYWALL")

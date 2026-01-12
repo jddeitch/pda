@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pda.expert — Mockup A3: Hero with buttons + ICP cards</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#E8EEF5',
+              100: '#C5D5E8',
+              200: '#9BB8D6',
+              300: '#719BC4',
+              400: '#4A7BAA',
+              500: '#285589',
+              600: '#214771',
+              700: '#1A3859',
+              800: '#132A41',
+              900: '#0C1B29',
+            },
+            accent: {
+              50: '#E6F7F8',
+              100: '#B8EAEC',
+              200: '#7CDFDD',
+              300: '#5CC5CE',
+              400: '#46B0B9',
+              500: '#369AA3',
+              600: '#2A8A91',
+              700: '#1F6B71',
+              800: '#164D51',
+              900: '#0D2F32',
+            },
+            cream: {
+              50: '#FDFCFB',
+              100: '#FAF8F5',
+              200: '#F4EEE8',
+              300: '#EBE6E0',
+              400: '#E0D9D1',
+            },
+            dark: {
+              DEFAULT: '#241E1E',
+              light: '#2C2626',
+            }
+          },
+          fontFamily: {
+            lexend: ['Lexend', 'system-ui', 'sans-serif'],
+            literata: ['Literata', 'Georgia', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Lexend', system-ui, sans-serif; }
+    .badge { font-size: 11px; padding: 4px 10px; border-radius: 9999px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+  </style>
+</head>
+<body class="bg-cream-200">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-stone-200">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-xl font-medium">
+          <span class="text-primary-500">pda</span><span class="text-accent-500 relative top-px">•</span><span class="text-accent-500">expert</span>
+        </span>
+      </div>
+      <nav class="flex items-center gap-8">
+        <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Articles</a>
+        <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Catégories</a>
+        <a href="#" class="text-sm text-stone-600 hover:text-stone-900">Glossaire</a>
+        <a href="#" class="text-sm text-stone-600 hover:text-stone-900">À propos</a>
+        <div class="flex items-center gap-2 text-sm text-stone-500">
+          <span class="font-medium text-stone-900">FR</span>
+          <span>|</span>
+          <a href="#" class="hover:text-stone-900">EN</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero with buttons -->
+  <section class="bg-gradient-to-b from-cream-300 to-cream-200">
+    <div class="max-w-6xl mx-auto px-6 py-16 text-center">
+      <!-- Stats badge -->
+      <div class="inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 bg-accent-100 text-accent-800">
+        52 articles traduits · Sources évaluées par les pairs
+      </div>
+
+      <h1 class="text-4xl font-bold text-stone-900 font-literata mb-4">
+        La bibliothèque de recherche sur le PDA
+      </h1>
+      <p class="text-xl text-stone-600 max-w-2xl mx-auto mb-8">
+        Littérature scientifique sur le Profil d'Évitement Pathologique des Demandes, traduite pour les cliniciens et familles francophones.
+      </p>
+
+      <!-- CTA buttons -->
+      <div class="flex justify-center gap-4">
+        <a href="#" class="px-6 py-3 rounded-lg font-medium text-white shadow-sm bg-primary-500 hover:bg-primary-600 transition-colors">
+          Explorer les articles
+        </a>
+        <a href="#" class="px-6 py-3 rounded-lg font-medium text-primary-500 border-2 border-primary-500 hover:bg-primary-50 transition-colors">
+          Qu'est-ce que le PDA ?
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ICP Cards - separate section -->
+  <section class="bg-white border-b border-stone-200">
+    <div class="max-w-6xl mx-auto px-6 py-12">
+      <div class="text-center mb-8">
+        <h2 class="text-xl font-semibold text-stone-900 mb-1">Nouveau sur le PDA ?</h2>
+        <p class="text-stone-600">Choisissez votre point de départ.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <!-- ICP 1: Health Professionals -->
+        <a href="#" class="block p-8 rounded-xl border border-stone-200 hover:border-primary-400 hover:shadow-lg transition-all group bg-cream-50">
+          <h3 class="font-semibold text-xl text-stone-900 group-hover:text-primary-600 mb-3">Professionnels de santé</h3>
+          <p class="text-stone-600 mb-4">
+            Pourquoi ce profil passe souvent inaperçu en consultation — et comment le reconnaître.
+          </p>
+          <span class="text-sm font-medium text-primary-500 group-hover:underline">Commencer →</span>
+        </a>
+
+        <!-- ICP 2: PDA People & Families -->
+        <a href="#" class="block p-8 rounded-xl border border-stone-200 hover:border-primary-400 hover:shadow-lg transition-all group bg-cream-50">
+          <h3 class="font-semibold text-xl text-stone-900 group-hover:text-primary-600 mb-3">Personnes PDA et proches</h3>
+          <p class="text-stone-600 mb-4">
+            Comprendre le PDA pour mieux vous accompagner ou accompagner votre enfant.
+          </p>
+          <span class="text-sm font-medium text-primary-500 group-hover:underline">Commencer →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Categories Grid -->
+  <section class="py-16 bg-cream-200 border-b border-stone-200">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-2xl font-semibold text-stone-900 mb-2">Explorer par catégorie clinique</h2>
+      <p class="text-stone-600 mb-8">Trouvez les articles selon votre domaine d'intérêt.</p>
+
+      <div class="grid grid-cols-3 gap-6">
+        <!-- Category: Fondements -->
+        <a href="#" class="bg-cream-100 rounded-xl p-6 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group">
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">Fondements</h3>
+          <p class="text-sm text-stone-600 mb-4">Définitions, histoire et conceptualisation du PDA</p>
+          <p class="text-xs text-stone-400">8 articles</p>
+        </a>
+
+        <!-- Category: Évaluation -->
+        <a href="#" class="bg-cream-100 rounded-xl p-6 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group">
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">Évaluation</h3>
+          <p class="text-sm text-stone-600 mb-4">Outils de dépistage et approches diagnostiques</p>
+          <p class="text-xs text-stone-400">12 articles</p>
+        </a>
+
+        <!-- Category: Présentation clinique -->
+        <a href="#" class="bg-cream-100 rounded-xl p-6 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group">
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">Présentation clinique</h3>
+          <p class="text-sm text-stone-600 mb-4">Profils comportementaux et descriptions de cas</p>
+          <p class="text-xs text-stone-400">9 articles</p>
+        </a>
+
+        <!-- Category: Étiologie -->
+        <a href="#" class="bg-cream-100 rounded-xl p-6 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group">
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">Étiologie et mécanismes</h3>
+          <p class="text-sm text-stone-600 mb-4">Bases neurobiologiques et facteurs cognitifs</p>
+          <p class="text-xs text-stone-400">5 articles</p>
+        </a>
+
+        <!-- Category: Prise en charge -->
+        <a href="#" class="bg-cream-100 rounded-xl p-6 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group">
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">Prise en charge</h3>
+          <p class="text-sm text-stone-600 mb-4">Stratégies éducatives et approches thérapeutiques</p>
+          <p class="text-xs text-stone-400">10 articles</p>
+        </a>
+
+        <!-- Category: Comorbidités -->
+        <a href="#" class="bg-cream-100 rounded-xl p-6 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group">
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">Comorbidités</h3>
+          <p class="text-sm text-stone-600 mb-4">Anxiété, TDAH et conditions associées</p>
+          <p class="text-xs text-stone-400">4 articles</p>
+        </a>
+
+        <!-- Category: Trajectoire -->
+        <a href="#" class="bg-cream-100 rounded-xl p-6 border border-stone-200 hover:border-primary-300 hover:shadow-md transition-all group">
+          <h3 class="font-semibold text-lg text-stone-900 group-hover:text-primary-600 mb-2">Trajectoire développementale</h3>
+          <p class="text-sm text-stone-600 mb-4">Évolution de l'enfance à l'âge adulte</p>
+          <p class="text-xs text-stone-400">4 articles</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Latest Translations -->
+  <section class="py-16">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-semibold text-stone-900 mb-2">Traductions récentes</h2>
+          <p class="text-stone-600">Les derniers articles ajoutés à la collection.</p>
+        </div>
+        <a href="#" class="text-sm font-medium text-primary-500 hover:underline">Voir tous les articles →</a>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6">
+        <!-- Article card 1 -->
+        <div class="bg-white rounded-xl p-6 border border-stone-200 flex flex-col">
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            <span class="badge bg-accent-100 text-accent-800">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              Évalué par les pairs
+            </span>
+            <span class="badge bg-primary-500 text-white">Empirique</span>
+            <span class="badge bg-stone-100 text-stone-800">Académique</span>
+          </div>
+          <h3 class="font-semibold text-xl mb-2 leading-snug text-stone-900">The Cognitive Features Associated with PDA</h3>
+          <p class="text-xs text-stone-500 mb-1">Stuart et al. (2023)</p>
+          <p class="text-base text-stone-600 mb-4 font-literata flex-grow">Analyse des caractéristiques cognitives chez les adultes avec un profil PDA auto-identifié.</p>
+          <div class="flex items-center justify-between mt-auto">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
+              Lire la traduction
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <a href="#" class="text-sm text-stone-500 hover:text-stone-700 hover:underline">Original (EN)</a>
+          </div>
+        </div>
+
+        <!-- Article card 2 -->
+        <div class="bg-white rounded-xl p-6 border border-stone-200 flex flex-col">
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            <span class="badge bg-accent-100 text-accent-800">Accès libre</span>
+            <span class="badge bg-primary-500 text-white">Synthèse</span>
+            <span class="badge bg-stone-100 text-stone-800">Organisation</span>
+          </div>
+          <h3 class="font-semibold text-xl mb-2 leading-snug text-stone-900">Understanding PDA in Children</h3>
+          <p class="text-xs text-stone-500 mb-1">PDA Society (2022)</p>
+          <p class="text-base text-stone-600 mb-4 font-literata flex-grow">Guide complet de la PDA Society sur la compréhension et l'accompagnement des enfants avec PDA.</p>
+          <div class="flex items-center justify-between mt-auto">
+            <a href="#" class="text-sm font-medium text-primary-500 flex items-center gap-1 hover:underline">
+              Lire la traduction
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <a href="#" class="text-sm text-stone-500 hover:text-stone-700 hover:underline">Original (EN)</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mission Bar -->
+  <section class="py-12 bg-primary-500">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <h2 class="text-2xl font-semibold text-white mb-4">Pourquoi ce site existe</h2>
+      <p class="text-primary-100 text-lg mb-6">
+        Il existe un seul article en français sur le PDA dans une revue à comité de lecture. Pendant ce temps, plus de 50 études ont été publiées en anglais — inaccessibles aux cliniciens francophones.
+      </p>
+      <p class="text-primary-200 mb-8">
+        pda.expert traduit cette littérature pour que les psychiatres, pédiatres et psychologues puissent enfin reconnaître et aider les personnes avec ce profil.
+      </p>
+      <a href="#" class="inline-block px-6 py-3 rounded-lg font-medium text-primary-500 bg-white hover:bg-primary-50 transition-colors">
+        En savoir plus sur notre mission
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-dark py-12">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="mb-4">
+            <span class="text-lg font-medium">
+              <span class="text-white">pda</span><span class="text-accent-200 relative top-px">•</span><span class="text-accent-200">expert</span>
+            </span>
+          </div>
+          <p class="text-sm text-stone-400 max-w-md">
+            Traductions professionnelles de la littérature scientifique sur le Profil d'Évitement Pathologique des Demandes.
+          </p>
+        </div>
+        <div class="flex gap-16">
+          <div>
+            <h4 class="text-sm font-medium text-white mb-3">Navigation</h4>
+            <ul class="space-y-2 text-sm text-stone-400">
+              <li><a href="#" class="hover:text-white">Articles</a></li>
+              <li><a href="#" class="hover:text-white">Catégories</a></li>
+              <li><a href="#" class="hover:text-white">Glossaire</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-white mb-3">À propos</h4>
+            <ul class="space-y-2 text-sm text-stone-400">
+              <li><a href="#" class="hover:text-white">Méthodologie</a></li>
+              <li><a href="#" class="hover:text-white">Contact</a></li>
+              <li><a href="#" class="hover:text-white">Sources</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="mt-12 pt-6 border-t border-stone-700">
+        <p class="text-xs text-stone-500">
+          Ce site traduit des articles publiés. Les sources originales sont toujours citées et liées.
+        </p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

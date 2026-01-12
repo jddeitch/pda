@@ -1,0 +1,159 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import fs from "node:fs";
+import path from "node:path";
+
+// Check admin access
+if (!import.meta.env.ENABLE_ADMIN) {
+  return Astro.redirect("/");
+}
+
+const CACHE_DIR = "/Users/jd/Projects/pda/cache/articles";
+
+// Get all HTML files in cache
+let htmlFiles: string[] = [];
+try {
+  const files = fs.readdirSync(CACHE_DIR);
+  htmlFiles = files
+    .filter((f) => f.endsWith(".html"))
+    .sort((a, b) => a.localeCompare(b));
+} catch (e) {
+  console.error("Could not read cache directory:", e);
+}
+
+// For each file, read basic info (we'll do full parsing on detail page)
+interface CacheFile {
+  slug: string;
+  filename: string;
+  size: number;
+  hasJson: boolean;
+}
+
+const cacheFiles: CacheFile[] = htmlFiles.map((filename) => {
+  const filepath = path.join(CACHE_DIR, filename);
+  const stats = fs.statSync(filepath);
+  const slug = filename.replace(".html", "");
+  const jsonPath = path.join(CACHE_DIR, slug + ".json");
+  const hasJson = fs.existsSync(jsonPath);
+
+  return {
+    slug,
+    filename,
+    size: stats.size,
+    hasJson,
+  };
+});
+
+// Summary stats
+const totalFiles = cacheFiles.length;
+const parsedFiles = cacheFiles.filter((f) => f.hasJson).length;
+---
+
+<AdminLayout title="Review Parsed Articles">
+  <div class="space-y-6">
+    <!-- Page Header -->
+    <div>
+      <h1 class="text-2xl font-bold text-stone-900">Review Parsed Articles</h1>
+      <p class="mt-1 text-sm text-stone-500">
+        Review extracted HTML from Datalab before importing to database
+      </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="flex gap-4">
+      <div class="rounded-lg bg-white px-4 py-3 shadow-sm">
+        <p class="text-sm text-stone-500">Total Files</p>
+        <p class="text-2xl font-bold text-stone-900">{totalFiles}</p>
+      </div>
+      <div class="rounded-lg bg-white px-4 py-3 shadow-sm">
+        <p class="text-sm text-stone-500">Parsed (JSON)</p>
+        <p class="text-2xl font-bold text-green-600">{parsedFiles}</p>
+      </div>
+      <div class="rounded-lg bg-white px-4 py-3 shadow-sm">
+        <p class="text-sm text-stone-500">Not Parsed</p>
+        <p class="text-2xl font-bold text-amber-600">{totalFiles - parsedFiles}</p>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="rounded-lg bg-primary-50 border border-primary-200 p-4">
+      <h2 class="text-sm font-medium text-primary-800 mb-2">Review Workflow</h2>
+      <ol class="text-sm text-primary-700 space-y-1 list-decimal list-inside">
+        <li>Click an article to view parsed structure (title, authors, abstract, body)</li>
+        <li>Check that metadata was extracted correctly</li>
+        <li>Review body content — look for cruft that wasn't stripped</li>
+        <li>Approve to import into database, or flag issues for manual fix</li>
+      </ol>
+    </div>
+
+    <!-- File List -->
+    {cacheFiles.length > 0 ? (
+      <div class="rounded-lg bg-white shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-stone-200 bg-stone-50">
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Article</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Size</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Parsed</th>
+                <th class="px-4 py-3 text-right font-medium text-stone-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-stone-100">
+              {cacheFiles.map((file) => (
+                <tr class="hover:bg-stone-50">
+                  <td class="px-4 py-3">
+                    <div class="max-w-lg">
+                      <p class="font-medium text-stone-900 truncate" title={file.slug}>
+                        {file.slug}
+                      </p>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-stone-500">
+                    {Math.round(file.size / 1024)} KB
+                  </td>
+                  <td class="px-4 py-3">
+                    {file.hasJson ? (
+                      <span class="rounded bg-green-100 text-green-800 px-2 py-0.5 text-xs font-medium">
+                        Yes
+                      </span>
+                    ) : (
+                      <span class="rounded bg-stone-100 text-stone-500 px-2 py-0.5 text-xs font-medium">
+                        No
+                      </span>
+                    )}
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <a
+                      href={`/admin/review/${file.slug}`}
+                      class="text-primary-500 hover:text-primary-700 font-medium"
+                    >
+                      Review
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ) : (
+      <div class="rounded-lg bg-white p-8 shadow-sm text-center">
+        <h3 class="text-lg font-medium text-stone-900 mb-1">No Files Found</h3>
+        <p class="text-sm text-stone-500">
+          No HTML files in cache/articles/. Run batch_extract.py first.
+        </p>
+      </div>
+    )}
+
+    <!-- File Paths -->
+    <div class="rounded-lg bg-stone-50 border border-stone-200 p-4">
+      <h3 class="text-sm font-medium text-stone-700 mb-2">File Locations</h3>
+      <div class="text-sm text-stone-600 space-y-1 font-mono">
+        <p>Cache: <code class="bg-white px-2 py-0.5 rounded">{CACHE_DIR}</code></p>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

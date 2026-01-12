@@ -1,0 +1,134 @@
+# Article Type Mapping — Maps PDF-extracted article types to taxonomy method values
+#
+# Organized by language like section_headings.yaml.
+# The parser extracts article_type from PDFs (what the journal calls it).
+# This file maps those strings to our canonical method values.
+# Matching is case-insensitive and uses partial matching.
+
+synthesis:
+  en:
+    - literature review
+    - review article
+    - systematic review
+    - meta-analysis
+    - narrative review
+    - scoping review
+    - overview
+    - review of
+  fr:
+    - revue de littérature
+    - revue systématique
+    - méta-analyse
+    - revue narrative
+    - synthèse
+    - état des lieux
+    - mise au point
+  es:
+    - revisión de literatura
+    - revisión sistemática
+    - metaanálisis
+  de:
+    - literaturübersicht
+    - systematische übersicht
+    - meta-analyse
+
+empirical:
+  en:
+    - original research
+    - original article
+    - research article
+    - case series
+    - cohort study
+    - clinical study
+    - survey
+    - qualitative study
+    - quantitative study
+    - cross-sectional
+    - longitudinal
+    - case study
+    - pilot study
+    - randomized
+    - randomised
+  fr:
+    - article original
+    - étude originale
+    - série de cas
+    - étude de cohorte
+    - étude clinique
+    - enquête
+    - étude qualitative
+    - étude quantitative
+    - étude transversale
+    - étude longitudinale
+    - étude de cas
+    - étude pilote
+    - essai randomisé
+  es:
+    - artículo original
+    - estudio de cohorte
+    - estudio clínico
+  de:
+    - originalartikel
+    - kohortenstudie
+    - klinische studie
+
+theoretical:
+  en:
+    - commentary
+    - editorial
+    - opinion
+    - perspective
+    - letter to
+    - hypothesis
+    - conceptual
+    - theoretical
+    - discussion
+    - viewpoint
+    - essay
+  fr:
+    - commentaire
+    - éditorial
+    - opinion
+    - perspective
+    - lettre
+    - hypothèse
+    - conceptuel
+    - théorique
+    - discussion
+    - point de vue
+    - essai
+  es:
+    - comentario
+    - editorial
+    - carta al editor
+  de:
+    - kommentar
+    - leitartikel
+    - stellungnahme
+
+lived_experience:
+  en:
+    - personal account
+    - lived experience
+    - parent perspective
+    - family story
+    - first-person
+    - autobiographical
+    - personal narrative
+    - my journey
+    - our story
+  fr:
+    - témoignage
+    - expérience vécue
+    - point de vue parental
+    - récit familial
+    - récit personnel
+    - mon parcours
+    - notre histoire
+  es:
+    - experiencia vivida
+    - testimonio
+    - relato personal
+  de:
+    - erfahrungsbericht
+    - persönlicher bericht
