@@ -646,7 +646,15 @@ step4_check_formulas(slug)      → Returns unwrapped statistical formulas
 step4_confirm_formulas(slug, ...)→ You wrap formulas or confirm none needed
                                   ↓ Cannot proceed until complete
 step4_complete(slug)            → Moves article to ready/ for human review
+
+step4_reset(slug)               → Clears state, allows re-running Step 4 from start
 ```
+
+**Enforcement rules:**
+- Each `check` function must be called before its corresponding `confirm`
+- Each `confirm` marks that step complete, unlocking the next `check`
+- `step4_complete` requires ALL four checks to be complete
+- Use `step4_reset` if you need to start over (state file persists across sessions)
 
 **What each check looks for:**
 

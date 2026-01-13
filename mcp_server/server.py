@@ -844,6 +844,30 @@ def step4_complete(slug: str) -> dict[str, Any]:
 
 @mcp.tool()
 @log_tool_call
+def step4_reset(slug: str) -> dict[str, Any]:
+    """
+    Reset Step 4 state for an article, allowing it to be reprocessed from the beginning.
+
+    Use this when:
+    - Step 4 was interrupted and you need to start over
+    - You want to re-run the checks after making manual changes
+    - The state file is corrupted
+
+    Note: This only clears the Step 4 progress state. It does NOT delete or modify
+    the _parsed.json file. The article remains in cache/ ready for Step 4.
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - Clears step4 state file
+        - next_step: Call step4_check_fields() to begin Step 4 fresh
+    """
+    return preprocessing.step4_reset(slug)
+
+
+@mcp.tool()
+@log_tool_call
 def start_preprocessing(
     count: int | None = None,
     filename: str | None = None,

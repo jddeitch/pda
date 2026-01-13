@@ -1099,18 +1099,29 @@ def detect_body_issues(body_html: str) -> list[dict]:
 # Cannot skip to step4_complete without passing through all checks.
 
 # Session state keys for tracking which checks are done
+# Each check has two phases: _checked (check function called) and complete (confirm called)
 STEP4_CHECKS = ['fields', 'warnings', 'references', 'formulas']
 
 
 def _get_step4_state(slug: str) -> dict[str, Any]:
-    """Get Step 4 check state for an article."""
+    """Get Step 4 check state for an article.
+
+    State tracks two phases per check:
+    - {check}_checked: True after step4_check_{check}() is called
+    - {check}: True after step4_confirm_{check}() completes (legacy key for completion)
+    """
     state_file = CACHE_DIR / f"{slug}_step4_state.json"
     if state_file.exists():
         try:
             return json.loads(state_file.read_text())
         except:
             pass
-    return {check: False for check in STEP4_CHECKS}
+    # Initialize with both _checked and complete states
+    state = {}
+    for check in STEP4_CHECKS:
+        state[f'{check}_checked'] = False
+        state[check] = False
+    return state
 
 
 def _save_step4_state(slug: str, state: dict[str, Any]) -> None:
@@ -1174,6 +1185,12 @@ def step4_check_fields(slug: str) -> dict[str, Any]:
 
     # Count issues
     issues = [f for f, s in fields_status.items() if s['status'] != 'ok']
+
+    # Mark that this check was called (required before confirm can be called)
+    state = _get_step4_state(slug)
+    state['fields_checked'] = True
+    state['fields_issues'] = issues  # Store issues so confirm can validate
+    _save_step4_state(slug, state)
 
     # Load raw blocks for reference (first 2 pages)
     raw_hint = []
@@ -1242,6 +1259,30 @@ def step4_confirm_fields(
             "details": f"No parsed article found for slug '{slug}'"
         }
 
+    # Check prerequisite: step4_check_fields must have been called
+    state = _get_step4_state(slug)
+    if not state.get('fields_checked'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must call step4_check_fields() first to see the field status",
+            "action": f"Call step4_check_fields('{slug}') first."
+        }
+
+    # Validate: if there were issues, caller must provide fixes (not just all_fields_ok)
+    stored_issues = state.get('fields_issues', [])
+    if stored_issues and all_fields_ok:
+        # Check if any corrections were actually provided
+        corrections_provided = any([title, authors, year, citation, abstract])
+        if not corrections_provided:
+            return {
+                "success": False,
+                "error": "ISSUES_NOT_ADDRESSED",
+                "details": f"step4_check_fields found issues with: {stored_issues}. Cannot use all_fields_ok=True without providing corrections.",
+                "issue_fields": stored_issues,
+                "action": "Provide the missing field values, or if they truly can't be found, set them to empty string explicitly."
+            }
+
     # Load parsed data
     with open(parsed_path, 'r', encoding='utf-8') as f:
         parsed = json.load(f)
@@ -1273,8 +1314,7 @@ def step4_confirm_fields(
     with open(parsed_path, 'w', encoding='utf-8') as f:
         json.dump(parsed, f, ensure_ascii=False, indent=2)
 
-    # Mark check complete
-    state = _get_step4_state(slug)
+    # Mark check complete (state already loaded above)
     state['fields'] = True
     _save_step4_state(slug, state)
 
@@ -1335,6 +1375,11 @@ def step4_check_warnings(slug: str) -> dict[str, Any]:
     body_issues = detect_body_issues(body_html)
     orphan_issues = [p for p in body_issues if any('ORPHAN' in issue for issue in p.get('issues', []))]
 
+    # Mark that this check was called (required before confirm can be called)
+    state['warnings_checked'] = True
+    state['warnings_has_issues'] = bool(warnings or orphan_issues)
+    _save_step4_state(slug, state)
+
     return {
         "success": True,
         "slug": slug,
@@ -1376,7 +1421,7 @@ def step4_confirm_warnings(
             "details": f"No parsed article found for slug '{slug}'"
         }
 
-    # Check prerequisite
+    # Check prerequisite: fields must be complete AND warnings check must have been called
     state = _get_step4_state(slug)
     if not state.get('fields'):
         return {
@@ -1384,6 +1429,14 @@ def step4_confirm_warnings(
             "error": "PREREQUISITE_MISSING",
             "details": "Must complete fields check first",
             "action": f"Call step4_check_fields('{slug}') first."
+        }
+
+    if not state.get('warnings_checked'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must call step4_check_warnings() first to see the warnings",
+            "action": f"Call step4_check_warnings('{slug}') first."
         }
 
     # Load and apply fixes
@@ -1400,7 +1453,7 @@ def step4_confirm_warnings(
         elements = list(soup.children)
         elements = [e for e in elements if hasattr(e, 'name') and e.name]
 
-        # Sort by index descending
+        # Sort by index descending to avoid index shifting
         sorted_fixes = sorted(orphan_fixes, key=lambda f: f.get('index', 0), reverse=True)
 
         for fix in sorted_fixes:
@@ -1411,11 +1464,16 @@ def step4_confirm_warnings(
                 continue
 
             if action == 'join_previous' and idx > 0:
-                current_text = elements[idx].get_text(strip=True)
+                current_el = elements[idx]
                 prev_el = elements[idx - 1]
-                prev_text = prev_el.get_text(strip=True)
-                prev_el.string = prev_text + ' ' + current_text
-                elements[idx].decompose()
+
+                # Preserve HTML formatting: append children instead of replacing with text
+                # Add a space text node, then move all children from current to previous
+                from bs4 import NavigableString
+                prev_el.append(NavigableString(' '))
+                for child in list(current_el.children):
+                    prev_el.append(child.extract())
+                current_el.decompose()
                 changes.append(f"Joined paragraph {idx} to {idx - 1}")
 
         parsed['body_html'] = str(soup)
@@ -1517,6 +1575,11 @@ def step4_check_references(slug: str) -> dict[str, Any]:
     if not references:
         issues.append("No references extracted — check raw_reference_hint for missed references")
 
+    # Mark that this check was called (required before confirm can be called)
+    state['references_checked'] = True
+    state['references_has_issues'] = bool(issues)
+    _save_step4_state(slug, state)
+
     return {
         "success": True,
         "slug": slug,
@@ -1553,7 +1616,7 @@ def step4_confirm_references(
             "details": f"No parsed article found for slug '{slug}'"
         }
 
-    # Check prerequisites
+    # Check prerequisites: warnings must be complete AND references check must have been called
     state = _get_step4_state(slug)
     if not state.get('warnings'):
         return {
@@ -1561,6 +1624,14 @@ def step4_confirm_references(
             "error": "PREREQUISITE_MISSING",
             "details": "Must complete warnings check first",
             "action": f"Call step4_check_warnings('{slug}') first."
+        }
+
+    if not state.get('references_checked'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must call step4_check_references() first to see the references status",
+            "action": f"Call step4_check_references('{slug}') first."
         }
 
     # Load and update
@@ -1702,6 +1773,11 @@ def step4_check_formulas(slug: str) -> dict[str, Any]:
 
     total_unwrapped = sum(p['total_unwrapped'] for p in paragraphs_with_formulas)
 
+    # Mark that this check was called (required before confirm can be called)
+    state['formulas_checked'] = True
+    state['formulas_found'] = total_unwrapped
+    _save_step4_state(slug, state)
+
     return {
         "success": True,
         "slug": slug,
@@ -1740,7 +1816,7 @@ def step4_confirm_formulas(
             "details": f"No parsed article found for slug '{slug}'"
         }
 
-    # Check prerequisites
+    # Check prerequisites: references must be complete AND formulas check must have been called
     state = _get_step4_state(slug)
     if not state.get('references'):
         return {
@@ -1748,6 +1824,14 @@ def step4_confirm_formulas(
             "error": "PREREQUISITE_MISSING",
             "details": "Must complete references check first",
             "action": f"Call step4_check_references('{slug}') first."
+        }
+
+    if not state.get('formulas_checked'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must call step4_check_formulas() first to see the formulas needing wrapping",
+            "action": f"Call step4_check_formulas('{slug}') first."
         }
 
     # Load and update
@@ -1871,6 +1955,53 @@ def step4_complete(slug: str) -> dict[str, Any]:
         "raw_json_archived": json_archived,
         "checks_completed": STEP4_CHECKS,
         "next_step": "Article moved to ready/ for human review at /admin/review. Human approves there."
+    }
+
+
+def step4_reset(slug: str) -> dict[str, Any]:
+    """
+    Reset Step 4 state for an article, allowing it to be reprocessed from the beginning.
+
+    Use this when:
+    - Step 4 was interrupted and you need to start over
+    - You want to re-run the checks after making manual changes
+    - The state file is corrupted
+
+    Note: This only clears the Step 4 progress state. It does NOT delete or modify
+    the _parsed.json file. The article remains in cache/ ready for Step 4.
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - Clears step4 state file
+        - next_step: Call step4_check_fields() to begin Step 4 fresh
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'",
+            "action": "Cannot reset Step 4 for an article that doesn't exist in cache."
+        }
+
+    # Get current state before clearing (for reporting)
+    state = _get_step4_state(slug)
+    completed_checks = [check for check in STEP4_CHECKS if state.get(check)]
+    started_checks = [check for check in STEP4_CHECKS if state.get(f'{check}_checked')]
+
+    # Clear the state
+    _clear_step4_state(slug)
+
+    return {
+        "success": True,
+        "slug": slug,
+        "status": "reset",
+        "cleared_completed_checks": completed_checks,
+        "cleared_started_checks": started_checks,
+        "next_step": f"Step 4 state cleared. Call step4_check_fields('{slug}') to begin Step 4 fresh."
     }
 
 
