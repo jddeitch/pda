@@ -551,15 +551,13 @@ When working on this project:
 
 ### Preprocessing (PDF → Database)
 
-- **"Let's preprocess"** — Call `start_preprocessing()` which guides you through the entire flow:
-  1. Shows available PDFs in intake/
-  2. You pick one (or specify count for multiple)
-  3. Each tool returns `next_step` telling you exactly what to call next
-  4. Ends when article lands in ready/ for human approval
+- **"Let's preprocess"** — Call `start_preprocessing()` which shows available work and counts:
+  1. Shows datalab files ready to parse and PDFs in intake/
+  2. Shows counts: archived (done), pending review, available to process
+  3. **ASK THE USER** which file to process — do not pick automatically
+  4. Each tool returns `next_step` telling you exactly what to call next
 
-- **"Preprocess [filename]"** — Call `start_preprocessing(filename="...")` for a specific PDF
-
-- **"Preprocess 3 articles"** — Call `start_preprocessing(count=3)` to process multiple
+- **"Preprocess [filename]"** — Call `start_preprocessing(filename="...")` for a specific file
 
 The workflow enforces order: no skipping steps, no starting new articles until current one is done.
 

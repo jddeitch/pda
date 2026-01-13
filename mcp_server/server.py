@@ -910,50 +910,33 @@ def step4_reset(slug: str) -> dict[str, Any]:
 @mcp.tool()
 @log_tool_call
 def start_preprocessing(
-    count: int | None = None,
     filename: str | None = None,
 ) -> dict[str, Any]:
     """
-    Start or continue the preprocessing workflow for PDFs in intake.
+    Start or continue the preprocessing workflow.
 
-    This is the entry point for "Let's preprocess". It manages the full session:
-    - Shows available PDFs and lets you choose
-    - Tracks progress (article 2 of 5, step 3 of 5)
-    - Resumes incomplete work
-    - Blocks until human approval, then continues
+    This is the entry point for "Let's preprocess". Shows available work
+    and current status. IMPORTANT: Do not pick a file automatically —
+    always ask the user which file they want to process.
 
     Args:
-        count: How many articles to process this session (1-10). Only set when starting fresh.
-        filename: Optional specific PDF to process.
+        filename: Optional specific file to process. If not provided,
+                  shows available files and asks user to choose.
 
     Returns progress info and next_step telling you exactly what to call.
     """
-    # Load or initialize session
-    session = preprocessing.get_session()
-
-    # If count provided, update session target (starting new batch)
-    if count is not None:
-        count = max(1, min(10, count))
-        session["target_count"] = count
-        # Only reset completed if explicitly starting fresh
-        if session["completed_count"] >= session["target_count"]:
-            session["completed_count"] = 0
-        preprocessing.save_session(session)
-
     status = preprocessing.get_preprocessing_status()
 
-    # Check for work in progress first
+    # Check for work in progress first — must complete before starting new
     if status["preprocessing"]["work_in_progress"] > 0:
         wip = list(preprocessing.CACHE_DIR.glob("*_parsed.json"))
         if wip:
             slug = wip[0].stem.replace("_parsed", "")
             parsed = json.loads(wip[0].read_text())
-            progress = preprocessing.step_progress("classify" if not parsed.get("article_reviewed") else "body_review", slug)
 
             if not parsed.get("article_reviewed"):
                 return {
                     "status": "RESUME_REQUIRED",
-                    "progress": progress,
                     "message": f"Article '{slug}' is partially processed. Complete it first.",
                     "slug": slug,
                     "next_step": f"Call get_article_for_review('{slug}') to continue classification.",
@@ -961,41 +944,17 @@ def start_preprocessing(
             elif not parsed.get("body_reviewed"):
                 return {
                     "status": "RESUME_REQUIRED",
-                    "progress": progress,
                     "message": f"Article '{slug}' needs body review. Complete it first.",
                     "slug": slug,
                     "next_step": f"Call get_body_for_review('{slug}') to continue body review.",
                 }
 
-    # Note pending reviews but don't block — user can review whenever
+    # Gather counts for status display
     pending_reviews = status["preprocessing"]["ready_for_review"]
     pending_review_files = status["preprocessing"]["ready_files"] if pending_reviews > 0 else []
-
-    # Check if session complete
-    if session["completed_count"] >= session["target_count"]:
-        preprocessing.clear_session()
-        return {
-            "status": "SESSION_COMPLETE",
-            "message": f"Completed {session['completed_count']} article(s)! Session finished.",
-            "next_step": "Call start_preprocessing(count=N) to start a new batch.",
-        }
-
-    # Check archived count to see if human approved something
     archived_count = len(list(preprocessing.ARCHIVED_DIR.glob("*_parsed.json")))
-    if archived_count > session["completed_count"]:
-        # Human approved! Update our count
-        session["completed_count"] = archived_count
-        preprocessing.save_session(session)
 
-        if session["completed_count"] >= session["target_count"]:
-            preprocessing.clear_session()
-            return {
-                "status": "SESSION_COMPLETE",
-                "message": f"Completed {session['completed_count']} article(s)! Session finished.",
-                "next_step": "Call start_preprocessing(count=N) to start a new batch.",
-            }
-
-    # If no filename specified, show available work and let user choose
+    # If no filename specified, show available work and ASK user to choose
     if not filename:
         datalab = preprocessing.list_datalab_files()
         intake = preprocessing.list_intake_pdfs()
@@ -1004,25 +963,28 @@ def start_preprocessing(
             return {
                 "status": "NO_WORK",
                 "message": "No PDFs in intake/articles/ and no Datalab files to parse.",
+                "counts": {
+                    "archived": archived_count,
+                    "pending_review": pending_reviews,
+                },
                 "next_step": "Add PDFs to intake/articles/ folder, or manually download from Datalab website.",
             }
 
         response = {
             "status": "CHOOSE_SOURCE",
-            "progress": {
-                "article_progress": f"{session['completed_count'] + 1}/{session['target_count']}",
+            "message": "ASK THE USER which file to process. Do not pick automatically.",
+            "counts": {
+                "archived": archived_count,
+                "pending_review": pending_reviews,
+                "datalab_files": datalab["count"],
+                "intake_pdfs": len(intake["available"]),
             },
-            "message": f"Processing article {session['completed_count'] + 1} of {session['target_count']}.",
             "datalab_files": datalab["files"] if datalab["count"] > 0 else [],
-            "datalab_count": datalab["count"],
             "available_pdfs": intake["available"][:15] if intake["available"] else [],
-            "pdf_count": len(intake["available"]),
-            "next_step": "Choose one: parse_datalab_file('<filename>') for already-extracted files, or extract_pdf('<filename>') for new PDFs.",
+            "next_step": "ASK the user which file to process. Then call parse_datalab_file('<filename>') or extract_pdf('<filename>').",
         }
 
-        # Add pending review info (non-blocking)
         if pending_reviews > 0:
-            response["pending_reviews"] = pending_reviews
             response["pending_review_files"] = pending_review_files
 
         return response
