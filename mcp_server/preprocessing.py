@@ -38,6 +38,7 @@ sys.path.insert(0, str(scripts_dir))
 from parse_article_blocks import parse_blocks, extract_text
 
 from .taxonomy import get_taxonomy
+from .utils import slugify
 
 logger = logging.getLogger(__name__)
 
@@ -931,18 +932,27 @@ def complete_body_review(
     if notes:
         data['body_review_notes'] = notes
 
-    # Ensure ready directory exists
+    # Ensure directories exist
     READY_DIR.mkdir(parents=True, exist_ok=True)
+    ARCHIVED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Move file to ready directory (signals preprocessing complete)
+    # Move _parsed.json to ready directory (signals preprocessing complete)
     ready_path = READY_DIR / f"{slug}_parsed.json"
-
-    # Save to ready directory
     with open(ready_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
     # Remove from work-in-progress location
     parsed_path.unlink()
+
+    # Move raw Datalab JSON to archived folder (cleanup)
+    raw_json_path = CACHE_DIR / f"{slug}.json"
+    archived_json_path = ARCHIVED_DIR / f"{slug}.json"
+    json_archived = False
+    if raw_json_path.exists():
+        import shutil
+        shutil.move(str(raw_json_path), str(archived_json_path))
+        json_archived = True
+        logger.info(f"Moved raw JSON to archived: {slug}.json")
 
     # Update session - this article is now ready for human review
     session = get_session()
@@ -957,6 +967,7 @@ def complete_body_review(
         "body_approved": body_approved,
         "fixes_applied": changes_made,
         "ready_for_review": str(ready_path),
+        "raw_json_archived": json_archived,
         "next_step": "Article moved to ready/ for human review. Human approves at /admin/review. Then call start_preprocessing() to continue with next article."
     }
 
@@ -1079,13 +1090,7 @@ def detect_body_issues(body_html: str) -> list[dict]:
     return paragraphs
 
 
-def slugify(text: str) -> str:
-    """Convert text to a clean URL-safe slug."""
-    text = text.lower()
-    text = re.sub(r'[^a-z0-9]+', '-', text)
-    text = text.strip('-')
-    text = re.sub(r'-+', '-', text)
-    return text
+# slugify is now imported from utils.py
 
 
 def generate_article_id(title: str, authors: str, year: str | None) -> str:

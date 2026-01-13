@@ -2,15 +2,23 @@
 """
 Parse Datalab structured JSON blocks into article components.
 
-Works with the new JSON output format from batch_extract.py which includes:
-- PageHeader/PageFooter blocks (for DOI, citation extraction)
-- SectionHeader, Text, Table, Figure blocks with page numbers
-- Embedded images as base64 data URIs
+Three-pass approach:
+1. CLASSIFY: Tag each block with its section based on h2 headers
+2. CLEAN: Join split sentences, associate captions with tables/figures, remove cruft
+3. REASSEMBLE: Build full document in correct order
 
-Key improvements over HTML parsing:
-- DOI extracted directly from PageFooter blocks
-- Citation/authors from PageHeader blocks
-- No need for heuristic section detection - Datalab provides block_type
+Key principle: Process EVERY block. Nothing gets silently dropped.
+If we can't classify something, it goes in 'unclassified' for human review.
+
+Datalab block types we handle:
+- SectionHeader: h1/h2/h3/h4/h5/h6 headings
+- Text: Paragraphs
+- Table: HTML tables
+- Figure/Picture: Images
+- Caption: Table/figure captions
+- ListGroup: Lists (often references)
+- PageHeader/PageFooter: Skip (page chrome)
+- Footnote: Author info, emails
 """
 
 import re
@@ -18,43 +26,72 @@ import json
 import sys
 from pathlib import Path
 from bs4 import BeautifulSoup
-import yaml
+from collections import defaultdict
 
 
-def load_section_headings() -> dict[str, list[str]]:
-    """Load multilingual section heading patterns from YAML."""
-    yaml_path = Path(__file__).parent.parent / 'data' / 'section_headings.yaml'
-    if not yaml_path.exists():
-        return {
-            'abstract': ['abstract', 'summary', 'résumé'],
-            'references': ['reference', 'bibliography', 'références', 'bibliographie'],
-            'acknowledgements': ['acknowledgement', 'acknowledgment', 'remerciements'],
-            'keywords': ['keyword', 'mots-clés', 'mots clés'],
-        }
+# --- Section detection patterns (multilingual) ---
 
-    with open(yaml_path, 'r', encoding='utf-8') as f:
-        data = yaml.safe_load(f)
+SECTION_PATTERNS = {
+    'abstract': ['abstract', 'summary', 'résumé', 'resume'],
+    'keywords': ['keywords', 'mots-clés', 'mots clés', 'key words'],
+    'references': ['references', 'bibliography', 'références', 'bibliographie', 'literature cited'],
+    'acknowledgements': ['acknowledgements', 'acknowledgments', 'remerciements'],
+    'appendix': ['appendix', 'appendices', 'annexe', 'annexes', 'supplementary', 'supplemental', 'supporting information'],
+    'conflict_of_interest': ['conflict of interest', 'conflicts of interest', 'competing interests', 'déclaration', 'disclosure'],
+    'author_contributions': ['author contributions', 'contributions', 'contributorship'],
+    'funding': ['funding', 'financial support', 'financement'],
+    'data_availability': ['data availability', 'data statement'],
+}
 
-    result = {}
-    for section, langs in data.items():
-        patterns = []
-        for lang, terms in langs.items():
-            patterns.extend(terms)
-        result[section] = patterns
+# Body section names - these are all part of main content
+BODY_SECTIONS = [
+    'introduction', 'background', 'literature review', 'theoretical background',
+    'methods', 'method', 'methodology', 'materials and methods', 'participants', 'procedure',
+    'results', 'findings',
+    'discussion', 'conclusions', 'conclusion', 'summary and conclusions',
+    'limitations', 'future directions', 'implications',
+    # French
+    'contexte', 'méthodes', 'méthodologie', 'résultats', 'discussion', 'conclusions',
+]
 
-    return result
+
+def extract_text(html: str) -> str:
+    """Extract plain text from HTML."""
+    if not html:
+        return ''
+    soup = BeautifulSoup(html, 'html.parser')
+    return soup.get_text(strip=True)
 
 
-SECTION_HEADINGS = load_section_headings()
+def extract_tag_level(html: str) -> str | None:
+    """Extract the HTML tag (h1, h2, etc.) from a SectionHeader block."""
+    match = re.match(r'<(h[1-6])', html, re.IGNORECASE)
+    return match.group(1).lower() if match else None
 
 
-def matches_section(text: str, section: str) -> bool:
-    """Check if text matches any pattern for the given section type."""
+def identify_section(text: str) -> str | None:
+    """
+    Identify which major section a header belongs to.
+    Returns section name or None if it's a body subsection.
+    """
     text_lower = text.lower().strip()
-    for pattern in SECTION_HEADINGS.get(section, []):
-        if pattern in text_lower:
-            return True
-    return False
+
+    # Check each section type
+    for section, patterns in SECTION_PATTERNS.items():
+        for pattern in patterns:
+            if pattern in text_lower:
+                return section
+
+    # Check if it's a body section (these all stay as 'body')
+    for body_pattern in BODY_SECTIONS:
+        if body_pattern in text_lower:
+            return 'body'
+
+    # Check for numbered section start (e.g., "1. Introduction", "1 Methods")
+    if re.match(r'^\d+\.?\s+\w', text):
+        return 'body'
+
+    return None
 
 
 def extract_doi(text: str) -> str | None:
@@ -64,12 +101,6 @@ def extract_doi(text: str) -> str | None:
         doi = doi_match.group(0).rstrip('.,;:)"\'')
         return doi
     return None
-
-
-def extract_text(html: str) -> str:
-    """Extract plain text from HTML."""
-    soup = BeautifulSoup(html, 'html.parser')
-    return soup.get_text(strip=True)
 
 
 def extract_year(text: str) -> str | None:
@@ -83,56 +114,31 @@ def is_article_type_label(text: str) -> bool:
     labels = [
         'REVIEW', 'RESEARCH ARTICLE', 'ORIGINAL ARTICLE', 'COMMENTARY',
         'CASE REPORT', 'LETTER', 'EDITORIAL', 'SHORT COMMUNICATION',
-        'REVUE DE LITTÉRATURE', 'REVUE DE LITTERATURE', 'ARTICLE ORIGINAL',
-        'ARTICLE DE RECHERCHE', 'CAS CLINIQUE', 'LITERATURE REVIEW',
+        'REVUE DE LITTÉRATURE', 'ARTICLE ORIGINAL', 'CAS CLINIQUE',
     ]
     return text.upper().strip() in labels
-
-
-def is_complete_sentence(text: str) -> bool:
-    """Check if text appears to be a complete sentence (starts uppercase, ends with punctuation)."""
-    text = text.strip()
-    if not text:
-        return False
-    # Starts with uppercase or number, ends with sentence-ending punctuation
-    starts_properly = text[0].isupper() or text[0].isdigit()
-    ends_properly = text[-1] in '.!?'
-    return starts_properly and ends_properly
 
 
 def is_sentence_continuation(text: str) -> bool:
     """Check if text appears to be a continuation (starts with lowercase)."""
     text = text.strip()
-    if not text:
-        return False
-    # Starts with lowercase letter
-    return text[0].islower()
+    return bool(text) and text[0].islower()
 
 
 def is_incomplete_sentence(text: str) -> bool:
     """Check if text appears to be incomplete (doesn't end with sentence punctuation)."""
     text = text.strip()
-    if not text:
-        return False
-    return text[-1] not in '.!?:;'
+    return bool(text) and text[-1] not in '.!?:;'
 
 
 def join_split_sentences(blocks: list[dict]) -> list[dict]:
     """
     Join sentences that were split across page/column breaks.
-
-    Strategy:
-    1. If current block is incomplete (doesn't end with .!?) AND the next text/caption block
-       is immediately adjacent or across a page boundary, join them regardless of what the
-       next block starts with.
-    2. If we crossed a page boundary AND the next text starts lowercase, join them even if
-       the current block looks complete (handles abbreviations like "e.g.", "i.e.").
-
     Returns a new list of blocks with split sentences joined.
     """
     result = []
     i = 0
-    consumed = set()  # Track which blocks have been consumed as continuations
+    consumed = set()
 
     while i < len(blocks):
         if i in consumed:
@@ -142,7 +148,6 @@ def join_split_sentences(blocks: list[dict]) -> list[dict]:
         block = blocks[i]
         bt = block.get('block_type', '')
 
-        # Process both Text and Caption blocks for potential splits
         if bt in ['Text', 'Caption']:
             text = extract_text(block.get('html', ''))
             current_incomplete = is_incomplete_sentence(text)
@@ -150,68 +155,56 @@ def join_split_sentences(blocks: list[dict]) -> list[dict]:
             # Look ahead for a continuation
             j = i + 1
             continuation_idx = None
-            crossed_page_boundary = False
+            crossed_page = False
 
             while j < len(blocks):
                 next_block = blocks[j]
                 next_bt = next_block.get('block_type', '')
 
-                # Track if we crossed a page boundary
                 if next_bt in ['PageFooter', 'PageHeader']:
-                    crossed_page_boundary = True
+                    crossed_page = True
                     j += 1
                     continue
 
-                # Skip over Tables (text can continue after a table)
                 if next_bt == 'Table':
                     j += 1
                     continue
 
-                # Figures and Pictures break the flow - their captions belong to them, not previous text
                 if next_bt in ['Figure', 'Picture']:
                     break
 
                 if next_bt in ['Text', 'Caption']:
                     next_text = extract_text(next_block.get('html', ''))
 
-                    # Skip captions that are clearly for tables/figures (not continuations)
+                    # Skip obvious table/figure captions
                     if next_bt == 'Caption' and re.match(r'^(Table|Fig\.?|Figure)\s*\d', next_text, re.IGNORECASE):
                         j += 1
                         continue
 
-                    # If next block starts lowercase, it's a continuation
                     if is_sentence_continuation(next_text):
                         continuation_idx = j
                         break
 
-                    # If current block is incomplete and next is on same page (column break),
-                    # join regardless of case
-                    if current_incomplete and not crossed_page_boundary and block.get('page') == next_block.get('page'):
+                    if current_incomplete and not crossed_page and block.get('page') == next_block.get('page'):
                         continuation_idx = j
                         break
 
-                    # If we crossed a page boundary but next doesn't start lowercase,
-                    # keep looking - there might be intervening complete sentences (like table footnotes)
-                    if crossed_page_boundary:
+                    if crossed_page:
                         j += 1
                         continue
 
-                    # Otherwise, this text block is complete and next is a new paragraph
                     break
 
-                # SectionHeader or other block type ends the search
                 break
 
-            # Join if we found a continuation
             if continuation_idx is not None:
                 continuation_text = extract_text(blocks[continuation_idx].get('html', ''))
                 joined_text = text + ' ' + continuation_text
                 new_block = block.copy()
                 new_block['html'] = f'<p>{joined_text}</p>'
-                new_block['_joined'] = True  # Mark as joined for debugging
-                new_block['_joined_from'] = continuation_idx
+                new_block['_joined'] = True
                 result.append(new_block)
-                consumed.add(continuation_idx)  # Don't output continuation separately
+                consumed.add(continuation_idx)
                 i += 1
                 continue
 
@@ -222,351 +215,349 @@ def join_split_sentences(blocks: list[dict]) -> list[dict]:
 
 
 def parse_blocks(json_path: Path) -> dict:
-    """Parse Datalab JSON blocks into structured article components."""
+    """
+    Parse Datalab JSON blocks into structured article components.
 
+    Three-pass approach:
+    1. Classify each block by section
+    2. Clean up (join sentences, associate captions, remove cruft)
+    3. Reassemble in document order
+    """
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    blocks = data.get('blocks', [])
+    raw_blocks = data.get('blocks', [])
+    input_block_count = len(raw_blocks)
 
-    # Join sentences that were split across page breaks
-    blocks = join_split_sentences(blocks)
+    # --- Pass 1: Clean up split sentences ---
+    blocks = join_split_sentences(raw_blocks)
 
-    result = {
-        'source_file': json_path.name,
+    # --- Pass 2: Classify each block by section ---
+
+    # Track current section as we walk through
+    current_section = 'preamble'  # Before abstract
+
+    # Collect blocks by section
+    sections = defaultdict(list)
+
+    # Metadata extracted along the way
+    metadata = {
         'title': None,
-        'article_type': None,
         'authors': None,
-        'citation': None,
+        'article_type': None,
         'doi': None,
         'year': None,
-        'abstract': None,
-        'abstract_fr': None,
-        'abstract_en': None,
-        'keywords': None,
-        'keywords_fr': None,
-        'body_html': None,
-        'acknowledgements': None,
-        'references': [],
-        'figures': [],
-        'tables': [],
-        'page_headers': [],  # All page headers for debugging
-        'page_footers': [],  # All page footers for debugging
-        'warnings': [],
+        'citation': None,
+        'author_email': None,
     }
 
-    # Separate blocks by type
-    page_headers = [b for b in blocks if b.get('block_type') == 'PageHeader']
-    page_footers = [b for b in blocks if b.get('block_type') == 'PageFooter']
-    section_headers = [b for b in blocks if b.get('block_type') == 'SectionHeader']
-    text_blocks = [b for b in blocks if b.get('block_type') == 'Text']
-    footnotes = [b for b in blocks if b.get('block_type') == 'Footnote']
-    tables = [b for b in blocks if b.get('block_type') == 'Table']
-    figures = [b for b in blocks if b.get('block_type') == 'Figure']
+    # Track tables and figures with their context
+    tables = []
+    figures = []
 
-    # Store raw headers/footers for debugging
-    for h in page_headers:
-        result['page_headers'].append({
-            'page': h.get('page'),
-            'text': extract_text(h.get('html', ''))
-        })
-    for f in page_footers:
-        result['page_footers'].append({
-            'page': f.get('page'),
-            'text': extract_text(f.get('html', ''))
-        })
+    # Track references separately
+    references = []
 
-    # --- Extract DOI from page footers or headers (usually page 0) ---
-    for footer in page_footers:
-        html = footer.get('html', '')
-        doi = extract_doi(html)
-        if doi:
-            result['doi'] = doi
-            break
+    # Pending caption (to associate with next table/figure)
+    pending_caption = None
 
-    # If no DOI in footers, check headers (some journals put DOI there)
-    if not result['doi']:
-        for header in page_headers:
-            html = header.get('html', '')
-            doi = extract_doi(html)
-            if doi:
-                result['doi'] = doi
-                break
+    # Statistics for verification
+    classified_count = 0
+    skipped_count = 0  # PageHeader/PageFooter
 
-    # Fallback: check all text blocks on page 0-1 for DOI (ResearchGate, preprints)
-    if not result['doi']:
-        for block in blocks:
-            if block.get('page', 0) > 1:
-                break  # Only check first 2 pages
-            if block.get('block_type') == 'Text':
-                doi = extract_doi(block.get('html', ''))
-                if doi:
-                    result['doi'] = doi
-                    break
-
-    # --- Extract citation from page headers ---
-    # Look for journal citation pattern: "Journal Name Vol (Year) Pages"
-    for header in page_headers:
-        text = extract_text(header.get('html', ''))
-        # Skip page numbers, publisher names
-        if re.match(r'^\d+$', text):  # Just a page number
-            continue
-        if text.upper() in ['ELSEVIER', 'CROSSMARK', 'SPRINGER', 'WILEY']:
-            continue
-        # Look for citation pattern with year and page range
-        if re.search(r'\d{4}.*\d+[-–]\d+', text) or re.search(r'\(\d{4}\)', text):
-            result['citation'] = text
-            result['year'] = extract_year(text)
-            break
-
-    # Fallback: extract year from early text blocks if not found in citation
-    if not result['year']:
-        for block in blocks:
-            if block.get('page', 0) > 1:
-                break  # Only check first 2 pages
-            if block.get('block_type') == 'Text':
-                text = extract_text(block.get('html', ''))
-                # Look for publication year patterns (not in-text citations like "Wing, 1991")
-                # Match: © 2013, (2015), · July 2015, published 2014
-                year_patterns = [
-                    r'©.*?(20\d{2})',  # Copyright year (no word boundary - "2013Reprints")
-                    r'·\s*\w+\s*(20\d{2})',  # · July 2015 style
-                    r'published[:\s]+.*?(20\d{2})',  # Published date
-                    r'\((20\d{2})\)\s*\d+[-–]\d+',  # (2020) 50:386-401 style
-                ]
-                for pattern in year_patterns:
-                    match = re.search(pattern, text, re.IGNORECASE)
-                    if match:
-                        result['year'] = match.group(1)
-                        break
-                if result['year']:
-                    break
-
-    # --- Extract title and article type from first section headers ---
-    for i, sh in enumerate(section_headers):
-        if sh.get('page', 0) > 0:
-            break  # Only look at page 0
-        text = extract_text(sh.get('html', ''))
-
-        if is_article_type_label(text):
-            result['article_type'] = text
-        elif not result['title'] and len(text) > 20:
-            # First substantial heading is likely the title
-            result['title'] = text
-
-    # --- Extract authors from text blocks on page 0 ---
-    for block in text_blocks:
-        if block.get('page', 0) > 0:
-            break
-        text = extract_text(block.get('html', ''))
-        # Authors usually have superscript markers and commas
-        if re.search(r'[A-Z]\.\s*[A-Z][a-z]+.*,', text) and len(text) < 300:
-            # Strip superscript markers
-            authors = re.sub(r'<sup>.*?</sup>', '', block.get('html', ''))
-            authors = extract_text(authors)
-            # Clean up multiple commas/spaces
-            authors = re.sub(r',\s*,', ',', authors)
-            authors = re.sub(r'\s+', ' ', authors).strip()
-            if not result['authors']:
-                result['authors'] = authors
-            break
-
-    # --- Find abstract section ---
-    in_abstract = False
-    abstract_parts = []
-    abstract_lang = None
-
-    for block in blocks:
+    for i, block in enumerate(blocks):
         bt = block.get('block_type', '')
         html = block.get('html', '')
         text = extract_text(html)
+        page = block.get('page', 0)
 
-        if bt == 'SectionHeader':
-            text_lower = text.lower().strip()
-            if matches_section(text, 'abstract'):
-                # Save previous abstract if we were already in one (bilingual papers)
-                if in_abstract and abstract_parts:
-                    abstract_text = ' '.join(abstract_parts)
-                    if abstract_lang == 'fr':
-                        result['abstract_fr'] = abstract_text
-                    elif abstract_lang == 'en':
-                        result['abstract_en'] = abstract_text
-                    else:
-                        result['abstract'] = abstract_text
-                    abstract_parts = []
-
-                in_abstract = True
-                # Detect language - check French first since 'résumé' is more specific
-                if 'résumé' in text_lower or 'resume' in text_lower:
-                    abstract_lang = 'fr'
-                elif 'abstract' in text_lower or 'summary' in text_lower:
-                    abstract_lang = 'en'
-                else:
-                    abstract_lang = None  # Unknown, use generic
-                continue
-            elif in_abstract:
-                # Hit a non-abstract section, end abstract
-                in_abstract = False
-                if abstract_parts:
-                    abstract_text = ' '.join(abstract_parts)
-                    if abstract_lang == 'fr':
-                        result['abstract_fr'] = abstract_text
-                    elif abstract_lang == 'en':
-                        result['abstract_en'] = abstract_text
-                    else:
-                        result['abstract'] = abstract_text
-                    abstract_parts = []
-
-        elif bt == 'Text' and in_abstract:
-            abstract_parts.append(text)
-
-    # Handle case where abstract runs to end
-    if abstract_parts:
-        abstract_text = ' '.join(abstract_parts)
-        if abstract_lang == 'fr':
-            result['abstract_fr'] = abstract_text
-        elif abstract_lang == 'en':
-            result['abstract_en'] = abstract_text
-        else:
-            result['abstract'] = abstract_text
-
-    # Set main abstract if we only have language-specific ones
-    if not result['abstract']:
-        result['abstract'] = result['abstract_en'] or result['abstract_fr']
-
-    # Fallback: Look for inline abstract in Text blocks (e.g., ResearchGate format)
-    # These start with "Abstract" followed by the content
-    if not result['abstract']:
-        for block in blocks:
-            if block.get('block_type') == 'Text':
-                text = extract_text(block.get('html', ''))
-                if text.lower().startswith('abstract'):
-                    # Extract everything after "Abstract"
-                    abstract_text = re.sub(r'^abstract\s*', '', text, flags=re.IGNORECASE)
-                    if len(abstract_text) > 100:  # Sanity check - real abstract should be substantial
-                        result['abstract'] = abstract_text
-                        result['abstract_en'] = abstract_text
-                        break
-
-    # --- Extract keywords ---
-    for block in blocks:
-        text = extract_text(block.get('html', ''))
-        text_lower = text.lower()
-        if text_lower.startswith('keywords:') or text_lower.startswith('mots clés:') or text_lower.startswith('mots-clés:'):
-            keywords = re.sub(r'^(keywords|mots[\s-]?clés)\s*:\s*', '', text, flags=re.IGNORECASE)
-            if 'mots' in text_lower:
-                result['keywords_fr'] = keywords
-            else:
-                result['keywords'] = keywords
-
-    # --- Build body HTML ---
-    # Find where body starts (after abstract) and ends (before references)
-    body_blocks = []
-    in_body = False
-    in_references = False
-    in_acknowledgements = False
-
-    for block in blocks:
-        bt = block.get('block_type', '')
-        html = block.get('html', '')
-        text = extract_text(html)
-
-        # Skip page headers/footers
+        # Skip page chrome
         if bt in ('PageHeader', 'PageFooter'):
+            skipped_count += 1
+            # But extract metadata from them
+            if bt == 'PageFooter' and not metadata['doi']:
+                metadata['doi'] = extract_doi(html)
+            if bt == 'PageHeader':
+                # Look for citation pattern
+                if not metadata['citation'] and (re.search(r'\d{4}.*\d+[-–]\d+', text) or re.search(r'\(\d{4}\)', text)):
+                    metadata['citation'] = text
+                    if not metadata['year']:
+                        metadata['year'] = extract_year(text)
             continue
 
+        classified_count += 1
+
+        # Handle section headers
         if bt == 'SectionHeader':
-            text_check = text.lower().strip()
+            tag = extract_tag_level(html)
 
-            # Check for references section
-            if matches_section(text, 'references'):
-                in_body = False
-                in_references = True
+            # h1 is usually the title
+            if tag == 'h1' and page == 0 and not metadata['title']:
+                metadata['title'] = text
+                sections['preamble'].append(block)
                 continue
 
-            # Check for acknowledgements
-            if matches_section(text, 'acknowledgements'):
-                in_body = False
-                in_acknowledgements = True
-                continue
+            # h2 marks major sections - check if it's a known section type
+            if tag == 'h2':
+                detected = identify_section(text)
+                if detected:
+                    current_section = detected
+                # If not detected, it's a custom h2 in current section - keep current_section
 
-            # Check for abstract (skip)
-            if matches_section(text, 'abstract'):
-                in_body = False
-                continue
+            # h3/h4/h5/h6 are subsections - stay in current section
 
-            # Check for body start markers
-            # Body starts after abstract with numbered sections OR common section names
-            body_starters = ['introduction', 'background', 'methods', 'method', 'contexte', 'méthodes',
-                            'study 1', 'study 2', 'experiment 1', 'literature review', 'theoretical background']
-            if re.match(r'^1\.?\s', text) or text_check in body_starters or re.match(r'^(study|experiment)\s*\d', text_check):
-                in_body = True
+            # Add the header to its section
+            sections[current_section].append(block)
+            continue
 
-            if in_body:
-                body_blocks.append(html)
+        # Handle captions - save for next table/figure
+        if bt == 'Caption':
+            # NOTE: Captions like "Appendix 5-1: ..." are REFERENCES to appendix tables,
+            # not the start of the appendix section. Only h2 headers mark section changes.
+            # The appendix section itself will have an h2 "Appendix" or similar.
 
-        elif bt == 'ListGroup' and in_references:
-            # References come as <ol>/<li> OR as <p> elements in a ListGroup
-            soup = BeautifulSoup(html, 'html.parser')
-            # Try <li> first (numbered lists)
-            li_items = soup.find_all('li')
-            if li_items:
-                for li in li_items:
+            pending_caption = {
+                'text': text,
+                'html': html,
+                'page': page,
+                'section': current_section
+            }
+            # Also add to section content
+            sections[current_section].append(block)
+            continue
+
+        # Handle tables
+        if bt == 'Table':
+            table_entry = {
+                'html': html,
+                'page': page,
+                'section': current_section,
+                'caption': pending_caption['text'] if pending_caption else None
+            }
+            tables.append(table_entry)
+            pending_caption = None
+            sections[current_section].append(block)
+            continue
+
+        # Handle figures
+        if bt in ('Figure', 'Picture'):
+            figure_entry = {
+                'html': html[:500] if len(html) > 500 else html,  # Truncate large base64
+                'page': page,
+                'section': current_section,
+                'caption': pending_caption['text'] if pending_caption else None
+            }
+            figures.append(figure_entry)
+            pending_caption = None
+            sections[current_section].append(block)
+            continue
+
+        # Handle list groups (often references)
+        if bt == 'ListGroup':
+            if current_section == 'references':
+                # Extract individual references
+                soup = BeautifulSoup(html, 'html.parser')
+                for li in soup.find_all('li'):
                     ref_text = li.get_text(strip=True)
                     if ref_text:
-                        result['references'].append(ref_text)
-            else:
-                # Fall back to <p> elements (paragraph-based references)
+                        references.append(ref_text)
                 for p in soup.find_all('p'):
                     ref_text = p.get_text(strip=True)
-                    if ref_text and len(ref_text) > 20:  # Skip short fragments
-                        result['references'].append(ref_text)
+                    if ref_text and len(ref_text) > 20:
+                        references.append(ref_text)
+            sections[current_section].append(block)
+            continue
 
-        elif bt == 'Text':
-            if in_references:
-                # Extract reference (sometimes as individual text blocks)
+        # Handle text blocks
+        if bt == 'Text':
+            # Extract metadata from preamble
+            if current_section == 'preamble' and page == 0:
+                # Look for authors
+                if not metadata['authors'] and re.search(r'[A-Z]\.\s*[A-Z][a-z]+.*,', text) and len(text) < 300:
+                    metadata['authors'] = text
+                # Look for year
+                if not metadata['year']:
+                    for pattern in [r'©.*?(20\d{2})', r'published[:\s]+.*?(20\d{2})', r'\((20\d{2})\)']:
+                        match = re.search(pattern, text, re.IGNORECASE)
+                        if match:
+                            metadata['year'] = match.group(1)
+                            break
+
+            # Check for inline keywords
+            text_lower = text.lower()
+            if text_lower.startswith('keywords:') or text_lower.startswith('mots'):
+                current_section = 'keywords'
+
+            # Individual reference lines
+            if current_section == 'references':
                 if re.match(r'^\d+\.?\s', text) or re.match(r'^\[?\d+\]?\s', text):
-                    result['references'].append(text)
-            elif in_acknowledgements:
-                if not result['acknowledgements']:
-                    result['acknowledgements'] = text
-                else:
-                    result['acknowledgements'] += ' ' + text
-            elif in_body:
-                body_blocks.append(html)
+                    references.append(text)
 
-        elif bt == 'Table' and in_body:
-            body_blocks.append(html)
-            result['tables'].append({
-                'page': block.get('page'),
-                'html': html[:500] + '...' if len(html) > 500 else html
-            })
+            sections[current_section].append(block)
+            continue
 
-        elif bt == 'Figure' and in_body:
-            body_blocks.append(html)
-            result['figures'].append({
-                'page': block.get('page'),
-                'html': html[:200] + '...' if len(html) > 200 else html
-            })
-
-        elif bt == 'Footnote':
-            # Check for author email in footnotes
-            if '@' in text and not result.get('author_email'):
+        # Handle footnotes
+        if bt == 'Footnote':
+            if '@' in text and not metadata['author_email']:
                 email_match = re.search(r'[\w.-]+@[\w.-]+\.\w+', text)
                 if email_match:
-                    result['author_email'] = email_match.group(0)
+                    metadata['author_email'] = email_match.group(0)
+            sections[current_section].append(block)
+            continue
 
-    result['body_html'] = '\n'.join(body_blocks)
+        # Any other block type - add to current section
+        sections[current_section].append(block)
 
-    # --- Warnings ---
-    if not result['title']:
-        result['warnings'].append('[MISSING] No title found')
-    if not result['abstract']:
-        result['warnings'].append('[MISSING] No abstract found')
-    if not result['doi']:
-        result['warnings'].append('[MISSING] No DOI found in page footers')
-    if not result['references']:
-        result['warnings'].append('[MISSING] No references extracted')
+    # --- Pass 3: Reassemble document ---
+
+    def blocks_to_html(block_list: list[dict]) -> str:
+        """Convert list of blocks to HTML string."""
+        return '\n'.join(b.get('html', '') for b in block_list)
+
+    def extract_abstract(block_list: list[dict]) -> tuple[str, str | None]:
+        """Extract abstract text and detect language."""
+        parts = []
+        lang = None
+        for b in block_list:
+            bt = b.get('block_type', '')
+            text = extract_text(b.get('html', ''))
+            if bt == 'SectionHeader':
+                text_lower = text.lower()
+                if 'résumé' in text_lower:
+                    lang = 'fr'
+                elif 'abstract' in text_lower:
+                    lang = 'en'
+            elif bt == 'Text':
+                parts.append(text)
+        return ' '.join(parts), lang
+
+    # Build abstract
+    abstract_text, abstract_lang = extract_abstract(sections.get('abstract', []))
+
+    # Build body HTML - main content sections in order
+    # References are extracted separately (not in body_html)
+    # COI goes at the very end (after appendices)
+    body_sections_order = [
+        'body',                    # Main content (Intro, Methods, Results, Discussion)
+        'acknowledgements',        # Often before references in original
+        'funding',
+        'author_contributions',
+        'data_availability',
+        'appendix',                # Supplementary material, tables, questionnaires
+        'conflict_of_interest',    # At the very end
+    ]
+    body_parts = []
+    for sec in body_sections_order:
+        if sec in sections and sections[sec]:
+            body_parts.append(blocks_to_html(sections[sec]))
+
+    body_html = '\n'.join(body_parts)
+
+    # Extract keywords
+    keywords = None
+    keywords_fr = None
+    for b in sections.get('keywords', []):
+        text = extract_text(b.get('html', ''))
+        text_lower = text.lower()
+        if text_lower.startswith('keywords:'):
+            keywords = re.sub(r'^keywords:\s*', '', text, flags=re.IGNORECASE)
+        elif 'mots' in text_lower:
+            keywords_fr = re.sub(r'^mots[\s-]?clés\s*:\s*', '', text, flags=re.IGNORECASE)
+
+    # Extract acknowledgements text
+    ack_parts = []
+    for b in sections.get('acknowledgements', []):
+        if b.get('block_type') == 'Text':
+            ack_parts.append(extract_text(b.get('html', '')))
+    acknowledgements = ' '.join(ack_parts) if ack_parts else None
+
+    # Extract conflict of interest text
+    coi_parts = []
+    for b in sections.get('conflict_of_interest', []):
+        if b.get('block_type') == 'Text':
+            coi_parts.append(extract_text(b.get('html', '')))
+    conflict_of_interest = ' '.join(coi_parts) if coi_parts else None
+
+    # Build warnings
+    warnings = []
+    if not metadata['title']:
+        warnings.append('[MISSING] No title found')
+    if not abstract_text:
+        warnings.append('[MISSING] No abstract found')
+    if not metadata['doi']:
+        warnings.append('[MISSING] No DOI found')
+    if not references:
+        warnings.append('[MISSING] No references extracted')
+
+    # Check for unclassified content (blocks in preamble that aren't title/authors)
+    # Preamble should only contain title (first h1) - anything else is unclassified
+    unclassified_blocks = []
+    for b in sections.get('preamble', []):
+        bt = b.get('block_type', '')
+        text = extract_text(b.get('html', ''))
+        # Skip the title (first h1 we captured)
+        if bt == 'SectionHeader' and text == metadata.get('title'):
+            continue
+        # Everything else in preamble is unclassified
+        unclassified_blocks.append({
+            'block_type': bt,
+            'text': text[:200] + '...' if len(text) > 200 else text,
+            'page': b.get('page', 0)
+        })
+
+    if unclassified_blocks:
+        warnings.append(f'[UNCLASSIFIED] {len(unclassified_blocks)} blocks in preamble not categorized')
+
+    # Build result
+    result = {
+        'source_file': json_path.name,
+
+        # Metadata
+        'title': metadata['title'],
+        'authors': metadata['authors'],
+        'article_type': metadata['article_type'],
+        'doi': metadata['doi'],
+        'year': metadata['year'],
+        'citation': metadata['citation'],
+        'author_email': metadata['author_email'],
+
+        # Abstract
+        'abstract': abstract_text or None,
+        'abstract_en': abstract_text if abstract_lang == 'en' else None,
+        'abstract_fr': abstract_text if abstract_lang == 'fr' else None,
+
+        # Keywords
+        'keywords': keywords,
+        'keywords_fr': keywords_fr,
+
+        # Main content - reassembled in order
+        'body_html': body_html,
+
+        # Extracted sections
+        'conflict_of_interest': conflict_of_interest,
+        'acknowledgements': acknowledgements,
+        'references': references,
+
+        # Tables and figures with context
+        'tables': tables,
+        'figures': figures,
+
+        # Section inventory (for debugging)
+        'sections_found': {k: len(v) for k, v in sections.items()},
+
+        # Unclassified blocks (for human review)
+        'unclassified': unclassified_blocks,
+
+        # Verification stats
+        'stats': {
+            'input_blocks': input_block_count,
+            'after_join': len(blocks),
+            'classified': classified_count,
+            'skipped_chrome': skipped_count,
+        },
+
+        'warnings': warnings,
+    }
 
     return result
 
@@ -582,33 +573,32 @@ def main():
     # Print summary
     print(f"=== {result['source_file']} ===\n")
     print(f"Title: {result['title']}")
-    print(f"Article Type: {result['article_type']}")
     print(f"Authors: {result['authors']}")
-    print(f"Citation: {result['citation']}")
-    print(f"DOI: {result['doi']}")
     print(f"Year: {result['year']}")
-    print(f"\nAbstract ({len(result['abstract'] or '')} chars)")
+    print(f"DOI: {result['doi']}")
+    print(f"Citation: {result['citation']}")
+
+    print(f"\nAbstract: {len(result['abstract'] or '')} chars")
     if result['abstract']:
         print(f"  {result['abstract'][:200]}...")
-    if result['abstract_fr']:
-        print(f"Abstract FR: {result['abstract_fr'][:100]}...")
-    if result['abstract_en']:
-        print(f"Abstract EN: {result['abstract_en'][:100]}...")
+
     print(f"\nKeywords: {result['keywords']}")
     print(f"Keywords FR: {result['keywords_fr']}")
+
     print(f"\nBody HTML: {len(result['body_html'] or '')} chars")
+    print(f"Conflict of Interest: {result['conflict_of_interest']}")
     print(f"Acknowledgements: {'Yes' if result['acknowledgements'] else 'No'}")
     print(f"References: {len(result['references'])}")
-    print(f"Figures: {len(result['figures'])}")
     print(f"Tables: {len(result['tables'])}")
+    print(f"Figures: {len(result['figures'])}")
 
-    print(f"\n--- Page Headers ({len(result['page_headers'])}) ---")
-    for h in result['page_headers'][:5]:
-        print(f"  Page {h['page']}: {h['text'][:80]}")
+    print(f"\n--- Sections Found ---")
+    for sec, count in sorted(result['sections_found'].items()):
+        print(f"  {sec}: {count} blocks")
 
-    print(f"\n--- Page Footers ({len(result['page_footers'])}) ---")
-    for f in result['page_footers'][:5]:
-        print(f"  Page {f['page']}: {f['text'][:80]}")
+    print(f"\n--- Stats ---")
+    for k, v in result['stats'].items():
+        print(f"  {k}: {v}")
 
     if result['warnings']:
         print(f"\n--- Warnings ({len(result['warnings'])}) ---")
@@ -618,8 +608,7 @@ def main():
     # Save result
     output_path = json_path.with_name(json_path.stem + '_parsed.json')
     with open(output_path, 'w', encoding='utf-8') as f:
-        output = {**result, 'body_html': f"[{len(result['body_html'] or '')} chars]"}
-        json.dump(output, f, indent=2, ensure_ascii=False)
+        json.dump(result, f, indent=2, ensure_ascii=False)
     print(f"\nSaved to: {output_path}")
 
 
