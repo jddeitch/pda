@@ -31,6 +31,34 @@ from bs4 import BeautifulSoup
 from collections import defaultdict
 
 
+# --- Normalize Datalab JSON formats ---
+
+def normalize_datalab_json(data: dict) -> list:
+    """
+    Normalize Datalab JSON to flat block list.
+
+    API via poll_and_save(): { "blocks": [...] }
+    Manual website downloads: { "children": [Pages...] } where each Page has "children" with blocks
+
+    Returns flat list of blocks. Structure and content are identical — only difference
+    is manual downloads have filename refs in HTML src while API embeds base64.
+    The images dict (with base64) exists in both, which is what the parser uses.
+    """
+    # Already flattened (from poll_and_save)
+    if 'blocks' in data:
+        return data['blocks']
+
+    # Hierarchical format (manual download) — flatten Pages
+    if 'children' in data:
+        blocks = []
+        for page in data['children']:
+            if page.get('block_type') == 'Page':
+                blocks.extend(page.get('children', []))
+        return blocks
+
+    return []
+
+
 # --- Load section patterns from YAML ---
 
 def load_section_headings():
@@ -427,7 +455,7 @@ def parse_blocks(json_path: Path, images_dir: Path | None = None) -> dict:
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    raw_blocks = data.get('blocks', [])
+    raw_blocks = normalize_datalab_json(data)
     input_block_count = len(raw_blocks)
 
     # --- Pass 1: Clean up split sentences ---

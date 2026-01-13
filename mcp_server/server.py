@@ -409,11 +409,52 @@ def list_intake_pdfs() -> dict[str, Any]:
 
 @mcp.tool()
 @log_tool_call
+def list_datalab_files() -> dict[str, Any]:
+    """
+    List datalab-output-*.json files in cache/articles/ awaiting parsing.
+
+    These are files that have been extracted (either via API or manual download)
+    but not yet parsed to generate a proper slug.
+
+    Use this to see manually downloaded Datalab files before calling parse_datalab_file().
+    """
+    return preprocessing.list_datalab_files()
+
+
+@mcp.tool()
+@log_tool_call
+def parse_datalab_file(filename: str) -> dict[str, Any]:
+    """
+    Parse a Datalab output file and generate a proper slug from metadata.
+
+    This is the key function for processing extracted PDFs:
+    1. Reads the datalab-output-*.json file
+    2. Runs the parser to extract title, authors, year
+    3. Generates a proper slug: {author}-{year}-{title}
+    4. Renames the file to {slug}.json
+    5. Creates {slug}_parsed.json
+    6. Returns the slug for continuing with Step 4
+
+    Use this after:
+    - extract_pdf() outputs a temp file
+    - Manually downloading from Datalab website
+
+    Args:
+        filename: Exact filename in cache/articles/ (e.g., "datalab-output-abc123.json")
+    """
+    return preprocessing.parse_datalab_file(filename)
+
+
+@mcp.tool()
+@log_tool_call
 def extract_pdf(filename: str) -> dict[str, Any]:
     """
     Submit PDF to Datalab Marker API and wait for completion.
 
     This is a blocking operation that typically takes 30-120 seconds.
+    Saves output as a temp file (datalab-output-{request_id}.json).
+    Call parse_datalab_file() next to generate proper slug from metadata.
+
     Requires DATALAB_API_KEY environment variable.
 
     Args:
@@ -964,34 +1005,43 @@ def start_preprocessing(
                 "next_step": "Call start_preprocessing(count=N) to start a new batch.",
             }
 
-    # If no filename specified, show available PDFs
+    # If no filename specified, show available work and let user choose
     if not filename:
+        datalab = preprocessing.list_datalab_files()
         intake = preprocessing.list_intake_pdfs()
-        if not intake["pending"]:
+
+        if datalab["count"] == 0 and not intake["available"]:
             return {
-                "status": "NO_PDFS",
-                "message": "No PDFs in intake/articles/ to process.",
-                "next_step": "Add PDFs to intake/articles/ folder first.",
+                "status": "NO_WORK",
+                "message": "No PDFs in intake/articles/ and no Datalab files to parse.",
+                "next_step": "Add PDFs to intake/articles/ folder, or manually download from Datalab website.",
             }
 
         return {
-            "status": "CHOOSE_PDF",
+            "status": "CHOOSE_SOURCE",
             "progress": {
                 "article_progress": f"{session['completed_count'] + 1}/{session['target_count']}",
             },
-            "message": f"Found {len(intake['pending'])} PDFs. Processing article {session['completed_count'] + 1} of {session['target_count']}.",
-            "available_pdfs": intake["pending"][:15],
-            "total_available": len(intake["pending"]),
-            "next_step": "Call start_preprocessing(filename='chosen-file.pdf') with one of the PDFs above.",
+            "message": f"Processing article {session['completed_count'] + 1} of {session['target_count']}.",
+            "datalab_files": datalab["files"] if datalab["count"] > 0 else [],
+            "datalab_count": datalab["count"],
+            "available_pdfs": intake["available"][:15] if intake["available"] else [],
+            "pdf_count": len(intake["available"]),
+            "next_step": "Choose one: parse_datalab_file('<filename>') for already-extracted files, or extract_pdf('<filename>') for new PDFs.",
         }
 
-    # Filename provided - start extraction
-    result = preprocessing.extract_pdf(filename)
+    # Filename provided - check if it's a datalab file or a PDF
+    if filename.startswith("datalab-output-") or filename.endswith(".json"):
+        # It's a datalab file - parse it
+        result = preprocessing.parse_datalab_file(filename)
+    else:
+        # It's a PDF - extract it
+        result = preprocessing.extract_pdf(filename)
 
     if not result.get("success"):
-        return result  # Error from extract_pdf
+        return result  # Error from extract/parse
 
-    return result  # Has progress info from extract_pdf
+    return result  # Has progress info
 
 
 # --- Main entry point ---

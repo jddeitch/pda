@@ -190,12 +190,174 @@ def list_intake_pdfs() -> dict[str, Any]:
     return {
         "available": available,
         "already_extracted": already_extracted,
-        "counts": {
-            "available": len(available),
-            "extracted": len(already_extracted),
-            "processed": len(processed_pdfs)
-        },
+        "processed_count": len(processed_pdfs),
         "next_step": "Call extract_pdf('<filename>') to process a PDF, or parse_extracted_article('<slug>') for already-extracted files."
+    }
+
+
+def list_datalab_files() -> dict[str, Any]:
+    """
+    List datalab-output-*.json files in cache/articles/ awaiting parsing.
+
+    These are files that have been extracted (either via API or manual download)
+    but not yet parsed to generate a proper slug.
+
+    Returns:
+        - files: List of datalab output files with size info
+        - count: Number of files
+        - next_step: Instructions to parse
+    """
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Find all datalab-output files (from API or manual download)
+    datalab_files = sorted(CACHE_DIR.glob("datalab-output-*.json"))
+
+    files = []
+    for f in datalab_files:
+        stat = f.stat()
+        files.append({
+            "filename": f.name,
+            "size_kb": stat.st_size // 1024,
+            "modified": datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+        })
+
+    return {
+        "files": files,
+        "count": len(files),
+        "next_step": "Call parse_datalab_file('<filename>') to parse and generate proper slug." if files else "No datalab files to parse. Use extract_pdf() or manually download from Datalab."
+    }
+
+
+def parse_datalab_file(filename: str) -> dict[str, Any]:
+    """
+    Parse a Datalab output file and generate a proper slug from metadata.
+
+    This is the key function that:
+    1. Reads the datalab-output-*.json file
+    2. Runs the parser to extract title, authors, year
+    3. Generates a proper slug: {author}-{year}-{title}
+    4. Renames the file to {slug}.json
+    5. Creates {slug}_parsed.json
+    6. Returns the slug for continuing with Step 4
+
+    Args:
+        filename: Exact filename in cache/articles/ (e.g., "datalab-output-abc123.json")
+
+    Returns on success:
+        - slug: The generated article slug
+        - parsed_path: Path to the parsed JSON
+        - summary: Extracted metadata
+        - next_step: Instructions for Step 4
+
+    Returns on error:
+        - error: Error code
+        - details: What went wrong
+        - action: How to fix it
+    """
+    import shutil
+
+    # Validate filename
+    json_path = CACHE_DIR / filename
+
+    if not json_path.exists():
+        # Try to find a partial match
+        matches = list(CACHE_DIR.glob(f"*{filename}*"))
+        if matches:
+            return {
+                "success": False,
+                "error": "NOT_FOUND",
+                "details": f"File not found: {filename}",
+                "similar_files": [m.name for m in matches[:5]],
+                "action": "Use the exact filename from list_datalab_files()"
+            }
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"File not found: {filename}",
+            "action": "Use list_datalab_files() to see available files"
+        }
+
+    # Run the parser
+    try:
+        result = parse_blocks(json_path)
+    except Exception as e:
+        logger.exception(f"Parser failed for {filename}")
+        return {
+            "success": False,
+            "error": "PARSE_ERROR",
+            "details": str(e),
+            "action": "Check the JSON file format"
+        }
+
+    # Extract metadata for slug generation
+    title = result.get('title') or ''
+    authors = result.get('authors') or ''
+    year = result.get('year') or ''
+
+    # Validate we have enough to generate a slug
+    if not title:
+        return {
+            "success": False,
+            "error": "NO_TITLE",
+            "details": "Parser could not extract a title from the document",
+            "raw_hint": "Check the PDF or manually provide metadata",
+            "action": "This file may need manual preprocessing"
+        }
+
+    # Generate the slug from metadata
+    slug = generate_article_id(title, authors, year)
+
+    # Check for collision with existing files
+    final_json_path = CACHE_DIR / f"{slug}.json"
+    final_parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if final_json_path.exists() and final_json_path != json_path:
+        # Slug collision - append a suffix
+        counter = 2
+        base_slug = slug
+        while (CACHE_DIR / f"{slug}.json").exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        final_json_path = CACHE_DIR / f"{slug}.json"
+        final_parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+        logger.info(f"Slug collision detected, using: {slug}")
+
+    # Rename the raw JSON to the proper slug
+    if json_path != final_json_path:
+        shutil.move(str(json_path), str(final_json_path))
+        logger.info(f"Renamed {filename} -> {slug}.json")
+
+    # Save the parsed result
+    with open(final_parsed_path, 'w', encoding='utf-8') as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    # Update session
+    session = get_session()
+    session["current_slug"] = slug
+    save_session(session)
+
+    # Build summary
+    body_html = result.get('body_html', '')
+    summary = {
+        "title": title[:100] + "..." if len(title) > 100 else title,
+        "authors": authors,
+        "year": year,
+        "doi": result.get('doi'),
+        "abstract_chars": len(result.get('abstract') or ''),
+        "body_chars": len(body_html),
+        "references_count": len(result.get('references', [])),
+        "figures_count": len(result.get('figures', []))
+    }
+
+    return {
+        "success": True,
+        "progress": step_progress("parse", slug),
+        "slug": slug,
+        "json_path": str(final_json_path),
+        "parsed_path": str(final_parsed_path),
+        "summary": summary,
+        "warnings": result.get('warnings', []),
+        "next_step": f"Call step4_check_fields('{slug}') to begin AI enhancement."
     }
 
 
@@ -204,6 +366,8 @@ def extract_pdf(filename: str) -> dict[str, Any]:
     Submit PDF to Datalab Marker API and wait for completion.
 
     This is a blocking operation that typically takes 30-120 seconds.
+    Saves output as a temp file (datalab-output-{request_id}.json).
+    Call parse_datalab_file() next to generate proper slug from metadata.
 
     Args:
         filename: Exact filename OR partial match (e.g., "O'Nions 2013" matches
@@ -224,19 +388,6 @@ def extract_pdf(filename: str) -> dict[str, Any]:
         }
 
     pdf_path = match["path"]
-
-    slug = slugify(pdf_path.stem)
-    output_path = CACHE_DIR / f"{slug}.json"
-
-    # Check if already extracted
-    if output_path.exists():
-        return {
-            "success": False,
-            "error": "ALREADY_EXTRACTED",
-            "details": f"Already extracted: {slug}",
-            "slug": slug,
-            "action": f"Call parse_extracted_article('{slug}') to parse it."
-        }
 
     # Import extraction functions from batch_extract
     try:
@@ -285,6 +436,10 @@ def extract_pdf(filename: str) -> dict[str, Any]:
                 "action": "Check API key and try again"
             }
 
+        # Save to temp filename using request_id (slug generated later from metadata)
+        temp_filename = f"datalab-output-{request_id}.json"
+        output_path = CACHE_DIR / temp_filename
+
         logger.info(f"Request ID: {request_id}, polling for completion...")
         success = poll_and_save(request_id, output_path)
 
@@ -302,25 +457,20 @@ def extract_pdf(filename: str) -> dict[str, Any]:
 
         # Move PDF to processed folder
         PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-        processed_path = PROCESSED_DIR / filename
+        processed_path = PROCESSED_DIR / match["filename"]
         try:
             import shutil
             shutil.move(str(pdf_path), str(processed_path))
-            logger.info(f"Moved {filename} to intake/processed/")
+            logger.info(f"Moved {match['filename']} to intake/processed/")
             moved = True
         except Exception as move_err:
-            logger.warning(f"Could not move {filename} to processed: {move_err}")
+            logger.warning(f"Could not move {match['filename']} to processed: {move_err}")
             moved = False
-
-        # Update session with current slug
-        session = get_session()
-        session["current_slug"] = slug
-        save_session(session)
 
         return {
             "success": True,
-            "progress": step_progress("extract", slug),
-            "slug": slug,
+            "progress": step_progress("extract"),
+            "temp_filename": temp_filename,
             "json_path": str(output_path),
             "stats": {
                 "blocks": len(data.get('blocks', [])),
@@ -328,7 +478,7 @@ def extract_pdf(filename: str) -> dict[str, Any]:
                 "images": data.get('images_count', 0)
             },
             "moved_to_processed": moved,
-            "next_step": f"Call parse_extracted_article('{slug}') to structure the content."
+            "next_step": f"Call parse_datalab_file('{temp_filename}') to parse and generate slug."
         }
 
     except Exception as e:
