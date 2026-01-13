@@ -7,6 +7,8 @@ import {
   getSessionState,
   getFlaggedArticles,
   getRecentlyCompleted,
+  getRunningBatchJob,
+  getRecentBatchJobs,
 } from "../../lib/db";
 
 // Check admin access
@@ -18,6 +20,8 @@ const stats = getAdminStats();
 const session = getSessionState();
 const flaggedArticles = getFlaggedArticles(10);
 const recentArticles = getRecentlyCompleted(5);
+const runningJob = getRunningBatchJob();
+const recentJobs = getRecentBatchJobs(5);
 
 // Calculate progress percentage
 const progressPercent = stats.total > 0
@@ -87,6 +91,143 @@ function parseFlags(flagsJson: string): string[] {
       <p class="mt-2 text-sm text-stone-500">
         {stats.translated} of {stats.total} articles translated
       </p>
+    </div>
+
+    <!-- Batch Processing -->
+    <div class="rounded-lg bg-white p-6 shadow-sm" id="batch-section">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <h2 class="text-lg font-semibold text-stone-900">Batch Processing</h2>
+          <span id="batch-status-badge" class={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            runningJob ? 'bg-green-100 text-green-800 animate-pulse' : 'bg-stone-100 text-stone-600'
+          }`}>
+            {runningJob ? 'Running' : 'Idle'}
+          </span>
+        </div>
+      </div>
+
+      <!-- Start Buttons (shown when no job running) -->
+      <div id="batch-controls" class={runningJob ? 'hidden' : ''}>
+        <p class="text-sm text-stone-500 mb-4">
+          Start autonomous batch processing. Claude will process articles without manual approval.
+        </p>
+        <div class="flex flex-wrap gap-4">
+          <div class="flex items-center gap-2">
+            <button
+              id="start-preprocessing-btn"
+              type="button"
+              class="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              Start Preprocessing
+            </button>
+            <input
+              id="preprocessing-count"
+              type="number"
+              value="5"
+              min="1"
+              max="50"
+              class="w-16 rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            <span class="text-sm text-stone-500">articles</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              id="start-translation-btn"
+              type="button"
+              class="rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500"
+            >
+              Start Translation
+            </button>
+            <input
+              id="translation-count"
+              type="number"
+              value="5"
+              min="1"
+              max="50"
+              class="w-16 rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500"
+            />
+            <span class="text-sm text-stone-500">articles</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Running Job Progress (shown when job is running) -->
+      <div id="batch-progress" class={!runningJob ? 'hidden' : ''}>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-sm font-medium text-stone-700">
+                {runningJob?.job_type === 'preprocessing' ? 'Preprocessing' : 'Translation'}
+              </span>
+              <span id="batch-current-article" class="ml-2 text-sm text-stone-500">
+                {runningJob?.current_article ? `Processing: ${runningJob.current_article}` : 'Starting...'}
+              </span>
+            </div>
+            <span id="batch-progress-count" class="text-sm font-medium text-stone-900">
+              {runningJob?.processed_count || 0} / {runningJob?.target_count || 0}
+            </span>
+          </div>
+          <div class="h-2 w-full rounded-full bg-stone-200 overflow-hidden">
+            <div
+              id="batch-progress-bar"
+              class="h-full rounded-full bg-primary-500 transition-all duration-300"
+              style={`width: ${runningJob ? Math.round((runningJob.processed_count / runningJob.target_count) * 100) : 0}%`}
+            ></div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span id="batch-started-at" class="text-xs text-stone-500">
+              Started: {runningJob?.started_at || '—'}
+            </span>
+            <button
+              id="cancel-batch-btn"
+              type="button"
+              class="rounded-md bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+              data-job-id={runningJob?.id}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="mt-4 rounded-md bg-stone-50 p-3 max-h-40 overflow-y-auto">
+          <p class="text-xs font-medium text-stone-500 mb-2">Event Log</p>
+          <ul id="batch-event-log" class="space-y-1 text-xs text-stone-600 font-mono">
+            <li class="text-stone-400">Waiting for events...</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Recent Jobs History -->
+      {recentJobs.length > 0 && (
+        <div class="mt-6 pt-4 border-t border-stone-200">
+          <p class="text-sm font-medium text-stone-500 mb-2">Recent Jobs</p>
+          <div class="space-y-2">
+            {recentJobs.slice(0, 5).map((job) => (
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                  <span class={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    job.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    job.status === 'failed' ? 'bg-red-100 text-red-800' :
+                    job.status === 'cancelled' ? 'bg-stone-100 text-stone-600' :
+                    job.status === 'running' ? 'bg-blue-100 text-blue-800' :
+                    'bg-stone-100 text-stone-600'
+                  }`}>
+                    {job.status}
+                  </span>
+                  <span class="text-stone-700">{job.job_type}</span>
+                  <span class="text-stone-500">
+                    {job.processed_count}/{job.target_count}
+                  </span>
+                </div>
+                <span class="text-stone-400 text-xs">
+                  {job.created_at}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
 
     <!-- Two Column Layout -->
@@ -237,10 +378,16 @@ function parseFlags(flagsJson: string): string[] {
     const refreshBtn = document.getElementById('refresh-btn');
     const lastUpdated = document.getElementById('last-updated');
     let autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
+    let batchPollInterval: ReturnType<typeof setInterval> | null = null;
+    let currentJobId: string | null = null;
 
     function formatTime(date: Date): string {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
+
+    // ==========================================================================
+    // Stats Refresh
+    // ==========================================================================
 
     async function refreshStats() {
       if (refreshBtn) {
@@ -326,12 +473,233 @@ function parseFlags(flagsJson: string): string[] {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         stopAutoRefresh();
+        stopBatchPoll();
       } else {
         startAutoRefresh();
+        if (currentJobId) startBatchPoll();
       }
     });
 
     // Start auto-refresh on load
     startAutoRefresh();
+
+    // ==========================================================================
+    // Batch Processing
+    // ==========================================================================
+
+    const batchControls = document.getElementById('batch-controls');
+    const batchProgress = document.getElementById('batch-progress');
+    const batchStatusBadge = document.getElementById('batch-status-badge');
+    const startPreprocessingBtn = document.getElementById('start-preprocessing-btn');
+    const startTranslationBtn = document.getElementById('start-translation-btn');
+    const preprocessingCount = document.getElementById('preprocessing-count') as HTMLInputElement;
+    const translationCount = document.getElementById('translation-count') as HTMLInputElement;
+    const cancelBatchBtn = document.getElementById('cancel-batch-btn');
+
+    async function startBatchJob(jobType: 'preprocessing' | 'translation', count: number) {
+      try {
+        const btn = jobType === 'preprocessing' ? startPreprocessingBtn : startTranslationBtn;
+        if (btn) {
+          btn.setAttribute('disabled', 'true');
+          btn.textContent = 'Starting...';
+        }
+
+        const response = await fetch('/api/batch/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobType, count })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert(data.error + (data.details ? `: ${data.details}` : ''));
+          return;
+        }
+
+        // Success - update UI and start polling
+        currentJobId = data.jobId;
+        showBatchProgress(jobType, count);
+        startBatchPoll();
+
+      } catch (error) {
+        console.error('Failed to start batch job:', error);
+        alert('Failed to start batch job');
+      } finally {
+        if (startPreprocessingBtn) {
+          startPreprocessingBtn.removeAttribute('disabled');
+          startPreprocessingBtn.textContent = 'Start Preprocessing';
+        }
+        if (startTranslationBtn) {
+          startTranslationBtn.removeAttribute('disabled');
+          startTranslationBtn.textContent = 'Start Translation';
+        }
+      }
+    }
+
+    function showBatchProgress(jobType: string, targetCount: number) {
+      if (batchControls) batchControls.classList.add('hidden');
+      if (batchProgress) batchProgress.classList.remove('hidden');
+      if (batchStatusBadge) {
+        batchStatusBadge.textContent = 'Running';
+        batchStatusBadge.className = 'rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 animate-pulse';
+      }
+
+      // Reset progress display
+      const progressCount = document.getElementById('batch-progress-count');
+      const progressBar = document.getElementById('batch-progress-bar');
+      const currentArticle = document.getElementById('batch-current-article');
+      const eventLog = document.getElementById('batch-event-log');
+
+      if (progressCount) progressCount.textContent = `0 / ${targetCount}`;
+      if (progressBar) (progressBar as HTMLElement).style.width = '0%';
+      if (currentArticle) currentArticle.textContent = 'Starting...';
+      if (eventLog) eventLog.innerHTML = '<li class="text-stone-400">Waiting for events...</li>';
+    }
+
+    function showBatchControls() {
+      if (batchControls) batchControls.classList.remove('hidden');
+      if (batchProgress) batchProgress.classList.add('hidden');
+      if (batchStatusBadge) {
+        batchStatusBadge.textContent = 'Idle';
+        batchStatusBadge.className = 'rounded-full px-2 py-0.5 text-xs font-medium bg-stone-100 text-stone-600';
+      }
+      currentJobId = null;
+    }
+
+    async function pollBatchStatus() {
+      if (!currentJobId) return;
+
+      try {
+        const response = await fetch(`/api/batch/status?jobId=${currentJobId}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const job = data.job;
+
+        // Update progress
+        const progressCount = document.getElementById('batch-progress-count');
+        const progressBar = document.getElementById('batch-progress-bar');
+        const currentArticle = document.getElementById('batch-current-article');
+        const startedAt = document.getElementById('batch-started-at');
+
+        if (progressCount) progressCount.textContent = `${job.processedCount} / ${job.targetCount}`;
+        if (progressBar) {
+          const percent = job.targetCount > 0 ? Math.round((job.processedCount / job.targetCount) * 100) : 0;
+          (progressBar as HTMLElement).style.width = `${percent}%`;
+        }
+        if (currentArticle) {
+          currentArticle.textContent = job.currentArticle ? `Processing: ${job.currentArticle}` : 'Waiting...';
+        }
+        if (startedAt) {
+          startedAt.textContent = `Started: ${job.startedAt || '—'}`;
+        }
+
+        // Update event log
+        const eventLog = document.getElementById('batch-event-log');
+        if (eventLog && data.events.length > 0) {
+          eventLog.innerHTML = data.events.slice(0, 10).map((e: any) => {
+            const color = e.eventType === 'article_complete' ? 'text-green-600' :
+                          e.eventType === 'article_error' ? 'text-red-600' :
+                          e.eventType === 'article_start' ? 'text-primary-600' :
+                          'text-stone-600';
+            return `<li class="${color}">${e.timestamp.split(' ')[1] || e.timestamp} - ${e.message || e.eventType}</li>`;
+          }).join('');
+        }
+
+        // Check if job is done
+        if (job.status !== 'running' && job.status !== 'pending') {
+          stopBatchPoll();
+          showBatchControls();
+
+          // Show completion message
+          const statusMsg = job.status === 'completed' ? 'Batch job completed successfully!' :
+                           job.status === 'failed' ? `Batch job failed: ${job.errorMessage}` :
+                           job.status === 'cancelled' ? 'Batch job was cancelled.' :
+                           `Batch job ended with status: ${job.status}`;
+          alert(statusMsg);
+
+          // Refresh stats
+          refreshStats();
+
+          // Reload page to update recent jobs list
+          window.location.reload();
+        }
+
+      } catch (error) {
+        console.error('Failed to poll batch status:', error);
+      }
+    }
+
+    function startBatchPoll() {
+      if (!batchPollInterval) {
+        pollBatchStatus(); // Poll immediately
+        batchPollInterval = setInterval(pollBatchStatus, 5000);
+      }
+    }
+
+    function stopBatchPoll() {
+      if (batchPollInterval) {
+        clearInterval(batchPollInterval);
+        batchPollInterval = null;
+      }
+    }
+
+    async function cancelBatchJob() {
+      if (!currentJobId) return;
+
+      if (!confirm('Are you sure you want to cancel this batch job?')) return;
+
+      try {
+        const response = await fetch('/api/batch/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: currentJobId })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert(data.error + (data.details ? `: ${data.details}` : ''));
+          return;
+        }
+
+        stopBatchPoll();
+        showBatchControls();
+        refreshStats();
+
+      } catch (error) {
+        console.error('Failed to cancel batch job:', error);
+        alert('Failed to cancel batch job');
+      }
+    }
+
+    // Event listeners for batch controls
+    startPreprocessingBtn?.addEventListener('click', () => {
+      const count = parseInt(preprocessingCount?.value || '5', 10);
+      if (count < 1 || count > 50) {
+        alert('Count must be between 1 and 50');
+        return;
+      }
+      startBatchJob('preprocessing', count);
+    });
+
+    startTranslationBtn?.addEventListener('click', () => {
+      const count = parseInt(translationCount?.value || '5', 10);
+      if (count < 1 || count > 50) {
+        alert('Count must be between 1 and 50');
+        return;
+      }
+      startBatchJob('translation', count);
+    });
+
+    cancelBatchBtn?.addEventListener('click', cancelBatchJob);
+
+    // Check if there's already a running job on page load
+    const cancelBtn = document.getElementById('cancel-batch-btn');
+    if (cancelBtn && cancelBtn.dataset.jobId) {
+      currentJobId = cancelBtn.dataset.jobId;
+      startBatchPoll();
+    }
   </script>
 </AdminLayout>

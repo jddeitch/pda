@@ -515,3 +515,75 @@ export function getAdminStats(): {
     flagged: flaggedCount,
   };
 }
+
+// =============================================================================
+// Batch Job Queries
+// =============================================================================
+
+export interface BatchJob {
+  id: string;
+  job_type: "preprocessing" | "translation";
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  target_count: number;
+  processed_count: number;
+  current_article: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  pid: number | null;
+  error_message: string | null;
+  log_path: string | null;
+  created_at: string;
+}
+
+export interface BatchJobEvent {
+  id: number;
+  job_id: string;
+  event_type: string;
+  article_slug: string | null;
+  message: string | null;
+  timestamp: string;
+}
+
+// Get a batch job by ID
+export function getBatchJob(jobId: string): BatchJob | undefined {
+  return db
+    .prepare("SELECT * FROM batch_jobs WHERE id = ?")
+    .get(jobId) as BatchJob | undefined;
+}
+
+// Get the currently running batch job
+export function getRunningBatchJob(): BatchJob | undefined {
+  return db
+    .prepare("SELECT * FROM batch_jobs WHERE status = 'running' LIMIT 1")
+    .get() as BatchJob | undefined;
+}
+
+// Get recent batch jobs for dashboard
+export function getRecentBatchJobs(limit: number = 10): BatchJob[] {
+  return db
+    .prepare(
+      `
+    SELECT * FROM batch_jobs
+    ORDER BY created_at DESC
+    LIMIT ?
+  `
+    )
+    .all(limit) as BatchJob[];
+}
+
+// Get events for a batch job
+export function getBatchJobEvents(
+  jobId: string,
+  limit: number = 50
+): BatchJobEvent[] {
+  return db
+    .prepare(
+      `
+    SELECT * FROM batch_job_events
+    WHERE job_id = ?
+    ORDER BY timestamp DESC
+    LIMIT ?
+  `
+    )
+    .all(jobId, limit) as BatchJobEvent[];
+}

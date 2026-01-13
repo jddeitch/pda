@@ -83,6 +83,7 @@ class Database:
         self._migrate_session_state()
         self._migrate_validation_tokens()
         self._migrate_article_columns()
+        self._migrate_batch_jobs()
         self.commit()
 
     def _migrate_session_state(self) -> None:
@@ -137,6 +138,40 @@ class Database:
         for col_name, sql in migrations:
             if col_name not in existing:
                 self.execute(sql)
+
+    def _migrate_batch_jobs(self) -> None:
+        """Create batch_jobs and batch_job_events tables if not exist."""
+        self.execute("""
+            CREATE TABLE IF NOT EXISTS batch_jobs (
+                id TEXT PRIMARY KEY,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                target_count INTEGER,
+                processed_count INTEGER DEFAULT 0,
+                current_article TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                pid INTEGER,
+                error_message TEXT,
+                log_path TEXT,
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+        self.execute("""
+            CREATE TABLE IF NOT EXISTS batch_job_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                article_slug TEXT,
+                message TEXT,
+                timestamp TEXT DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (job_id) REFERENCES batch_jobs(id)
+            )
+        """)
+        # Index for quick status lookups
+        self.execute("""
+            CREATE INDEX IF NOT EXISTS idx_batch_jobs_status ON batch_jobs(status)
+        """)
 
     # --- Session State (per D6, D23) ---
 
@@ -719,6 +754,130 @@ class Database:
                     "INSERT INTO article_keywords (article_id, keyword_id) VALUES (?, ?)",
                     (article_id, row["id"])
                 )
+
+
+    # --- Batch Job Operations ---
+
+    def create_batch_job(
+        self,
+        job_id: str,
+        job_type: str,
+        target_count: int,
+        log_path: str,
+    ) -> dict[str, Any]:
+        """Create a new batch job record."""
+        self.execute(
+            """
+            INSERT INTO batch_jobs (id, job_type, status, target_count, log_path, created_at)
+            VALUES (?, ?, 'pending', ?, ?, datetime('now', 'localtime'))
+            """,
+            (job_id, job_type, target_count, log_path)
+        )
+        self.commit()
+        return {"success": True, "job_id": job_id}
+
+    def update_batch_job_status(
+        self,
+        job_id: str,
+        status: str,
+        pid: int | None = None,
+        error_message: str | None = None,
+        current_article: str | None = None,
+    ) -> None:
+        """Update batch job status and optional fields."""
+        updates = ["status = ?"]
+        params: list[Any] = [status]
+
+        if status == "running":
+            updates.append("started_at = datetime('now', 'localtime')")
+        elif status in ("completed", "failed", "cancelled"):
+            updates.append("completed_at = datetime('now', 'localtime')")
+
+        if pid is not None:
+            updates.append("pid = ?")
+            params.append(pid)
+
+        if error_message is not None:
+            updates.append("error_message = ?")
+            params.append(error_message)
+
+        if current_article is not None:
+            updates.append("current_article = ?")
+            params.append(current_article)
+
+        params.append(job_id)
+        sql = f"UPDATE batch_jobs SET {', '.join(updates)} WHERE id = ?"
+        self.execute(sql, tuple(params))
+        self.commit()
+
+    def increment_batch_job_progress(self, job_id: str) -> None:
+        """Increment processed_count for a batch job."""
+        self.execute(
+            "UPDATE batch_jobs SET processed_count = processed_count + 1 WHERE id = ?",
+            (job_id,)
+        )
+        self.commit()
+
+    def add_batch_job_event(
+        self,
+        job_id: str,
+        event_type: str,
+        article_slug: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        """Add an event to the batch job log."""
+        self.execute(
+            """
+            INSERT INTO batch_job_events (job_id, event_type, article_slug, message)
+            VALUES (?, ?, ?, ?)
+            """,
+            (job_id, event_type, article_slug, message)
+        )
+        self.commit()
+
+    def get_batch_job(self, job_id: str) -> dict[str, Any] | None:
+        """Get a batch job by ID."""
+        row = self.execute(
+            "SELECT * FROM batch_jobs WHERE id = ?",
+            (job_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_batch_job_events(
+        self,
+        job_id: str,
+        limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """Get recent events for a batch job."""
+        cursor = self.execute(
+            """
+            SELECT * FROM batch_job_events
+            WHERE job_id = ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            (job_id, limit)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_running_batch_job(self) -> dict[str, Any] | None:
+        """Get the currently running batch job, if any."""
+        row = self.execute(
+            "SELECT * FROM batch_jobs WHERE status = 'running' LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_recent_batch_jobs(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Get recent batch jobs for the admin dashboard."""
+        cursor = self.execute(
+            """
+            SELECT * FROM batch_jobs
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
 
 
 # Module-level convenience function

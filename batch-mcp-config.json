@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "pda-translation-machine": {
+      "command": "/opt/homebrew/bin/python3.11",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "/Users/jd/Projects/pda",
+      "env": {
+        "DATALAB_API_KEY": "-vPPAEwkoYbtFa9oa6cQRV1Gef8O1LaTSha-TZq5Yso"
+      }
+    }
+  }
+}

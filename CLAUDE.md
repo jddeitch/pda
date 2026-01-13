@@ -716,6 +716,135 @@ There was no significant difference, <span class="formula">F(1, 156) = 2.31, p =
 | `scripts/batch_extract.py` | Batch process PDFs through Datalab Marker API |
 | `scripts/parse_article_structure.py` | Parse HTML into title, authors, abstract, body, refs |
 | `scripts/enhance_parsed_article.py` | Apply AI-extracted metadata corrections to JSON |
+| `scripts/batch_runner.py` | Autonomous batch processor daemon |
+
+---
+
+## Batch Processing (Fire and Forget)
+
+Batch processing lets you process multiple articles autonomously without interactive approval. Click a button, walk away, come back to results.
+
+### How to Use (Admin UI)
+
+1. Start dev server with admin enabled:
+   ```bash
+   ENABLE_ADMIN=true npm run dev
+   ```
+
+2. Go to http://localhost:4321/admin
+
+3. In the "Batch Processing" section:
+   - Click **Start Preprocessing** or **Start Translation**
+   - Enter count (1-50 articles)
+   - Click confirm
+
+4. Watch progress update every 5 seconds:
+   - Progress bar shows articles completed
+   - Event log shows each article as it finishes
+   - Current article being processed is displayed
+
+5. Cancel anytime with the Cancel button
+
+### Architecture
+
+```
+Admin UI "Start" button
+        ↓
+POST /api/batch/start
+        ↓ (spawns detached process, returns immediately)
+scripts/batch_runner.py (daemonizes)
+        ↓
+claude --print --dangerously-skip-permissions --tools "" --mcp-config batch-mcp-config.json
+        ↓
+Progress markers parsed → SQLite batch_jobs table
+        ↓
+GET /api/batch/status (polled every 5s by admin UI)
+```
+
+### Security Model
+
+**CRITICAL: This system runs Claude autonomously without permission prompts.**
+
+Security measures in place:
+
+1. **`--tools ""`** — Disables ALL built-in Claude Code tools (Bash, Write, Edit, Read, etc.)
+2. **MCP-only** — Claude can ONLY use tools from `pda-translation-machine` MCP server
+3. **MCP constraints** — Those tools only write to:
+   - `cache/articles/` directory
+   - `intake/articles/` directory
+   - `data/pda.db` SQLite database
+4. **No shell access** — Claude cannot execute arbitrary commands
+5. **Single job** — Only one batch job can run at a time
+6. **Full logging** — Every Claude output goes to `logs/batch/{job-id}.log`
+
+**What Claude CAN do in batch mode:**
+- Call MCP tools to process articles through preprocessing pipeline
+- Call MCP tools to translate articles
+- Read/write files in cache/ and intake/ via MCP tools
+- Update SQLite database via MCP tools
+
+**What Claude CANNOT do in batch mode:**
+- Run Bash commands
+- Write arbitrary files
+- Read files outside what MCP tools expose
+- Make network requests (except through MCP tools)
+- Access system resources
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `scripts/batch_runner.py` | Main daemon that runs Claude CLI |
+| `batch-mcp-config.json` | MCP server config (only pda-translation-machine) |
+| `site/src/pages/api/batch/start.ts` | API to start batch job |
+| `site/src/pages/api/batch/status.ts` | API to poll job status |
+| `site/src/pages/api/batch/cancel.ts` | API to cancel running job |
+| `logs/batch/` | Log files for each job |
+
+### Database Tables
+
+```sql
+-- Job tracking
+batch_jobs (
+    id TEXT PRIMARY KEY,
+    job_type TEXT,           -- 'preprocessing' | 'translation'
+    status TEXT,             -- 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+    target_count INTEGER,
+    processed_count INTEGER,
+    current_article TEXT,
+    pid INTEGER,             -- For cancellation
+    error_message TEXT,
+    log_path TEXT
+)
+
+-- Event log
+batch_job_events (
+    job_id TEXT,
+    event_type TEXT,         -- 'started' | 'article_start' | 'article_complete' | 'article_error' | 'completed'
+    article_slug TEXT,
+    message TEXT,
+    timestamp TEXT
+)
+```
+
+### Troubleshooting
+
+**Job stuck at "pending":**
+- Check if Python path is correct in `start.ts` (line 95: `/opt/homebrew/bin/python3.11`)
+- Check logs in `logs/batch/{job-id}.log`
+
+**Job fails immediately:**
+- Ensure `batch-mcp-config.json` exists and has correct paths
+- Ensure MCP server can start: `/opt/homebrew/bin/python3.11 -m mcp_server.server`
+
+**Claude not using MCP tools:**
+- Verify `--tools ""` is in the command (batch_runner.py line 204)
+- Check that prompt explicitly tells Claude to use MCP tools
+
+**View full Claude output:**
+```bash
+tail -f logs/batch/{job-id}.log
+```
 
 ### Admin Access
 

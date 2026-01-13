@@ -1361,7 +1361,7 @@ def step4_check_fields(slug: str) -> dict[str, Any]:
     if json_path.exists():
         with open(json_path, 'r', encoding='utf-8') as f:
             raw_data = json.load(f)
-        blocks = raw_data.get('blocks', [])
+        blocks = normalize_datalab_json(raw_data)
         for block in blocks[:20]:  # First 20 blocks usually cover pages 0-1
             if block.get('page', 0) > 1:
                 break

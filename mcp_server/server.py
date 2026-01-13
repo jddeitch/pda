@@ -915,13 +915,17 @@ def start_preprocessing(
     """
     Start or continue the preprocessing workflow.
 
+    CRITICAL INSTRUCTION: When called without a filename, this tool returns
+    a list of available files. YOU MUST ASK THE USER which file to process.
+    DO NOT automatically pick the first file or any file. WAIT for the user
+    to tell you which one they want.
+
     This is the entry point for "Let's preprocess". Shows available work
-    and current status. IMPORTANT: Do not pick a file automatically —
-    always ask the user which file they want to process.
+    and current status.
 
     Args:
         filename: Optional specific file to process. If not provided,
-                  shows available files and asks user to choose.
+                  shows available files — you MUST ask user to choose.
 
     Returns progress info and next_step telling you exactly what to call.
     """
