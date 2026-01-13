@@ -521,6 +521,22 @@ Each article displays:
 
 When working on this project:
 
+### Preprocessing (PDF → Database)
+
+- **"Let's preprocess"** — Call `start_preprocessing()` which guides you through the entire flow:
+  1. Shows available PDFs in intake/
+  2. You pick one (or specify count for multiple)
+  3. Each tool returns `next_step` telling you exactly what to call next
+  4. Ends when article lands in ready/ for human approval
+
+- **"Preprocess [filename]"** — Call `start_preprocessing(filename="...")` for a specific PDF
+
+- **"Preprocess 3 articles"** — Call `start_preprocessing(count=3)` to process multiple
+
+The workflow enforces order: no skipping steps, no starting new articles until current one is done.
+
+### Translation (Database → French)
+
 - **"Let's translate"** — Start the Translation Machine (call `get_next_article()`)
 - **"Check progress"** — Call `get_progress()` to show translation status
 - **"Add source [filename]"** — Call `ingest_article(filename)` for PDFs in `intake/articles/`

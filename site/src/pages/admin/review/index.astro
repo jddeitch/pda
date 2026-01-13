@@ -10,85 +10,83 @@ if (!import.meta.env.ENABLE_ADMIN) {
   return Astro.redirect("/");
 }
 
-const CACHE_DIR = "/Users/jd/Projects/pda/cache/articles";
+const READY_DIR = "/Users/jd/Projects/pda/cache/articles/ready";
 
-// Get all Marker JSON files in cache (Datalab Marker API output)
+// Ensure directory exists
+if (!fs.existsSync(READY_DIR)) {
+  fs.mkdirSync(READY_DIR, { recursive: true });
+}
+
+// Get all _parsed.json files in ready directory
 let jsonFiles: string[] = [];
 try {
-  const files = fs.readdirSync(CACHE_DIR);
+  const files = fs.readdirSync(READY_DIR);
   jsonFiles = files
-    .filter((f) => f.endsWith(".json") && !f.endsWith("_parsed.json"))
+    .filter((f) => f.endsWith("_parsed.json"))
     .sort((a, b) => a.localeCompare(b));
 } catch (e) {
-  console.error("Could not read cache directory:", e);
+  console.error("Could not read ready directory:", e);
 }
 
-// For each file, read basic info from the JSON
-interface CacheFile {
+// For each file, read article info from the JSON
+interface ReadyArticle {
   slug: string;
-  filename: string;
-  size: number;
-  hasParsed: boolean;
-  blockCount: number;
-  pageCount: number;
+  title: string | null;
+  authors: string | null;
+  year: string | null;
+  method: string | null;
+  voice: string | null;
+  peer_reviewed: boolean;
+  doi: string | null;
+  abstract_chars: number;
+  body_chars: number;
 }
 
-const cacheFiles: CacheFile[] = jsonFiles.map((filename) => {
-  const filepath = path.join(CACHE_DIR, filename);
-  const stats = fs.statSync(filepath);
-  const slug = filename.replace(".json", "");
-  const parsedPath = path.join(CACHE_DIR, slug + "_parsed.json");
-  const hasParsed = fs.existsSync(parsedPath);
+const readyArticles: ReadyArticle[] = jsonFiles.map((filename) => {
+  const filepath = path.join(READY_DIR, filename);
+  const slug = filename.replace("_parsed.json", "");
 
-  // Read basic stats from JSON
-  let blockCount = 0;
-  let pageCount = 0;
+  // Read article data from JSON
+  let data: any = {};
   try {
-    const data = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
-    blockCount = data.blocks?.length || 0;
-    pageCount = data.page_count || 0;
+    data = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
   } catch (e) {
-    // Ignore parse errors
+    console.error(`Could not parse ${filename}:`, e);
   }
 
   return {
     slug,
-    filename,
-    size: stats.size,
-    hasParsed,
-    blockCount,
-    pageCount,
+    title: data.title || null,
+    authors: data.authors || null,
+    year: data.year || null,
+    method: data.method || null,
+    voice: data.voice || null,
+    peer_reviewed: !!data.peer_reviewed,
+    doi: data.doi || null,
+    abstract_chars: (data.abstract || '').length,
+    body_chars: (data.body_html || '').length,
   };
 });
 
 // Summary stats
-const totalFiles = cacheFiles.length;
-const parsedFiles = cacheFiles.filter((f) => f.hasParsed).length;
+const totalReady = readyArticles.length;
 ---
 
-<AdminLayout title="Review Parsed Articles">
+<AdminLayout title="Review Articles">
   <div class="space-y-6">
     <!-- Page Header -->
     <div>
-      <h1 class="text-2xl font-bold text-stone-900">Review Extracted Articles</h1>
+      <h1 class="text-2xl font-bold text-stone-900">Review Preprocessed Articles</h1>
       <p class="mt-1 text-sm text-stone-500">
-        Review parsed articles from Marker JSON before importing to database
+        Articles that have completed preprocessing and are ready for human approval
       </p>
     </div>
 
     <!-- Stats -->
     <div class="flex gap-4">
       <div class="rounded-lg bg-white px-4 py-3 shadow-sm">
-        <p class="text-sm text-stone-500">Total Files</p>
-        <p class="text-2xl font-bold text-stone-900">{totalFiles}</p>
-      </div>
-      <div class="rounded-lg bg-white px-4 py-3 shadow-sm">
-        <p class="text-sm text-stone-500">Parsed (JSON)</p>
-        <p class="text-2xl font-bold text-green-600">{parsedFiles}</p>
-      </div>
-      <div class="rounded-lg bg-white px-4 py-3 shadow-sm">
-        <p class="text-sm text-stone-500">Not Parsed</p>
-        <p class="text-2xl font-bold text-amber-600">{totalFiles - parsedFiles}</p>
+        <p class="text-sm text-stone-500">Ready for Review</p>
+        <p class="text-2xl font-bold text-primary-600">{totalReady}</p>
       </div>
     </div>
 
@@ -96,57 +94,70 @@ const parsedFiles = cacheFiles.filter((f) => f.hasParsed).length;
     <div class="rounded-lg bg-primary-50 border border-primary-200 p-4">
       <h2 class="text-sm font-medium text-primary-800 mb-2">Review Workflow</h2>
       <ol class="text-sm text-primary-700 space-y-1 list-decimal list-inside">
-        <li>Click an article to view parsed structure (title, authors, abstract, body)</li>
-        <li>Check that metadata was extracted correctly</li>
-        <li>Review body content — look for cruft that wasn't stripped</li>
-        <li>Approve to import into database, or flag issues for manual fix</li>
+        <li>Click an article to review its extracted content and Claude's classifications</li>
+        <li>Set open_access (determines if full text can be translated)</li>
+        <li>Optionally add source URL if DOI wasn't found</li>
+        <li><strong>Approve</strong> to insert into database, or <strong>Reject</strong> to send back for rework</li>
       </ol>
     </div>
 
-    <!-- File List -->
-    {cacheFiles.length > 0 ? (
+    <!-- Article List -->
+    {readyArticles.length > 0 ? (
       <div class="rounded-lg bg-white shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-stone-200 bg-stone-50">
                 <th class="px-4 py-3 text-left font-medium text-stone-500">Article</th>
-                <th class="px-4 py-3 text-left font-medium text-stone-500">Pages</th>
-                <th class="px-4 py-3 text-left font-medium text-stone-500">Blocks</th>
-                <th class="px-4 py-3 text-left font-medium text-stone-500">Status</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Year</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Classification</th>
+                <th class="px-4 py-3 text-left font-medium text-stone-500">Content</th>
                 <th class="px-4 py-3 text-right font-medium text-stone-500">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-stone-100">
-              {cacheFiles.map((file) => (
+              {readyArticles.map((article) => (
                 <tr class="hover:bg-stone-50">
                   <td class="px-4 py-3">
-                    <div class="max-w-lg">
-                      <p class="font-medium text-stone-900 truncate" title={file.slug}>
-                        {file.slug}
+                    <div class="max-w-md">
+                      <p class="font-medium text-stone-900 truncate" title={article.title || article.slug}>
+                        {article.title || article.slug}
+                      </p>
+                      <p class="text-xs text-stone-500 truncate">
+                        {article.authors || 'No authors'}
                       </p>
                     </div>
                   </td>
                   <td class="px-4 py-3 text-stone-500">
-                    {file.pageCount}
-                  </td>
-                  <td class="px-4 py-3 text-stone-500">
-                    {file.blockCount}
+                    {article.year || '—'}
                   </td>
                   <td class="px-4 py-3">
-                    {file.hasParsed ? (
-                      <span class="rounded bg-green-100 text-green-800 px-2 py-0.5 text-xs font-medium">
-                        Ready for Review
-                      </span>
-                    ) : (
-                      <span class="rounded bg-stone-100 text-stone-500 px-2 py-0.5 text-xs font-medium">
-                        Not Parsed
-                      </span>
-                    )}
+                    <div class="flex flex-wrap gap-1">
+                      {article.method && (
+                        <span class="rounded bg-blue-100 text-blue-800 px-2 py-0.5 text-xs">
+                          {article.method}
+                        </span>
+                      )}
+                      {article.voice && (
+                        <span class="rounded bg-purple-100 text-purple-800 px-2 py-0.5 text-xs">
+                          {article.voice}
+                        </span>
+                      )}
+                      {article.peer_reviewed && (
+                        <span class="rounded bg-green-100 text-green-800 px-2 py-0.5 text-xs">
+                          peer-reviewed
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-stone-500 text-xs">
+                    <span title="Abstract">{Math.round(article.abstract_chars / 100) / 10}k abs</span>
+                    {' · '}
+                    <span title="Body">{Math.round(article.body_chars / 1000)}k body</span>
                   </td>
                   <td class="px-4 py-3 text-right">
                     <a
-                      href={`/admin/review/${file.slug}`}
+                      href={`/admin/review/${article.slug}`}
                       class="text-primary-500 hover:text-primary-700 font-medium"
                     >
                       Review
@@ -160,18 +171,18 @@ const parsedFiles = cacheFiles.filter((f) => f.hasParsed).length;
       </div>
     ) : (
       <div class="rounded-lg bg-white p-8 shadow-sm text-center">
-        <h3 class="text-lg font-medium text-stone-900 mb-1">No Files Found</h3>
+        <h3 class="text-lg font-medium text-stone-900 mb-1">No Articles Ready</h3>
         <p class="text-sm text-stone-500">
-          No JSON files in cache/articles/. Run batch_extract.py first.
+          No preprocessed articles waiting for review. Run preprocessing via MCP tools first.
         </p>
       </div>
     )}
 
     <!-- File Paths -->
     <div class="rounded-lg bg-stone-50 border border-stone-200 p-4">
-      <h3 class="text-sm font-medium text-stone-700 mb-2">File Locations</h3>
-      <div class="text-sm text-stone-600 space-y-1 font-mono">
-        <p>Cache: <code class="bg-white px-2 py-0.5 rounded">{CACHE_DIR}</code></p>
+      <h3 class="text-sm font-medium text-stone-700 mb-2">File Location</h3>
+      <div class="text-sm text-stone-600 font-mono">
+        <p>Ready: <code class="bg-white px-2 py-0.5 rounded">{READY_DIR}</code></p>
       </div>
     </div>
   </div>

@@ -521,6 +521,133 @@ def get_preprocessing_status() -> dict[str, Any]:
     return preprocessing.get_preprocessing_status()
 
 
+@mcp.tool()
+def start_preprocessing(
+    count: int | None = None,
+    filename: str | None = None,
+) -> dict[str, Any]:
+    """
+    Start or continue the preprocessing workflow for PDFs in intake.
+
+    This is the entry point for "Let's preprocess". It manages the full session:
+    - Shows available PDFs and lets you choose
+    - Tracks progress (article 2 of 5, step 3 of 5)
+    - Resumes incomplete work
+    - Blocks until human approval, then continues
+
+    Args:
+        count: How many articles to process this session (1-10). Only set when starting fresh.
+        filename: Optional specific PDF to process.
+
+    Returns progress info and next_step telling you exactly what to call.
+    """
+    # Load or initialize session
+    session = preprocessing.get_session()
+
+    # If count provided, update session target (starting new batch)
+    if count is not None:
+        count = max(1, min(10, count))
+        session["target_count"] = count
+        # Only reset completed if explicitly starting fresh
+        if session["completed_count"] >= session["target_count"]:
+            session["completed_count"] = 0
+        preprocessing.save_session(session)
+
+    status = preprocessing.get_preprocessing_status()
+
+    # Check for work in progress first
+    if status["preprocessing"]["work_in_progress"] > 0:
+        wip = list(preprocessing.CACHE_DIR.glob("*_parsed.json"))
+        if wip:
+            slug = wip[0].stem.replace("_parsed", "")
+            parsed = json.loads(wip[0].read_text())
+            progress = preprocessing.step_progress("classify" if not parsed.get("article_reviewed") else "body_review", slug)
+
+            if not parsed.get("article_reviewed"):
+                return {
+                    "status": "RESUME_REQUIRED",
+                    "progress": progress,
+                    "message": f"Article '{slug}' is partially processed. Complete it first.",
+                    "slug": slug,
+                    "next_step": f"Call get_article_for_review('{slug}') to continue classification.",
+                }
+            elif not parsed.get("body_reviewed"):
+                return {
+                    "status": "RESUME_REQUIRED",
+                    "progress": progress,
+                    "message": f"Article '{slug}' needs body review. Complete it first.",
+                    "slug": slug,
+                    "next_step": f"Call get_body_for_review('{slug}') to continue body review.",
+                }
+
+    # Check for articles ready for human review
+    if status["preprocessing"]["ready_for_review"] > 0:
+        return {
+            "status": "HUMAN_REVIEW_REQUIRED",
+            "progress": {
+                "step": "5/5",
+                "step_name": "Ready for Approval",
+                "article_progress": f"{session['completed_count'] + 1}/{session['target_count']}",
+            },
+            "message": f"{status['preprocessing']['ready_for_review']} article(s) waiting for human approval.",
+            "ready_files": status["preprocessing"]["ready_files"],
+            "next_step": "Human must approve at /admin/review. After approval, call start_preprocessing() again to continue.",
+        }
+
+    # Check if session complete
+    if session["completed_count"] >= session["target_count"]:
+        preprocessing.clear_session()
+        return {
+            "status": "SESSION_COMPLETE",
+            "message": f"Completed {session['completed_count']} article(s)! Session finished.",
+            "next_step": "Call start_preprocessing(count=N) to start a new batch.",
+        }
+
+    # Check archived count to see if human approved something
+    archived_count = len(list(preprocessing.ARCHIVED_DIR.glob("*_parsed.json")))
+    if archived_count > session["completed_count"]:
+        # Human approved! Update our count
+        session["completed_count"] = archived_count
+        preprocessing.save_session(session)
+
+        if session["completed_count"] >= session["target_count"]:
+            preprocessing.clear_session()
+            return {
+                "status": "SESSION_COMPLETE",
+                "message": f"Completed {session['completed_count']} article(s)! Session finished.",
+                "next_step": "Call start_preprocessing(count=N) to start a new batch.",
+            }
+
+    # If no filename specified, show available PDFs
+    if not filename:
+        intake = preprocessing.list_intake_pdfs()
+        if not intake["pending"]:
+            return {
+                "status": "NO_PDFS",
+                "message": "No PDFs in intake/articles/ to process.",
+                "next_step": "Add PDFs to intake/articles/ folder first.",
+            }
+
+        return {
+            "status": "CHOOSE_PDF",
+            "progress": {
+                "article_progress": f"{session['completed_count'] + 1}/{session['target_count']}",
+            },
+            "message": f"Found {len(intake['pending'])} PDFs. Processing article {session['completed_count'] + 1} of {session['target_count']}.",
+            "available_pdfs": intake["pending"][:15],
+            "total_available": len(intake["pending"]),
+            "next_step": "Call start_preprocessing(filename='chosen-file.pdf') with one of the PDFs above.",
+        }
+
+    # Filename provided - start extraction
+    result = preprocessing.extract_pdf(filename)
+
+    if not result.get("success"):
+        return result  # Error from extract_pdf
+
+    return result  # Has progress info from extract_pdf
+
+
 # --- Main entry point ---
 
 def main():

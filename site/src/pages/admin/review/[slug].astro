@@ -4,7 +4,6 @@ export const prerender = false;
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
 
 // Check admin access
 if (!import.meta.env.ENABLE_ADMIN) {
@@ -12,133 +11,48 @@ if (!import.meta.env.ENABLE_ADMIN) {
 }
 
 const { slug } = Astro.params;
-const CACHE_DIR = "/Users/jd/Projects/pda/cache/articles";
-const PARSER_SCRIPT = "/Users/jd/Projects/pda/scripts/parse_article_structure.py";
-const PYTHON = "/opt/homebrew/bin/python3.11";
+const READY_DIR = "/Users/jd/Projects/pda/cache/articles/ready";
+const jsonPath = path.join(READY_DIR, `${slug}_parsed.json`);
 
-const htmlPath = path.join(CACHE_DIR, `${slug}.html`);
-const jsonPath = path.join(CACHE_DIR, `${slug}.json`);
-
-// Check if HTML exists
-if (!fs.existsSync(htmlPath)) {
+// Check if file exists
+if (!fs.existsSync(jsonPath)) {
   return Astro.redirect("/admin/review");
-}
-
-// Run parser if JSON doesn't exist or is older than HTML
-let needsParse = !fs.existsSync(jsonPath);
-if (!needsParse) {
-  const htmlStat = fs.statSync(htmlPath);
-  const jsonStat = fs.statSync(jsonPath);
-  needsParse = htmlStat.mtimeMs > jsonStat.mtimeMs;
-}
-
-if (needsParse) {
-  try {
-    execSync(`${PYTHON} "${PARSER_SCRIPT}" "${htmlPath}"`, {
-      encoding: "utf-8",
-      timeout: 30000,
-    });
-  } catch (e) {
-    console.error("Parser failed:", e);
-  }
 }
 
 // Load parsed data
 interface ParsedArticle {
-  source_file: string;
   title: string | null;
-  article_type: string | null;
   authors: string | null;
+  year: string | null;
+  doi: string | null;
   citation: string | null;
   abstract: string | null;
   body_html: string;
-  acknowledgements: string | null;
   references: string[];
-  figures: Array<{ alt: string; src: string; caption: string | null }>;
-  tables: Array<{ caption: string | null; preview: string }>;
-  stripped_cruft: string[];
-  warnings: string[];
+  method: string | null;
+  voice: string | null;
+  peer_reviewed: boolean;
+  body_reviewed: boolean;
+  review_notes: string | null;
 }
 
 let parsed: ParsedArticle | null = null;
 let parseError: string | null = null;
 
 try {
-  if (fs.existsSync(jsonPath)) {
-    const jsonContent = fs.readFileSync(jsonPath, "utf-8");
-    parsed = JSON.parse(jsonContent);
-  }
+  const jsonContent = fs.readFileSync(jsonPath, "utf-8");
+  parsed = JSON.parse(jsonContent);
 } catch (e) {
   parseError = String(e);
 }
 
-// Read raw HTML for storage and body display
-let rawHtml = "";
-let bodyHtml = "";
-if (parsed) {
-  try {
-    rawHtml = fs.readFileSync(htmlPath, "utf-8");
-    // Re-run parser in memory to get full body
-    const result = execSync(
-      `${PYTHON} -c "
-import sys
-sys.path.insert(0, '/Users/jd/Projects/pda/scripts')
-from parse_article_structure import parse_article
-from pathlib import Path
-result = parse_article(Path('${htmlPath}'))
-print(result['body_html'] or '')
-"`,
-      { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024, timeout: 30000 }
-    );
-    bodyHtml = result;
-  } catch (e) {
-    console.error("Could not get body HTML:", e);
-  }
-}
-
-// Extract year from citation if possible
-function extractYear(citation: string | null): string {
-  if (!citation) return "";
-  const match = citation.match(/\b(19|20)\d{2}\b/);
-  return match ? match[0] : "";
-}
-
-// Run enhancement script to get suggestions
-interface EnhancementSuggestions {
-  method?: string;
-  voice?: string;
-  peer_reviewed?: boolean;
-}
-
-let suggestions: EnhancementSuggestions = {};
-if (fs.existsSync(jsonPath)) {
-  try {
-    const result = execSync(
-      `${PYTHON} /Users/jd/Projects/pda/scripts/enhance_parsed_article.py "${jsonPath}" --suggest 2>&1`,
-      { encoding: "utf-8", timeout: 10000 }
-    );
-    // Parse output for suggestions
-    const methodMatch = result.match(/method:[\s\S]*?Suggested:\s*(\w+)/);
-    const voiceMatch = result.match(/voice:[\s\S]*?Suggested:\s*(\w+)/);
-    const peerMatch = result.match(/peer_reviewed:[\s\S]*?Suggested:\s*(True|False)/);
-
-    if (methodMatch) suggestions.method = methodMatch[1];
-    if (voiceMatch) suggestions.voice = voiceMatch[1];
-    if (peerMatch) suggestions.peer_reviewed = peerMatch[1] === 'True';
-  } catch (e) {
-    console.error("Enhancement script failed:", e);
-  }
-}
+// Derive source_url from DOI if available
+const doiUrl = parsed?.doi ? `https://doi.org/${parsed.doi}` : null;
 
 // Count stats
-const bodyLength = bodyHtml.length;
+const bodyLength = parsed?.body_html?.length || 0;
+const abstractLength = parsed?.abstract?.length || 0;
 const refCount = parsed?.references?.length || 0;
-const figCount = parsed?.figures?.length || 0;
-const tableCount = parsed?.tables?.length || 0;
-const cruftCount = parsed?.stripped_cruft?.length || 0;
-const joinCount = parsed?.stripped_cruft?.filter((c) => c.startsWith("[JOINED]")).length || 0;
-const warningCount = parsed?.warnings?.length || 0;
-const yearFromCitation = extractYear(parsed?.citation || null);
 ---
 
 <AdminLayout title={`Review: ${slug}`}>
@@ -153,19 +67,10 @@ const yearFromCitation = extractYear(parsed?.citation || null);
     <!-- Page Header -->
     <div class="flex items-start justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-stone-900 break-all">{slug}</h1>
+        <h1 class="text-2xl font-bold text-stone-900 break-all">{parsed?.title || slug}</h1>
         <p class="mt-1 text-sm text-stone-500">
-          Review parsed structure before importing
+          {parsed?.authors || 'No authors'} {parsed?.year ? `(${parsed.year})` : ''}
         </p>
-      </div>
-      <div class="flex gap-2">
-        <a
-          href={`file://${htmlPath}`}
-          target="_blank"
-          class="rounded bg-stone-100 px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-200"
-        >
-          View Raw HTML
-        </a>
       </div>
     </div>
 
@@ -179,6 +84,10 @@ const yearFromCitation = extractYear(parsed?.citation || null);
         <!-- Stats Row -->
         <div class="flex flex-wrap gap-3">
           <div class="rounded bg-white px-3 py-2 shadow-sm">
+            <span class="text-xs text-stone-500">Abstract</span>
+            <span class="ml-2 font-medium text-stone-900">{Math.round(abstractLength / 100) / 10} KB</span>
+          </div>
+          <div class="rounded bg-white px-3 py-2 shadow-sm">
             <span class="text-xs text-stone-500">Body</span>
             <span class="ml-2 font-medium text-stone-900">{Math.round(bodyLength / 1024)} KB</span>
           </div>
@@ -186,143 +95,103 @@ const yearFromCitation = extractYear(parsed?.citation || null);
             <span class="text-xs text-stone-500">References</span>
             <span class="ml-2 font-medium text-stone-900">{refCount}</span>
           </div>
-          <div class="rounded bg-white px-3 py-2 shadow-sm">
-            <span class="text-xs text-stone-500">Figures</span>
-            <span class="ml-2 font-medium text-stone-900">{figCount}</span>
-          </div>
-          <div class="rounded bg-white px-3 py-2 shadow-sm">
-            <span class="text-xs text-stone-500">Tables</span>
-            <span class="ml-2 font-medium text-stone-900">{tableCount}</span>
-          </div>
-          <div class="rounded bg-white px-3 py-2 shadow-sm">
-            <span class="text-xs text-stone-500">Cruft Stripped</span>
-            <span class="ml-2 font-medium text-amber-600">{cruftCount - joinCount}</span>
-          </div>
-          <div class="rounded bg-white px-3 py-2 shadow-sm">
-            <span class="text-xs text-stone-500">Paragraphs Joined</span>
-            <span class="ml-2 font-medium text-green-600">{joinCount}</span>
-          </div>
-          {warningCount > 0 && (
-            <div class="rounded bg-red-50 px-3 py-2 shadow-sm border border-red-200">
-              <span class="text-xs text-red-600">Warnings</span>
-              <span class="ml-2 font-medium text-red-700">{warningCount}</span>
+          {parsed.doi && (
+            <div class="rounded bg-green-50 px-3 py-2 shadow-sm">
+              <span class="text-xs text-green-600">DOI</span>
+              <span class="ml-2 font-medium text-green-700">{parsed.doi}</span>
             </div>
           )}
         </div>
 
-        <!-- Warnings Card -->
-        {warningCount > 0 && (
-          <div class="rounded-lg bg-red-50 border border-red-200 p-6">
-            <h2 class="text-lg font-semibold text-red-800 border-b border-red-200 pb-2 mb-4">
-              Warnings — Needs Review
-              <span class="text-sm font-normal text-red-600 ml-2">
-                ({warningCount})
+        <!-- Classification (from Claude) -->
+        <div class="rounded-lg bg-blue-50 border border-blue-200 p-4">
+          <h2 class="text-sm font-medium text-blue-800 mb-3">Claude's Classification</h2>
+          <div class="flex flex-wrap gap-2">
+            {parsed.method && (
+              <span class="rounded bg-blue-100 text-blue-800 px-3 py-1 text-sm font-medium">
+                Method: {parsed.method}
               </span>
-            </h2>
-            <ul class="space-y-2 text-sm">
-              {parsed.warnings.map((item) => (
-                <li class="font-mono text-xs p-2 rounded bg-red-100 text-red-800">
-                  {item}
-                </li>
-              ))}
-            </ul>
+            )}
+            {parsed.voice && (
+              <span class="rounded bg-purple-100 text-purple-800 px-3 py-1 text-sm font-medium">
+                Voice: {parsed.voice}
+              </span>
+            )}
+            <span class={`rounded px-3 py-1 text-sm font-medium ${parsed.peer_reviewed ? 'bg-green-100 text-green-800' : 'bg-stone-100 text-stone-600'}`}>
+              {parsed.peer_reviewed ? 'Peer Reviewed' : 'Not Peer Reviewed'}
+            </span>
           </div>
-        )}
+        </div>
 
-        <!-- Editable Metadata Form -->
+        <!-- Editable Form -->
         <form id="article-form" class="rounded-lg bg-white shadow-sm p-6 space-y-4">
           <div class="flex items-center justify-between border-b border-stone-200 pb-2">
             <h2 class="text-lg font-semibold text-stone-900">
-              Article Metadata
+              Human Review
             </h2>
-            <div class="flex gap-2">
-              <button
-                type="button"
-                id="reset-btn"
-                class="rounded bg-stone-100 px-3 py-1.5 text-sm font-medium text-stone-600 hover:bg-stone-200"
-              >
-                Reset
-              </button>
-              <button
-                type="submit"
-                class="rounded bg-primary-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-600"
-              >
-                Save to Database
-              </button>
-            </div>
           </div>
 
           <div id="form-status" class="hidden rounded p-3 text-sm"></div>
 
           <div class="grid gap-4">
-            <!-- Classification: Method, Voice, Peer Reviewed -->
-            <div class="grid grid-cols-3 gap-4 p-4 bg-stone-50 rounded-lg border border-stone-200">
+            <!-- Human-only fields -->
+            <div class="grid grid-cols-3 gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
               <div>
-                <label for="method" class="block text-xs font-medium text-stone-500 uppercase tracking-wide">
-                  Method <span class="text-red-500">*</span>
+                <label class="block text-xs font-medium text-amber-700 uppercase tracking-wide mb-1">
+                  Open Access <span class="text-red-500">*</span>
                 </label>
-                <select
-                  id="method"
-                  name="method"
-                  required
-                  class="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="">Select...</option>
-                  <option value="empirical" selected={suggestions.method === 'empirical'}>Empirical — original data</option>
-                  <option value="synthesis" selected={suggestions.method === 'synthesis'}>Synthesis — review/meta-analysis</option>
-                  <option value="theoretical" selected={suggestions.method === 'theoretical'}>Theoretical — conceptual/critique</option>
-                  <option value="lived_experience" selected={suggestions.method === 'lived_experience'}>Lived Experience — personal account</option>
-                </select>
-                {parsed.article_type && (
-                  <p class="mt-1 text-xs text-stone-500">
-                    Hint: "{parsed.article_type}"
-                  </p>
-                )}
-              </div>
-              <div>
-                <label for="voice" class="block text-xs font-medium text-stone-500 uppercase tracking-wide">
-                  Voice <span class="text-red-500">*</span>
-                </label>
-                <select
-                  id="voice"
-                  name="voice"
-                  required
-                  class="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="">Select...</option>
-                  <option value="academic" selected={suggestions.voice === 'academic'}>Academic — researchers/scholars</option>
-                  <option value="practitioner" selected={suggestions.voice === 'practitioner'}>Practitioner — clinicians/educators</option>
-                  <option value="organization" selected={suggestions.voice === 'organization'}>Organization — charities/institutions</option>
-                  <option value="individual" selected={suggestions.voice === 'individual'}>Individual — personal voice</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-stone-500 uppercase tracking-wide mb-1">
-                  Peer Reviewed
-                </label>
-                <label class="inline-flex items-center mt-2">
+                <label class="inline-flex items-center">
                   <input
                     type="checkbox"
-                    id="peer_reviewed"
-                    name="peer_reviewed"
-                    checked={suggestions.peer_reviewed}
+                    id="open_access"
+                    name="open_access"
                     class="rounded border-stone-300 text-primary-500 focus:ring-primary-500"
                   />
-                  <span class="ml-2 text-sm text-stone-700">Yes, peer reviewed</span>
+                  <span class="ml-2 text-sm text-stone-700">Yes, can translate full text</span>
                 </label>
+                <p class="mt-1 text-xs text-amber-600">Required — determines if body can be translated</p>
+              </div>
+              <div>
+                <label for="source_language" class="block text-xs font-medium text-amber-700 uppercase tracking-wide">
+                  Source Language
+                </label>
+                <select
+                  id="source_language"
+                  name="source_language"
+                  class="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="en" selected>English</option>
+                  <option value="fr">French</option>
+                </select>
+              </div>
+              <div>
+                <label for="source_url" class="block text-xs font-medium text-amber-700 uppercase tracking-wide">
+                  Source URL
+                </label>
+                <input
+                  type="url"
+                  id="source_url"
+                  name="source_url"
+                  value={doiUrl || ""}
+                  placeholder="https://..."
+                  class="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                />
+                {parsed.doi && (
+                  <p class="mt-1 text-xs text-amber-600">Pre-filled from DOI</p>
+                )}
               </div>
             </div>
 
+            <!-- Title (editable for corrections) -->
             <div>
               <label for="title" class="block text-xs font-medium text-stone-500 uppercase tracking-wide">
-                Title <span class="text-red-500">*</span>
+                Title
               </label>
               <input
                 type="text"
                 id="title"
                 name="title"
                 value={parsed.title || ""}
-                required
                 class="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
               />
             </div>
@@ -335,7 +204,6 @@ const yearFromCitation = extractYear(parsed?.citation || null);
                   id="authors"
                   name="authors"
                   value={parsed.authors || ""}
-                  placeholder="e.g., A. Smith, B. Jones"
                   class="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
                 />
               </div>
@@ -345,8 +213,7 @@ const yearFromCitation = extractYear(parsed?.citation || null);
                   type="text"
                   id="year"
                   name="year"
-                  value={yearFromCitation}
-                  placeholder="e.g., 2018"
+                  value={parsed.year || ""}
                   pattern="\d{4}"
                   class="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
                 />
@@ -366,20 +233,39 @@ const yearFromCitation = extractYear(parsed?.citation || null);
             </div>
           </div>
 
-          <!-- Hidden fields for data that isn't directly editable -->
+          <!-- Hidden fields -->
           <input type="hidden" id="slug" name="slug" value={slug} />
-          <input type="hidden" id="body_html" name="body_html" value={bodyHtml} />
-          <input type="hidden" id="raw_html" name="raw_html" value={rawHtml} />
+          <input type="hidden" id="doi" name="doi" value={parsed.doi || ""} />
+          <input type="hidden" id="method" name="method" value={parsed.method || ""} />
+          <input type="hidden" id="voice" name="voice" value={parsed.voice || ""} />
+          <input type="hidden" id="peer_reviewed" name="peer_reviewed" value={parsed.peer_reviewed ? "1" : "0"} />
+          <input type="hidden" id="body_html" name="body_html" value={parsed.body_html || ""} />
           <input type="hidden" id="references_json" name="references_json" value={JSON.stringify(parsed.references || [])} />
-          <input type="hidden" id="acknowledgements" name="acknowledgements" value={parsed.acknowledgements || ""} />
+
+          <!-- Action Buttons -->
+          <div class="flex justify-end gap-3 pt-4 border-t border-stone-200">
+            <button
+              type="button"
+              id="reject-btn"
+              class="rounded bg-red-100 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-200"
+            >
+              Reject (Send Back)
+            </button>
+            <button
+              type="submit"
+              class="rounded bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
+              Approve &amp; Save to Database
+            </button>
+          </div>
         </form>
 
-        <!-- Editable Abstract Card -->
+        <!-- Abstract Card -->
         <div class="rounded-lg bg-white shadow-sm p-6">
           <h2 class="text-lg font-semibold text-stone-900 border-b border-stone-200 pb-2 mb-4">
             Abstract
-            <span id="abstract-chars" class="text-sm font-normal text-stone-500 ml-2">
-              ({(parsed.abstract || "").length} chars)
+            <span class="text-sm font-normal text-stone-500 ml-2">
+              ({abstractLength} chars)
             </span>
           </h2>
           <textarea
@@ -387,7 +273,6 @@ const yearFromCitation = extractYear(parsed?.citation || null);
             name="abstract"
             form="article-form"
             rows="6"
-            placeholder="Enter abstract..."
             class="w-full rounded border border-stone-300 px-3 py-2 text-sm leading-relaxed focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
           >{parsed.abstract || ""}</textarea>
         </div>
@@ -402,32 +287,9 @@ const yearFromCitation = extractYear(parsed?.citation || null);
           </h2>
           <div
             class="prose prose-stone prose-sm max-w-none article-body"
-            set:html={bodyHtml}
+            set:html={parsed.body_html}
           />
         </div>
-
-        <!-- Stripped Cruft -->
-        {cruftCount > 0 && (
-          <div class="rounded-lg bg-stone-50 border border-stone-200 p-6">
-            <h2 class="text-lg font-semibold text-stone-900 border-b border-stone-200 pb-2 mb-4">
-              Stripped Content
-              <span class="text-sm font-normal text-stone-500 ml-2">
-                ({cruftCount} items)
-              </span>
-            </h2>
-            <ul class="space-y-2 text-sm">
-              {parsed.stripped_cruft.map((item) => (
-                <li class={`font-mono text-xs p-2 rounded ${
-                  item.startsWith("[JOINED]")
-                    ? "bg-green-50 text-green-800"
-                    : "bg-amber-50 text-amber-800"
-                }`}>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         <!-- References -->
         {refCount > 0 && (
@@ -445,22 +307,12 @@ const yearFromCitation = extractYear(parsed?.citation || null);
             </ol>
           </div>
         )}
-
-        <!-- Acknowledgements -->
-        {parsed.acknowledgements && (
-          <div class="rounded-lg bg-white shadow-sm p-6">
-            <h2 class="text-lg font-semibold text-stone-900 border-b border-stone-200 pb-2 mb-4">
-              Acknowledgements
-            </h2>
-            <p class="text-sm text-stone-700">{parsed.acknowledgements}</p>
-          </div>
-        )}
       </>
     ) : (
       <div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
-        <h2 class="text-sm font-medium text-amber-800">Not Yet Parsed</h2>
+        <h2 class="text-sm font-medium text-amber-800">File Not Found</h2>
         <p class="mt-1 text-sm text-amber-700">
-          Refresh the page to run the parser on this file.
+          Could not load article data.
         </p>
       </div>
     )}
@@ -468,106 +320,25 @@ const yearFromCitation = extractYear(parsed?.citation || null);
 </AdminLayout>
 
 <style>
-  /* Article body styling - plain CSS for Tailwind v4 compatibility */
-  .article-body :global(h1) {
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    color: #1c1917;
-  }
-  .article-body :global(h2) {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-    color: #292524;
-  }
-  .article-body :global(h3) {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-    color: #292524;
-  }
-  .article-body :global(p) {
-    margin-bottom: 1rem;
-    line-height: 1.625;
-  }
-  .article-body :global(table) {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
-    font-size: 0.75rem;
-  }
-  .article-body :global(th),
-  .article-body :global(td) {
-    border: 1px solid #d6d3d1;
-    padding: 0.25rem 0.5rem;
-  }
-  .article-body :global(th) {
-    background-color: #f5f5f4;
-    font-weight: 500;
-  }
-  .article-body :global(img) {
-    max-width: 100%;
-    height: auto;
-    margin: 1rem 0;
-    border-radius: 0.25rem;
-  }
-  .article-body :global(.img-description) {
-    font-size: 0.75rem;
-    color: #78716c;
-    font-style: italic;
-    margin-top: 0.25rem;
-    margin-bottom: 1rem;
-  }
+  .article-body :global(h1) { font-size: 1.25rem; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem; color: #1c1917; }
+  .article-body :global(h2) { font-size: 1.125rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #292524; }
+  .article-body :global(h3) { font-size: 1rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; color: #292524; }
+  .article-body :global(p) { margin-bottom: 1rem; line-height: 1.625; }
+  .article-body :global(table) { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.75rem; }
+  .article-body :global(th), .article-body :global(td) { border: 1px solid #d6d3d1; padding: 0.25rem 0.5rem; }
+  .article-body :global(th) { background-color: #f5f5f4; font-weight: 500; }
+  .article-body :global(img) { max-width: 100%; height: auto; margin: 1rem 0; border-radius: 0.25rem; }
 </style>
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Form submission handler
     const form = document.getElementById('article-form') as HTMLFormElement;
     const statusEl = document.getElementById('form-status');
-    const resetBtn = document.getElementById('reset-btn');
-    const abstractTextarea = document.getElementById('abstract') as HTMLTextAreaElement;
-    const abstractChars = document.getElementById('abstract-chars');
+    const rejectBtn = document.getElementById('reject-btn');
 
-    if (!form) {
-      console.error('Form not found');
-      return;
-    }
+    if (!form) return;
 
-    // Store initial values for reset
-    const initialValues: Record<string, string> = {};
-    const inputs = form.querySelectorAll('input, textarea');
-    inputs.forEach((input) => {
-      const el = input as HTMLInputElement | HTMLTextAreaElement;
-      initialValues[el.id] = el.value;
-    });
-
-    // Update abstract character count
-    if (abstractTextarea && abstractChars) {
-      abstractTextarea.addEventListener('input', () => {
-        abstractChars.textContent = `(${abstractTextarea.value.length} chars)`;
-      });
-    }
-
-    // Reset button
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        Object.keys(initialValues).forEach((id) => {
-          const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement;
-          if (el) el.value = initialValues[id];
-        });
-        if (abstractChars) {
-          abstractChars.textContent = `(${initialValues['abstract']?.length || 0} chars)`;
-        }
-        showStatus('Fields reset to original values', 'info');
-      });
-    }
-
-    // Form submission
+    // Approve (form submit)
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -579,6 +350,7 @@ const yearFromCitation = extractYear(parsed?.citation || null);
       try {
         const formData = new FormData(form);
         const data = {
+          action: 'approve',
           slug: formData.get('slug'),
           title: formData.get('title'),
           authors: formData.get('authors'),
@@ -587,11 +359,13 @@ const yearFromCitation = extractYear(parsed?.citation || null);
           abstract: formData.get('abstract'),
           body_html: formData.get('body_html'),
           references_json: JSON.parse(formData.get('references_json') as string || '[]'),
-          acknowledgements: formData.get('acknowledgements'),
-          raw_html: formData.get('raw_html'),
+          doi: formData.get('doi'),
           method: formData.get('method'),
           voice: formData.get('voice'),
-          peer_reviewed: formData.get('peer_reviewed') === 'on',
+          peer_reviewed: formData.get('peer_reviewed') === '1',
+          open_access: (document.getElementById('open_access') as HTMLInputElement).checked,
+          source_language: formData.get('source_language'),
+          source_url: formData.get('source_url'),
         };
 
         const response = await fetch('/api/save-parsed-article', {
@@ -603,7 +377,8 @@ const yearFromCitation = extractYear(parsed?.citation || null);
         const result = await response.json();
 
         if (response.ok) {
-          showStatus(`Article ${result.action} successfully! ID: ${result.articleId}`, 'success');
+          showStatus(`Article approved and saved! ID: ${result.articleId}`, 'success');
+          setTimeout(() => window.location.href = '/admin/review', 2000);
         } else {
           showStatus(`Error: ${result.error}`, 'error');
         }
@@ -615,25 +390,45 @@ const yearFromCitation = extractYear(parsed?.citation || null);
       }
     });
 
-    function showStatus(message: string, type: 'success' | 'error' | 'info') {
+    // Reject button
+    if (rejectBtn) {
+      rejectBtn.addEventListener('click', async () => {
+        if (!confirm('Reject this article and send it back for rework?')) return;
+
+        rejectBtn.textContent = 'Rejecting...';
+        (rejectBtn as HTMLButtonElement).disabled = true;
+
+        try {
+          const slug = (document.getElementById('slug') as HTMLInputElement).value;
+          const response = await fetch('/api/save-parsed-article', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reject', slug }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            showStatus('Article rejected and moved back for rework.', 'success');
+            setTimeout(() => window.location.href = '/admin/review', 2000);
+          } else {
+            showStatus(`Error: ${result.error}`, 'error');
+          }
+        } catch (err) {
+          showStatus(`Network error: ${err}`, 'error');
+        } finally {
+          rejectBtn.textContent = 'Reject (Send Back)';
+          (rejectBtn as HTMLButtonElement).disabled = false;
+        }
+      });
+    }
+
+    function showStatus(message: string, type: 'success' | 'error') {
       if (!statusEl) return;
       statusEl.textContent = message;
-      statusEl.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800');
-
-      if (type === 'success') {
-        statusEl.classList.add('bg-green-100', 'text-green-800');
-      } else if (type === 'error') {
-        statusEl.classList.add('bg-red-100', 'text-red-800');
-      } else {
-        statusEl.classList.add('bg-blue-100', 'text-blue-800');
-      }
-
-      // Auto-hide after 5 seconds for success/info
-      if (type !== 'error') {
-        setTimeout(() => {
-          statusEl.classList.add('hidden');
-        }, 5000);
-      }
+      statusEl.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+      statusEl.classList.add(type === 'success' ? 'bg-green-100' : 'bg-red-100');
+      statusEl.classList.add(type === 'success' ? 'text-green-800' : 'text-red-800');
     }
   });
 </script>

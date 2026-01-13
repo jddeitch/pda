@@ -14,6 +14,9 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
+    # Enable foreign key enforcement
+    cursor.execute("PRAGMA foreign_keys = ON")
+
     # Categories table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS categories (
@@ -39,11 +42,18 @@ def init_db():
             year TEXT,
             journal TEXT,
             doi TEXT,
+            citation TEXT,
+            abstract TEXT,
+            body_html TEXT,
+            raw_html TEXT,
+            acknowledgements TEXT,
+            references_json TEXT,
             open_access INTEGER DEFAULT 0,
             peer_reviewed INTEGER DEFAULT 0,
             method TEXT,
             voice TEXT,
-            summary_original TEXT,
+            source TEXT DEFAULT 'unknown',
+            processing_status TEXT DEFAULT 'pending',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -56,8 +66,8 @@ def init_db():
             category_id TEXT NOT NULL,
             is_primary INTEGER DEFAULT 0,
             PRIMARY KEY (article_id, category_id),
-            FOREIGN KEY (article_id) REFERENCES articles(id),
-            FOREIGN KEY (category_id) REFERENCES categories(id)
+            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
         )
     """)
 
@@ -75,8 +85,8 @@ def init_db():
             article_id TEXT NOT NULL,
             keyword_id INTEGER NOT NULL,
             PRIMARY KEY (article_id, keyword_id),
-            FOREIGN KEY (article_id) REFERENCES articles(id),
-            FOREIGN KEY (keyword_id) REFERENCES keywords(id)
+            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+            FOREIGN KEY (keyword_id) REFERENCES keywords(id) ON DELETE RESTRICT
         )
     """)
 
@@ -94,7 +104,7 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(article_id, target_language),
-            FOREIGN KEY (article_id) REFERENCES articles(id)
+            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
         )
     """)
 
@@ -110,6 +120,10 @@ def init_db():
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_article_categories_primary
         ON article_categories(is_primary)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_articles_processing_status
+        ON articles(processing_status)
     """)
 
     conn.commit()

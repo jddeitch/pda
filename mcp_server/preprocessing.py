@@ -11,8 +11,7 @@ Steps:
 4. get_article_for_review(slug) — see parsed data + raw blocks (pages 0-1)
 5. complete_article_review(slug, title, authors, ...) — Claude states all values
 6. get_body_for_review(slug, chunk) — review body structure in chunks
-7. complete_body_review(slug, body_approved, fixes) — confirm clean or apply fixes
-8. submit_for_review(slug) — create DB record for human review
+7. complete_body_review(slug, body_approved, fixes) — moves to ready/ for human review
 
 Body issues to check:
 - ORPHAN: Starts lowercase — split from previous paragraph
@@ -47,6 +46,100 @@ PROJECT_ROOT = Path(__file__).parent.parent
 INTAKE_DIR = PROJECT_ROOT / "intake" / "articles"
 PROCESSED_DIR = PROJECT_ROOT / "intake" / "processed"
 CACHE_DIR = PROJECT_ROOT / "cache" / "articles"
+READY_DIR = CACHE_DIR / "ready"      # Preprocessing complete, awaiting human review
+ARCHIVED_DIR = CACHE_DIR / "archived"  # After human approval + DB insert
+SESSION_FILE = CACHE_DIR / ".preprocessing_session.json"
+
+# Preprocessing steps for visibility
+STEPS = {
+    "extract": {"number": 1, "name": "Extract PDF", "description": "Calling Datalab API to extract text from PDF"},
+    "parse": {"number": 2, "name": "Parse Structure", "description": "Parsing HTML into title, authors, abstract, body, references"},
+    "classify": {"number": 3, "name": "Classify Article", "description": "Review metadata and assign method/voice/peer_reviewed"},
+    "body_review": {"number": 4, "name": "Review Body", "description": "Check body for formatting issues"},
+    "ready": {"number": 5, "name": "Ready for Approval", "description": "Human reviews in /admin/review"},
+}
+TOTAL_STEPS = 5
+
+
+def get_session() -> dict[str, Any]:
+    """Load preprocessing session state."""
+    if SESSION_FILE.exists():
+        try:
+            return json.loads(SESSION_FILE.read_text())
+        except:
+            pass
+    return {"target_count": 1, "completed_count": 0, "current_slug": None}
+
+
+def save_session(session: dict[str, Any]) -> None:
+    """Save preprocessing session state."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    SESSION_FILE.write_text(json.dumps(session, indent=2))
+
+
+def clear_session() -> None:
+    """Clear session when complete or cancelled."""
+    if SESSION_FILE.exists():
+        SESSION_FILE.unlink()
+
+
+def step_progress(step_key: str, slug: str | None = None) -> dict[str, Any]:
+    """Generate step progress info for response."""
+    session = get_session()
+    step = STEPS[step_key]
+    return {
+        "step": f"{step['number']}/{TOTAL_STEPS}",
+        "step_name": step["name"],
+        "step_description": step["description"],
+        "article_progress": f"{session['completed_count'] + 1}/{session['target_count']}",
+        "slug": slug or session.get("current_slug"),
+    }
+
+
+def find_pdf_by_query(query: str) -> dict[str, Any]:
+    """
+    Find a PDF in intake by partial name match.
+
+    Matches case-insensitively against filename. Returns best match or error.
+    """
+    INTAKE_DIR.mkdir(parents=True, exist_ok=True)
+    intake_pdfs = list(INTAKE_DIR.glob("*.pdf"))
+
+    if not intake_pdfs:
+        return {"success": False, "error": "No PDFs in intake/articles/"}
+
+    query_lower = query.lower()
+
+    # Exact match first
+    for pdf in intake_pdfs:
+        if pdf.name.lower() == query_lower or pdf.name == query:
+            return {"success": True, "filename": pdf.name, "path": pdf}
+
+    # Partial match - all words must appear
+    query_words = query_lower.replace("-", " ").replace("_", " ").split()
+    matches = []
+
+    for pdf in intake_pdfs:
+        name_lower = pdf.stem.lower().replace("-", " ").replace("_", " ")
+        if all(word in name_lower for word in query_words):
+            matches.append(pdf)
+
+    if len(matches) == 1:
+        return {"success": True, "filename": matches[0].name, "path": matches[0]}
+    elif len(matches) > 1:
+        return {
+            "success": False,
+            "error": "AMBIGUOUS",
+            "message": f"'{query}' matches {len(matches)} files. Be more specific.",
+            "matches": [m.name for m in matches[:5]]
+        }
+    else:
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "message": f"No PDF matching '{query}' found in intake/articles/",
+            "available": [p.name for p in intake_pdfs[:10]]
+        }
 
 
 def list_intake_pdfs() -> dict[str, Any]:
@@ -110,16 +203,26 @@ def extract_pdf(filename: str) -> dict[str, Any]:
     Submit PDF to Datalab Marker API and wait for completion.
 
     This is a blocking operation that typically takes 30-120 seconds.
-    """
-    pdf_path = INTAKE_DIR / filename
 
-    if not pdf_path.exists():
+    Args:
+        filename: Exact filename OR partial match (e.g., "O'Nions 2013" matches
+                  "An examination of the behavioural features associated with PDA (O'Nions 2013).pdf")
+    """
+    # Try fuzzy match first
+    match = find_pdf_by_query(filename)
+
+    if not match["success"]:
+        # Return the fuzzy match error with suggestions
         return {
             "success": False,
-            "error": "FILE_NOT_FOUND",
-            "details": f"File not found: {pdf_path}",
+            "error": match.get("error", "NOT_FOUND"),
+            "details": match.get("message", f"File not found: {filename}"),
+            "matches": match.get("matches"),
+            "available": match.get("available"),
             "action": "Check filename. Use list_intake_pdfs() to see available files."
         }
+
+    pdf_path = match["path"]
 
     slug = slugify(pdf_path.stem)
     output_path = CACHE_DIR / f"{slug}.json"
@@ -136,12 +239,16 @@ def extract_pdf(filename: str) -> dict[str, Any]:
 
     # Import extraction functions from batch_extract
     try:
+        import sys
+        scripts_dir = str(PROJECT_ROOT / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
         from batch_extract import submit_pdf, poll_and_save
-    except ImportError:
+    except ImportError as e:
         return {
             "success": False,
             "error": "IMPORT_ERROR",
-            "details": "Could not import batch_extract.py functions",
+            "details": f"Could not import batch_extract.py: {e}",
             "action": "Ensure scripts/batch_extract.py is available"
         }
 
@@ -158,6 +265,15 @@ def extract_pdf(filename: str) -> dict[str, Any]:
 
     try:
         result = submit_pdf(pdf_path)
+
+        if result is None:
+            return {
+                "success": False,
+                "error": "API_ERROR",
+                "details": "submit_pdf returned None - API call may have failed",
+                "action": "Check API key and network connection"
+            }
+
         request_id = result.get('request_id')
 
         if not request_id:
@@ -195,8 +311,14 @@ def extract_pdf(filename: str) -> dict[str, Any]:
             logger.warning(f"Could not move {filename} to processed: {move_err}")
             moved = False
 
+        # Update session with current slug
+        session = get_session()
+        session["current_slug"] = slug
+        save_session(session)
+
         return {
             "success": True,
+            "progress": step_progress("extract", slug),
             "slug": slug,
             "json_path": str(output_path),
             "stats": {
@@ -264,11 +386,12 @@ def parse_extracted_article(slug: str) -> dict[str, Any]:
 
         return {
             "success": True,
+            "progress": step_progress("parse", slug),
             "slug": slug,
             "parsed_path": str(parsed_path),
             "summary": summary,
             "warnings": result.get('warnings', []),
-            "next_step": f"Call get_article_for_review('{slug}') to review and enhance."
+            "next_step": f"Call get_article_for_review('{slug}') to review and classify."
         }
 
     except Exception as e:
@@ -394,6 +517,7 @@ def get_article_for_review(slug: str) -> dict[str, Any]:
 
     return {
         "success": True,
+        "progress": step_progress("classify", slug),
         "slug": slug,
         "parser_extracted": parser_extracted,
         "missing": missing,
@@ -445,7 +569,7 @@ def complete_article_review(
         notes: Optional notes about issues or flags
 
     Returns on success:
-        Updates _parsed.json and returns final state ready for submit_for_review()
+        Moves _parsed.json to ready/ directory for human review in /admin/review
 
     Returns on error:
         Specific validation errors — fix and retry
@@ -561,10 +685,11 @@ def complete_article_review(
 
     return {
         "success": True,
+        "progress": step_progress("classify", slug),
         "slug": slug,
         "changes_applied": changes,
         "final_state": final_state,
-        "next_step": f"Call get_body_for_review('{slug}') to review body structure before submitting."
+        "next_step": f"Call get_body_for_review('{slug}') to review body structure."
     }
 
 
@@ -646,6 +771,7 @@ def get_body_for_review(slug: str, chunk: int = 0) -> dict[str, Any]:
 
     return {
         "success": True,
+        "progress": step_progress("body_review", slug),
         "slug": slug,
         "chunk_info": {
             "current": chunk,
@@ -805,117 +931,34 @@ def complete_body_review(
     if notes:
         data['body_review_notes'] = notes
 
-    # Save
-    with open(parsed_path, 'w', encoding='utf-8') as f:
+    # Ensure ready directory exists
+    READY_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Move file to ready directory (signals preprocessing complete)
+    ready_path = READY_DIR / f"{slug}_parsed.json"
+
+    # Save to ready directory
+    with open(ready_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # Remove from work-in-progress location
+    parsed_path.unlink()
+
+    # Update session - this article is now ready for human review
+    session = get_session()
+    session["current_slug"] = None  # No longer working on this one
+    # Don't increment completed_count yet - human still needs to approve
+    save_session(session)
 
     return {
         "success": True,
+        "progress": step_progress("ready", slug),
         "slug": slug,
         "body_approved": body_approved,
         "fixes_applied": changes_made,
-        "next_step": f"Call submit_for_review('{slug}') to add to database for human review."
+        "ready_for_review": str(ready_path),
+        "next_step": "Article moved to ready/ for human review. Human approves at /admin/review. Then call start_preprocessing() to continue with next article."
     }
-
-
-def submit_for_review(slug: str) -> dict[str, Any]:
-    """
-    Create article record in database with status='preprocessing'.
-
-    Requires:
-    - All metadata fields (title, authors, abstract, method, voice, peer_reviewed)
-    - Body review completed (body_reviewed=True)
-    """
-    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
-
-    if not parsed_path.exists():
-        return {
-            "success": False,
-            "error": "NOT_FOUND",
-            "details": f"No parsed article found for slug '{slug}'",
-            "action": f"Call parse_extracted_article('{slug}') first."
-        }
-
-    # Load parsed data
-    with open(parsed_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    # Check body review is complete
-    if not data.get('body_reviewed'):
-        return {
-            "success": False,
-            "error": "BODY_NOT_REVIEWED",
-            "details": "Body review not completed",
-            "action": f"Call get_body_for_review('{slug}') then complete_body_review('{slug}', ...) first."
-        }
-
-    # Validate required fields
-    missing = []
-    for field in ['title', 'authors', 'abstract', 'method', 'voice']:
-        if not data.get(field):
-            missing.append(field)
-    if data.get('peer_reviewed') is None:
-        missing.append('peer_reviewed')
-
-    if missing:
-        return {
-            "success": False,
-            "error": "MISSING_REQUIRED",
-            "details": f"Cannot submit: missing required fields: {', '.join(missing)}",
-            "action": "Call complete_article_review() to fill missing fields first."
-        }
-
-    # Generate article_id from title and authors
-    article_id = generate_article_id(data.get('title', ''), data.get('authors', ''), data.get('year', ''))
-
-    # Import database
-    from .database import get_database
-    db = get_database()
-
-    try:
-        # Create the database record
-        result = db.create_preprocessing_article(
-            article_id=article_id,
-            source_title=data.get('title'),
-            authors=data.get('authors'),
-            abstract=data.get('abstract'),
-            body_html=data.get('body_html', ''),
-            doi=data.get('doi'),
-            citation=data.get('citation'),
-            year=data.get('year'),
-            method=data.get('method'),
-            voice=data.get('voice'),
-            peer_reviewed=data.get('peer_reviewed'),
-            references_json=json.dumps(data.get('references', [])) if data.get('references') else None,
-        )
-
-        # Check if database operation succeeded
-        if not result.get('success'):
-            return {
-                "success": False,
-                "error": result.get('error', 'DATABASE_ERROR'),
-                "details": result.get('details', 'Unknown error'),
-                "action": "Check error details. Article may already exist."
-            }
-
-        return {
-            "success": True,
-            "article_id": article_id,
-            "slug": slug,
-            "status": "preprocessing",
-            "message": "Article submitted for human review.",
-            "admin_url": f"/admin/review/{slug}",
-            "next_step": "Human reviews at /admin/review. After approval, article becomes 'pending' for translation."
-        }
-
-    except Exception as e:
-        logger.exception(f"Failed to create database record for {slug}")
-        return {
-            "success": False,
-            "error": "DATABASE_ERROR",
-            "details": str(e),
-            "action": "Check error details and database connection."
-        }
 
 
 def get_preprocessing_status() -> dict[str, Any]:
@@ -925,6 +968,8 @@ def get_preprocessing_status() -> dict[str, Any]:
     INTAKE_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    READY_DIR.mkdir(parents=True, exist_ok=True)
+    ARCHIVED_DIR.mkdir(parents=True, exist_ok=True)
 
     # Intake PDFs
     intake_pdfs = list(INTAKE_DIR.glob("*.pdf"))
@@ -932,11 +977,19 @@ def get_preprocessing_status() -> dict[str, Any]:
     # Processed PDFs (already extracted)
     processed_pdfs = list(PROCESSED_DIR.glob("*.pdf"))
 
-    # Extracted (have .json but not _parsed.json)
-    extracted_jsons = {f.stem for f in CACHE_DIR.glob("*.json") if not f.stem.endswith('_parsed')}
-    parsed_jsons = {f.stem.replace('_parsed', '') for f in CACHE_DIR.glob("*_parsed.json")}
+    # Work in progress (have _parsed.json in main cache dir)
+    wip_jsons = list(CACHE_DIR.glob("*_parsed.json"))
 
-    not_parsed = extracted_jsons - parsed_jsons
+    # Ready for human review
+    ready_jsons = list(READY_DIR.glob("*_parsed.json"))
+
+    # Archived (approved and in database)
+    archived_jsons = list(ARCHIVED_DIR.glob("*_parsed.json"))
+
+    # Extracted but not yet parsed
+    extracted_jsons = {f.stem for f in CACHE_DIR.glob("*.json") if not f.stem.endswith('_parsed')}
+    parsed_slugs = {f.stem.replace('_parsed', '') for f in wip_jsons}
+    not_parsed = extracted_jsons - parsed_slugs
 
     # Database status
     from .database import get_database
@@ -949,19 +1002,20 @@ def get_preprocessing_status() -> dict[str, Any]:
             "processed_pdfs": len(processed_pdfs),
             "files": [p.name for p in intake_pdfs[:10]]  # First 10
         },
-        "cache": {
-            "extracted": len(extracted_jsons),
-            "parsed": len(parsed_jsons),
-            "not_parsed": list(not_parsed)[:10]  # First 10
+        "preprocessing": {
+            "extracted_not_parsed": len(not_parsed),
+            "work_in_progress": len(wip_jsons),
+            "ready_for_review": len(ready_jsons),
+            "archived": len(archived_jsons),
+            "ready_files": [f.stem.replace('_parsed', '') for f in ready_jsons[:10]]
         },
         "database": {
-            "preprocessing": progress.get('preprocessing', 0),
             "pending": progress.get('pending', 0),
             "in_progress": progress.get('in_progress', 0),
             "translated": progress.get('translated', 0),
             "skipped": progress.get('skipped', 0)
         },
-        "next_step": "Call list_intake_pdfs() to see available PDFs, or get_next_article() to start translating."
+        "next_step": "Call list_intake_pdfs() to see available PDFs, or check /admin/review for ready articles."
     }
 
 

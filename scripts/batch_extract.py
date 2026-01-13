@@ -89,9 +89,31 @@ def poll_and_save(request_id: str, output_path: Path) -> bool:
         status = data.get('status')
 
         if status == 'complete':
-            chunks = data.get('chunks', {})
-            blocks = chunks.get('blocks', [])
-            images = data.get('images', {})
+            # New API structure (2025): data['json']['children'] contains Pages
+            # Each Page has 'children' with the actual blocks
+            # Old structure: data['chunks']['blocks'] or data['blocks']
+            blocks = []
+            images = data.get('images') or {}
+
+            # Try new structure first: json -> children (Pages) -> children (blocks)
+            json_data = data.get('json')
+            if json_data and isinstance(json_data, dict):
+                pages = json_data.get('children', [])
+                page_num = 0
+                for page in pages:
+                    if page.get('block_type') == 'Page':
+                        page_children = page.get('children', [])
+                        for block in page_children:
+                            block['page'] = page_num
+                            blocks.append(block)
+                        page_num += 1
+
+            # Fall back to old structure if new structure didn't work
+            if not blocks:
+                chunks = data.get('chunks') or {}
+                blocks = chunks.get('blocks') if isinstance(chunks, dict) else None
+                if not blocks:
+                    blocks = data.get('blocks', [])
 
             if not blocks:
                 print(f"  WARNING: No blocks returned")
@@ -109,15 +131,16 @@ def poll_and_save(request_id: str, output_path: Path) -> bool:
                         block['html'] = html
 
             # Save the full structured response
+            page_count = data.get('page_count') or (max((b.get('page', 0) for b in blocks), default=0) + 1)
             output_data = {
                 'status': 'complete',
                 'blocks': blocks,
                 'images_count': len(images),
-                'page_count': max((b.get('page', 0) for b in blocks), default=0) + 1
+                'page_count': page_count
             }
 
             output_path.write_text(json.dumps(output_data, indent=2, ensure_ascii=False))
-            print(f"  COMPLETE - {len(blocks)} blocks, {len(images)} images, {output_data['page_count']} pages")
+            print(f"  COMPLETE - {len(blocks)} blocks, {len(images)} images, {page_count} pages")
             return True
 
         elif status == 'error':
