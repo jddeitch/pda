@@ -20,9 +20,11 @@ Or run via the entry point:
     pda-mcp
 """
 
+import functools
 import json
 import logging
-from typing import Any
+from pathlib import Path
+from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
@@ -32,12 +34,55 @@ from . import tools
 from . import preprocessing
 
 
-# Configure logging
+# --- Logging Configuration ---
+# Logs to both stderr (for Claude Desktop) AND file (for post-mortem debugging)
+
+LOG_DIR = Path(__file__).parent.parent / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(LOG_DIR / "mcp.log"),
+    ],
 )
 logger = logging.getLogger(__name__)
+
+
+# --- Tool Call Logging Decorator ---
+
+def log_tool_call(func: Callable) -> Callable:
+    """
+    Decorator to log entry/exit of MCP tool calls.
+
+    If a conversation dies mid-session, the log will show the last TOOL_START
+    without a corresponding TOOL_END — that's our culprit.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        tool_name = func.__name__
+
+        # Log entry with args (truncate large values)
+        args_repr = repr(args)[:200] + "..." if len(repr(args)) > 200 else repr(args)
+        kwargs_repr = repr(kwargs)[:200] + "..." if len(repr(kwargs)) > 200 else repr(kwargs)
+        logger.info(f"TOOL_START: {tool_name} args={args_repr} kwargs={kwargs_repr}")
+
+        try:
+            result = func(*args, **kwargs)
+
+            # Truncate result for logging if large
+            result_str = str(result)
+            result_preview = result_str[:500] + "..." if len(result_str) > 500 else result_str
+            logger.info(f"TOOL_END: {tool_name} success=True result_preview={result_preview}")
+
+            return result
+        except Exception as e:
+            logger.exception(f"TOOL_END: {tool_name} success=False error={e}")
+            raise
+
+    return wrapper
 
 
 # Create the MCP server
@@ -47,6 +92,7 @@ mcp = FastMCP("PDA Translation Machine")
 # --- Tool: get_next_article ---
 
 @mcp.tool()
+@log_tool_call
 def get_next_article() -> dict[str, Any]:
     """
     Get the next article to translate.
@@ -69,6 +115,7 @@ def get_next_article() -> dict[str, Any]:
 # --- Tool: get_progress ---
 
 @mcp.tool()
+@log_tool_call
 def get_progress() -> dict[str, Any]:
     """
     Get translation progress statistics.
@@ -85,6 +132,7 @@ def get_progress() -> dict[str, Any]:
 # --- Tool: skip_article ---
 
 @mcp.tool()
+@log_tool_call
 def skip_article(article_id: str, reason: str, flag_code: str) -> dict[str, Any]:
     """
     Skip an article with a reason and flag code.
@@ -111,6 +159,7 @@ def skip_article(article_id: str, reason: str, flag_code: str) -> dict[str, Any]
 # --- Tool: get_chunk (Phase 2) ---
 
 @mcp.tool()
+@log_tool_call
 def get_chunk(article_id: str, chunk_number: int) -> dict[str, Any]:
     """
     Get a chunk of article text for translation.
@@ -146,6 +195,7 @@ def get_chunk(article_id: str, chunk_number: int) -> dict[str, Any]:
 # --- Tool: set_human_review_interval ---
 
 @mcp.tool()
+@log_tool_call
 def set_human_review_interval(interval: int) -> dict[str, Any]:
     """
     Set how many articles to process before pausing for human review.
@@ -169,6 +219,7 @@ def set_human_review_interval(interval: int) -> dict[str, Any]:
 # --- Tool: reset_session_counter ---
 
 @mcp.tool()
+@log_tool_call
 def reset_session_counter() -> dict[str, Any]:
     """
     Reset the session counter after human review.
@@ -185,6 +236,7 @@ def reset_session_counter() -> dict[str, Any]:
 # --- Tool: validate_classification (Phase 4) ---
 
 @mcp.tool()
+@log_tool_call
 def validate_classification(
     article_id: str,
     method: str,
@@ -231,6 +283,7 @@ def validate_classification(
 # --- Tool: save_article (Phase 4) ---
 
 @mcp.tool()
+@log_tool_call
 def save_article(
     article_id: str,
     validation_token: str,
@@ -272,6 +325,7 @@ def save_article(
 # --- Tool: ingest_article (Phase 6) ---
 
 @mcp.tool()
+@log_tool_call
 def ingest_article(filename: str) -> dict[str, Any]:
     """
     Ingest a PDF from intake/articles/ into the database.
@@ -298,6 +352,7 @@ def ingest_article(filename: str) -> dict[str, Any]:
 # --- Tool: search_article_url (Phase 6) ---
 
 @mcp.tool()
+@log_tool_call
 def search_article_url(article_id: str) -> dict[str, Any]:
     """
     Get article details to search for its canonical URL.
@@ -317,6 +372,7 @@ def search_article_url(article_id: str) -> dict[str, Any]:
 # --- Tool: set_article_url (Phase 6) ---
 
 @mcp.tool()
+@log_tool_call
 def set_article_url(article_id: str, source_url: str) -> dict[str, Any]:
     """
     Set or update the source URL for an article.
@@ -340,6 +396,7 @@ def set_article_url(article_id: str, source_url: str) -> dict[str, Any]:
 # --- Preprocessing Tools ---
 
 @mcp.tool()
+@log_tool_call
 def list_intake_pdfs() -> dict[str, Any]:
     """
     List PDFs in intake/articles/ awaiting processing.
@@ -351,6 +408,7 @@ def list_intake_pdfs() -> dict[str, Any]:
 
 
 @mcp.tool()
+@log_tool_call
 def extract_pdf(filename: str) -> dict[str, Any]:
     """
     Submit PDF to Datalab Marker API and wait for completion.
@@ -365,6 +423,7 @@ def extract_pdf(filename: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+@log_tool_call
 def parse_extracted_article(slug: str) -> dict[str, Any]:
     """
     Run mechanical parser on Datalab JSON, create structured article data.
@@ -378,6 +437,7 @@ def parse_extracted_article(slug: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+@log_tool_call
 def get_article_for_review(slug: str) -> dict[str, Any]:
     """
     Get parsed article data + raw blocks for Claude to review and classify.
@@ -403,6 +463,7 @@ def get_article_for_review(slug: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+@log_tool_call
 def complete_article_review(
     slug: str,
     title: str,
@@ -454,6 +515,7 @@ def complete_article_review(
 
 
 @mcp.tool()
+@log_tool_call
 def get_body_for_review(slug: str, chunk: int = 0) -> dict[str, Any]:
     """
     Get body_html in chunks for structural review.
@@ -476,6 +538,7 @@ def get_body_for_review(slug: str, chunk: int = 0) -> dict[str, Any]:
 
 
 @mcp.tool()
+@log_tool_call
 def complete_body_review(
     slug: str,
     body_approved: bool,
@@ -511,6 +574,7 @@ def complete_body_review(
 
 
 @mcp.tool()
+@log_tool_call
 def get_preprocessing_status() -> dict[str, Any]:
     """
     Get overview of preprocessing pipeline status.
@@ -522,6 +586,7 @@ def get_preprocessing_status() -> dict[str, Any]:
 
 
 @mcp.tool()
+@log_tool_call
 def start_preprocessing(
     count: int | None = None,
     filename: str | None = None,

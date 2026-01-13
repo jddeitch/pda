@@ -34,6 +34,7 @@ node_modules/
 
 # Logs
 *.log
+logs/
 
 # Working directories (preprocessing artifacts)
 cache/
