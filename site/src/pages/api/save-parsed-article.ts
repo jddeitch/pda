@@ -73,9 +73,36 @@ export const POST: APIRoute = async ({ request }) => {
         fs.mkdirSync(CACHE_DIR, { recursive: true });
       }
 
-      // Move file back to main cache for rework
-      const reworkPath = path.join(CACHE_DIR, `${body.slug}_parsed.json`);
-      fs.renameSync(readyPath, reworkPath);
+      // Move ALL files back to main cache for rework (they travel as a pair)
+      const filesMoved = { parsed: false, raw: false, images: false };
+
+      // 1. Move parsed JSON
+      const reworkParsedPath = path.join(CACHE_DIR, `${body.slug}_parsed.json`);
+      fs.renameSync(readyPath, reworkParsedPath);
+      filesMoved.parsed = true;
+
+      // 2. Move raw JSON if exists
+      const readyRawPath = path.join(READY_DIR, `${body.slug}.json`);
+      const reworkRawPath = path.join(CACHE_DIR, `${body.slug}.json`);
+      if (fs.existsSync(readyRawPath)) {
+        fs.renameSync(readyRawPath, reworkRawPath);
+        filesMoved.raw = true;
+      }
+
+      // 3. Move images folder if exists
+      const readyImagesPath = path.join(READY_DIR, "images", body.slug);
+      const reworkImagesPath = path.join(CACHE_DIR, "images", body.slug);
+      if (fs.existsSync(readyImagesPath)) {
+        const cacheImagesDir = path.join(CACHE_DIR, "images");
+        if (!fs.existsSync(cacheImagesDir)) {
+          fs.mkdirSync(cacheImagesDir, { recursive: true });
+        }
+        if (fs.existsSync(reworkImagesPath)) {
+          fs.rmSync(reworkImagesPath, { recursive: true });
+        }
+        fs.renameSync(readyImagesPath, reworkImagesPath);
+        filesMoved.images = true;
+      }
 
       return new Response(
         JSON.stringify({
@@ -83,6 +110,7 @@ export const POST: APIRoute = async ({ request }) => {
           action: "rejected",
           slug: body.slug,
           message: "Article moved back for rework",
+          filesMoved,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
@@ -216,15 +244,43 @@ export const POST: APIRoute = async ({ request }) => {
         fs.mkdirSync(ARCHIVED_DIR, { recursive: true });
       }
 
-      // Move file to archived
-      const archivedPath = path.join(ARCHIVED_DIR, `${slug}_parsed.json`);
-      fs.renameSync(readyPath, archivedPath);
+      // Move ALL files to archived (they travel as a pair)
+      const filesMoved = { parsed: false, raw: false, images: false };
+
+      // 1. Move parsed JSON
+      const archivedParsedPath = path.join(ARCHIVED_DIR, `${slug}_parsed.json`);
+      fs.renameSync(readyPath, archivedParsedPath);
+      filesMoved.parsed = true;
+
+      // 2. Move raw JSON if exists
+      const readyRawPath = path.join(READY_DIR, `${slug}.json`);
+      const archivedRawPath = path.join(ARCHIVED_DIR, `${slug}.json`);
+      if (fs.existsSync(readyRawPath)) {
+        fs.renameSync(readyRawPath, archivedRawPath);
+        filesMoved.raw = true;
+      }
+
+      // 3. Move images folder if exists
+      const readyImagesPath = path.join(READY_DIR, "images", slug);
+      const archivedImagesPath = path.join(ARCHIVED_DIR, "images", slug);
+      if (fs.existsSync(readyImagesPath)) {
+        const archivedImagesDir = path.join(ARCHIVED_DIR, "images");
+        if (!fs.existsSync(archivedImagesDir)) {
+          fs.mkdirSync(archivedImagesDir, { recursive: true });
+        }
+        if (fs.existsSync(archivedImagesPath)) {
+          fs.rmSync(archivedImagesPath, { recursive: true });
+        }
+        fs.renameSync(readyImagesPath, archivedImagesPath);
+        filesMoved.images = true;
+      }
 
       return new Response(
         JSON.stringify({
           success: true,
           action: existing ? "updated" : "created",
           articleId: slug,
+          filesMoved,
         }),
         { status: existing ? 200 : 201, headers: { "Content-Type": "application/json" } }
       );

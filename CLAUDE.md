@@ -585,34 +585,64 @@ When working on the Translation Machine:
 
 ## Article Intake Workflow
 
-### Preprocessing (Steps 1-5)
+### File Flow (IMPORTANT)
+
+Files travel together through stages. Each folder represents a state:
 
 ```
-1. JD drops PDF into intake/articles/
+cache/articles/                    ← Working directory
+├── datalab-output-*.json          ← Raw Datalab output (Stage 1)
+├── {slug}.json                    ← Renamed raw JSON (Stage 2+)
+├── {slug}_parsed.json             ← Parser output (Stage 2+)
+└── images/{slug}/                 ← Extracted figures
 
-2. Claude runs Datalab Marker API
-   → cache/articles/{slug}.html (raw HTML with embedded images)
+cache/articles/ready/              ← Awaiting human review
+├── {slug}.json                    ← Raw JSON (moved here at Stage 3)
+├── {slug}_parsed.json             ← Parsed JSON (moved here at Stage 3)
+└── images/{slug}/                 ← Figures
 
-3. Claude runs mechanical parser
-   → Extracts: title, authors, abstract, body_html, references
-   → Flags: warnings (orphan paragraphs, missing fields)
-
-4. Claude does AI enhancement pass
-   → Fills missing metadata (authors, citation)
-   → Fixes warnings (joins orphan paragraphs)
-   → Extracts references parser missed (e.g., French "Références")
-
-5. JD reviews in /admin/review
-   → Verifies extraction is correct
-   → Makes final edits if needed
-   → Submits to database
-
-   → SQLite (articles table) with:
-      raw_html, abstract, body_html,
-      citation, acknowledgements, references_json
+cache/articles/archived/           ← Approved and in database
+├── {slug}.json                    ← Raw JSON (backup)
+├── {slug}_parsed.json             ← Final parsed content
+└── images/{slug}/                 ← Figures
 ```
 
-### Translation (Step 6+)
+**The principle:** Files travel together. All three items ({slug}.json, {slug}_parsed.json, images/{slug}/) move as a unit between folders.
+
+### Stage Transitions
+
+| Stage | Trigger | Files Move |
+|-------|---------|------------|
+| **1. Downloaded** | Manual download or `extract_pdf()` | `datalab-output-*.json` lands in `cache/articles/` |
+| **2. Parsed** | `parse_datalab_file()` | Renamed to `{slug}.json`, creates `{slug}_parsed.json` |
+| **3. Step 4 Complete** | `step4_complete()` | ALL files move to `ready/` |
+| **4. Human Approved** | `/admin/review` approve | ALL files move to `archived/` |
+| **4b. Human Rejected** | `/admin/review` reject | ALL files move back to `cache/articles/` |
+
+### Preprocessing Steps
+
+```
+1. PDF arrives (intake/articles/ OR manual Datalab download)
+
+2. Extract: extract_pdf() OR manual download from Datalab website
+   → datalab-output-{id}.json in cache/articles/
+
+3. Parse: parse_datalab_file()
+   → {slug}.json (renamed)
+   → {slug}_parsed.json (new)
+
+4. AI Enhancement: step4_check_* / step4_confirm_* tools
+   → Fills missing metadata, fixes warnings, wraps formulas
+
+5. Complete: step4_complete()
+   → ALL files move to ready/
+
+6. Human Review: /admin/review
+   → Approve: ALL files move to archived/, data inserted to SQLite
+   → Reject: ALL files move back to cache/articles/ for rework
+```
+
+### Translation (After Approval)
 
 ```
 SQLite articles                    ← Translation Machine reads from here

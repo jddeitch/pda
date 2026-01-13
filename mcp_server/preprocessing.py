@@ -2075,24 +2075,33 @@ def step4_complete(slug: str) -> dict[str, Any]:
     # Ensure ready directory exists
     READY_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Move to ready directory
-    ready_path = READY_DIR / f"{slug}_parsed.json"
-    with open(ready_path, 'w', encoding='utf-8') as f:
-        json.dump(parsed, f, ensure_ascii=False, indent=2)
+    # Move BOTH files to ready/ together (they travel as a pair)
+    import shutil
 
-    # Remove from work-in-progress location
+    # 1. Move parsed JSON
+    ready_parsed_path = READY_DIR / f"{slug}_parsed.json"
+    with open(ready_parsed_path, 'w', encoding='utf-8') as f:
+        json.dump(parsed, f, ensure_ascii=False, indent=2)
     parsed_path.unlink()
 
-    # Archive raw JSON
+    # 2. Move raw JSON
     json_path = CACHE_DIR / f"{slug}.json"
-    archived_path = ARCHIVED_DIR / f"{slug}.json"
-    json_archived = False
-
+    ready_json_path = READY_DIR / f"{slug}.json"
+    raw_moved = False
     if json_path.exists():
-        import shutil
-        ARCHIVED_DIR.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(json_path), str(archived_path))
-        json_archived = True
+        shutil.move(str(json_path), str(ready_json_path))
+        raw_moved = True
+
+    # 3. Move images folder if exists
+    images_src = CACHE_DIR / "images" / slug
+    images_dst = READY_DIR / "images" / slug
+    images_moved = False
+    if images_src.exists():
+        images_dst.parent.mkdir(parents=True, exist_ok=True)
+        if images_dst.exists():
+            shutil.rmtree(images_dst)
+        shutil.move(str(images_src), str(images_dst))
+        images_moved = True
 
     # Clear step4 state
     _clear_step4_state(slug)
@@ -2101,8 +2110,12 @@ def step4_complete(slug: str) -> dict[str, Any]:
         "success": True,
         "slug": slug,
         "status": "ready_for_human_review",
-        "ready_path": str(ready_path),
-        "raw_json_archived": json_archived,
+        "ready_path": str(ready_parsed_path),
+        "files_moved_to_ready": {
+            "parsed": True,
+            "raw": raw_moved,
+            "images": images_moved
+        },
         "checks_completed": STEP4_CHECKS,
         "next_step": "Article moved to ready/ for human review at /admin/review. Human approves there."
     }
