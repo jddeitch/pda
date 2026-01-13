@@ -1082,27 +1082,37 @@ def complete_body_review(
     if notes:
         data['body_review_notes'] = notes
 
-    # Ensure directories exist
+    # Ensure ready directory exists
     READY_DIR.mkdir(parents=True, exist_ok=True)
-    ARCHIVED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Move _parsed.json to ready directory (signals preprocessing complete)
-    ready_path = READY_DIR / f"{slug}_parsed.json"
-    with open(ready_path, 'w', encoding='utf-8') as f:
+    # Move ALL files to ready/ together (they travel as a pair)
+    import shutil
+
+    # 1. Move parsed JSON
+    ready_parsed_path = READY_DIR / f"{slug}_parsed.json"
+    with open(ready_parsed_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-    # Remove from work-in-progress location
     parsed_path.unlink()
 
-    # Move raw Datalab JSON to archived folder (cleanup)
+    # 2. Move raw JSON
     raw_json_path = CACHE_DIR / f"{slug}.json"
-    archived_json_path = ARCHIVED_DIR / f"{slug}.json"
-    json_archived = False
+    ready_json_path = READY_DIR / f"{slug}.json"
+    raw_moved = False
     if raw_json_path.exists():
-        import shutil
-        shutil.move(str(raw_json_path), str(archived_json_path))
-        json_archived = True
-        logger.info(f"Moved raw JSON to archived: {slug}.json")
+        shutil.move(str(raw_json_path), str(ready_json_path))
+        raw_moved = True
+        logger.info(f"Moved raw JSON to ready: {slug}.json")
+
+    # 3. Move images folder if exists
+    images_src = CACHE_DIR / "images" / slug
+    images_dst = READY_DIR / "images" / slug
+    images_moved = False
+    if images_src.exists():
+        images_dst.parent.mkdir(parents=True, exist_ok=True)
+        if images_dst.exists():
+            shutil.rmtree(images_dst)
+        shutil.move(str(images_src), str(images_dst))
+        images_moved = True
 
     # Update session - this article is now ready for human review
     session = get_session()
@@ -1116,8 +1126,12 @@ def complete_body_review(
         "slug": slug,
         "body_approved": body_approved,
         "fixes_applied": changes_made,
-        "ready_for_review": str(ready_path),
-        "raw_json_archived": json_archived,
+        "ready_for_review": str(ready_parsed_path),
+        "files_moved_to_ready": {
+            "parsed": True,
+            "raw": raw_moved,
+            "images": images_moved
+        },
         "next_step": "Article moved to ready/ for human review. Human approves at /admin/review. Then call start_preprocessing() to continue with next article."
     }
 
