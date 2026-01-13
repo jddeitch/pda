@@ -20,6 +20,16 @@ if (!fs.existsSync(jsonPath)) {
 }
 
 // Load parsed data
+interface Figure {
+  id: string;
+  page: number;
+  section: string;
+  caption: string | null;
+  alt: string | null;
+  description_html: string | null;  // Full description div with tables
+  images: string[];
+}
+
 interface ParsedArticle {
   title: string | null;
   authors: string | null;
@@ -29,6 +39,7 @@ interface ParsedArticle {
   abstract: string | null;
   body_html: string;
   references: string[];
+  figures: Figure[];
   method: string | null;
   voice: string | null;
   peer_reviewed: boolean;
@@ -49,10 +60,53 @@ try {
 // Derive source_url from DOI if available
 const doiUrl = parsed?.doi ? `https://doi.org/${parsed.doi}` : null;
 
+// Images directory (relative to ready folder)
+const IMAGES_DIR = path.join(READY_DIR, "images", slug || "");
+
 // Count stats
 const bodyLength = parsed?.body_html?.length || 0;
 const abstractLength = parsed?.abstract?.length || 0;
 const refCount = parsed?.references?.length || 0;
+const figureCount = parsed?.figures?.length || 0;
+
+// Process body_html to replace figure placeholders with actual images + description
+function processBodyHtml(html: string, figures: Figure[], imagesDir: string): string {
+  if (!html || !figures) return html;
+
+  // Build a map of figure_id -> figure data
+  const figureMap = new Map<string, Figure>();
+  for (const fig of figures) {
+    figureMap.set(fig.id, fig);
+  }
+
+  // Replace placeholder divs with actual figure HTML including description tables
+  return html.replace(
+    /<div class="figure-placeholder" data-figure-id="([^"]+)"><\/div>/g,
+    (match, figId) => {
+      const fig = figureMap.get(figId);
+      if (!fig || fig.images.length === 0) {
+        return `<div class="figure-missing">[Figure ${figId} - no image]</div>`;
+      }
+
+      const imgSrc = `/admin/images/${slug}/${fig.images[0]}`;
+      const alt = fig.alt || fig.caption || `Figure ${figId}`;
+      const caption = fig.caption ? `<figcaption class="text-sm text-stone-600 mt-2">${fig.caption}</figcaption>` : "";
+
+      // Include description_html if present (contains Datalab's extracted tables + description)
+      const description = fig.description_html
+        ? `<div class="figure-data-content mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-xs">${fig.description_html}</div>`
+        : "";
+
+      return `<figure class="my-6 p-4 bg-stone-50 border border-stone-200 rounded-lg">
+        <img src="${imgSrc}" alt="${alt}" class="max-w-full h-auto rounded border border-stone-200" />
+        ${caption}
+        ${description}
+      </figure>`;
+    }
+  );
+}
+
+const processedBodyHtml = parsed ? processBodyHtml(parsed.body_html, parsed.figures || [], IMAGES_DIR) : "";
 ---
 
 <AdminLayout title={`Review: ${slug}`}>
@@ -94,6 +148,10 @@ const refCount = parsed?.references?.length || 0;
           <div class="rounded bg-white px-3 py-2 shadow-sm">
             <span class="text-xs text-stone-500">References</span>
             <span class="ml-2 font-medium text-stone-900">{refCount}</span>
+          </div>
+          <div class="rounded bg-white px-3 py-2 shadow-sm">
+            <span class="text-xs text-stone-500">Figures</span>
+            <span class="ml-2 font-medium text-stone-900">{figureCount}</span>
           </div>
           {parsed.doi && (
             <div class="rounded bg-green-50 px-3 py-2 shadow-sm">
@@ -282,14 +340,71 @@ const refCount = parsed?.references?.length || 0;
           <h2 class="text-lg font-semibold text-stone-900 border-b border-stone-200 pb-2 mb-4">
             Body Content
             <span class="text-sm font-normal text-stone-500 ml-2">
-              ({Math.round(bodyLength / 1024)} KB)
+              ({Math.round(bodyLength / 1024)} KB, {figureCount} figures)
             </span>
           </h2>
           <div
             class="prose prose-stone prose-sm max-w-none article-body"
-            set:html={parsed.body_html}
+            set:html={processedBodyHtml}
           />
         </div>
+
+        <!-- Figures Gallery -->
+        {figureCount > 0 && (
+          <div class="rounded-lg bg-white shadow-sm p-6">
+            <h2 class="text-lg font-semibold text-stone-900 border-b border-stone-200 pb-2 mb-4">
+              Figures
+              <span class="text-sm font-normal text-stone-500 ml-2">
+                ({figureCount})
+              </span>
+            </h2>
+            <div class="grid grid-cols-2 gap-4">
+              {parsed.figures.map((fig) => (
+                <div class="border border-stone-200 rounded-lg p-3">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-stone-500 uppercase">{fig.id}</span>
+                    <span class="text-xs text-stone-400">page {fig.page}, section: {fig.section}</span>
+                  </div>
+                  {fig.images.length > 0 ? (
+                    <img
+                      src={`/admin/images/${slug}/${fig.images[0]}`}
+                      alt={fig.alt || `Figure ${fig.id}`}
+                      class="w-full h-auto rounded border border-stone-100"
+                    />
+                  ) : (
+                    <div class="bg-stone-100 rounded p-4 text-center text-stone-500 text-sm">
+                      No image
+                    </div>
+                  )}
+                  {fig.caption && (
+                    <p class="mt-2 text-xs text-stone-600"><strong>Caption:</strong> {fig.caption}</p>
+                  )}
+                  {fig.description_html && (
+                    <details class="mt-2" open>
+                      <summary class="text-xs font-medium text-blue-600 cursor-pointer hover:text-blue-800">
+                        Figure Data (tables + description)
+                      </summary>
+                      <div
+                        class="mt-2 text-xs text-stone-700 bg-blue-50 p-3 rounded border border-blue-200 figure-data-content"
+                        set:html={fig.description_html}
+                      />
+                    </details>
+                  )}
+                  {!fig.description_html && fig.alt && fig.alt.length > 20 && (
+                    <details class="mt-2">
+                      <summary class="text-xs text-stone-500 cursor-pointer hover:text-stone-700">
+                        Alt text ({fig.alt.length} chars)
+                      </summary>
+                      <p class="mt-1 text-xs text-stone-600 bg-stone-50 p-2 rounded">
+                        {fig.alt}
+                      </p>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <!-- References -->
         {refCount > 0 && (
@@ -329,6 +444,15 @@ const refCount = parsed?.references?.length || 0;
   .article-body :global(th) { background-color: #f5f5f4; font-weight: 500; }
   .article-body :global(img) { max-width: 100%; height: auto; margin: 1rem 0; border-radius: 0.25rem; }
   .article-body :global(hr) { border: none; border-top: 1px solid #d6d3d1; margin: 0.5rem 0; }
+
+  /* Formula spans (converted from math tags) */
+  .article-body :global(.formula) { font-family: ui-monospace, monospace; font-style: italic; }
+
+  /* Figure data content - tables with actual chart values */
+  .figure-data-content :global(table) { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.65rem; }
+  .figure-data-content :global(th), .figure-data-content :global(td) { border: 1px solid #93c5fd; padding: 0.15rem 0.35rem; }
+  .figure-data-content :global(th) { background-color: #dbeafe; font-weight: 600; text-align: left; }
+  .figure-data-content :global(p) { margin: 0.25rem 0; line-height: 1.4; }
 </style>
 
 <script>

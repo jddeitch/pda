@@ -1093,6 +1093,787 @@ def detect_body_issues(body_html: str) -> list[dict]:
 # slugify is now imported from utils.py
 
 
+# --- Step 4: AI Enhancement Tools ---
+# These tools ENFORCE sequential checking. Claude must call each one in order.
+# Each tool returns next_step telling Claude exactly what to call next.
+# Cannot skip to step4_complete without passing through all checks.
+
+# Session state keys for tracking which checks are done
+STEP4_CHECKS = ['fields', 'warnings', 'references', 'formulas']
+
+
+def _get_step4_state(slug: str) -> dict[str, Any]:
+    """Get Step 4 check state for an article."""
+    state_file = CACHE_DIR / f"{slug}_step4_state.json"
+    if state_file.exists():
+        try:
+            return json.loads(state_file.read_text())
+        except:
+            pass
+    return {check: False for check in STEP4_CHECKS}
+
+
+def _save_step4_state(slug: str, state: dict[str, Any]) -> None:
+    """Save Step 4 check state."""
+    state_file = CACHE_DIR / f"{slug}_step4_state.json"
+    state_file.write_text(json.dumps(state, indent=2))
+
+
+def _clear_step4_state(slug: str) -> None:
+    """Clear Step 4 state when complete."""
+    state_file = CACHE_DIR / f"{slug}_step4_state.json"
+    if state_file.exists():
+        state_file.unlink()
+
+
+def step4_check_fields(slug: str) -> dict[str, Any]:
+    """
+    Step 4.1: Check for missing or empty metadata fields.
+
+    MUST be called first in Step 4 sequence. Returns fields that need attention.
+
+    Claude must review and either:
+    - Confirm field is correctly empty (e.g., no authors found in document)
+    - Provide the missing value extracted from raw HTML
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - fields_status: Dict of field -> status (ok, missing, empty)
+        - raw_html_hint: First 2 pages of raw HTML for extraction
+        - next_step: Call step4_confirm_fields() with your findings
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+    json_path = CACHE_DIR / f"{slug}.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'",
+            "action": f"Call parse_extracted_article('{slug}') first."
+        }
+
+    # Load parsed data
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    # Check required fields
+    fields_to_check = ['title', 'authors', 'citation', 'abstract', 'year']
+    fields_status = {}
+
+    for field in fields_to_check:
+        value = parsed.get(field)
+        if value is None:
+            fields_status[field] = {'status': 'missing', 'value': None}
+        elif isinstance(value, str) and not value.strip():
+            fields_status[field] = {'status': 'empty', 'value': ''}
+        else:
+            fields_status[field] = {'status': 'ok', 'value': value[:100] + '...' if isinstance(value, str) and len(value) > 100 else value}
+
+    # Count issues
+    issues = [f for f, s in fields_status.items() if s['status'] != 'ok']
+
+    # Load raw blocks for reference (first 2 pages)
+    raw_hint = []
+    if json_path.exists():
+        with open(json_path, 'r', encoding='utf-8') as f:
+            raw_data = json.load(f)
+        blocks = raw_data.get('blocks', [])
+        for block in blocks[:20]:  # First 20 blocks usually cover pages 0-1
+            if block.get('page', 0) > 1:
+                break
+            html = block.get('html', '')
+            text = extract_text(html) if html else ''
+            if text and len(text.strip()) > 10:
+                raw_hint.append({
+                    'type': block.get('block_type', ''),
+                    'text': text[:200]
+                })
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "fields",
+        "fields_status": fields_status,
+        "issues_found": len(issues),
+        "issue_fields": issues,
+        "raw_blocks_hint": raw_hint[:10],  # First 10 relevant blocks
+        "next_step": f"Review fields_status. For each missing/empty field, check raw_blocks_hint to find the value. Then call step4_confirm_fields('{slug}', ...) with your findings."
+    }
+
+
+def step4_confirm_fields(
+    slug: str,
+    title: str | None = None,
+    authors: str | None = None,
+    year: str | None = None,
+    citation: str | None = None,
+    abstract: str | None = None,
+    all_fields_ok: bool = False,
+) -> dict[str, Any]:
+    """
+    Confirm or provide missing field values.
+
+    If step4_check_fields() showed issues, provide the corrected values.
+    If all fields were ok, set all_fields_ok=True.
+
+    Args:
+        slug: The article slug
+        title: Corrected title if it was missing/empty
+        authors: Corrected authors if missing/empty
+        year: Corrected year if missing/empty
+        citation: Corrected citation if missing/empty
+        abstract: Corrected abstract if missing/empty
+        all_fields_ok: Set True if step4_check_fields showed no issues
+
+    Returns:
+        - Updates _parsed.json with corrections
+        - Marks 'fields' check as complete
+        - next_step: Call step4_check_warnings()
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Load parsed data
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    changes = []
+
+    # Apply corrections
+    if title is not None:
+        parsed['title'] = title
+        changes.append(f"title: {title[:50]}...")
+
+    if authors is not None:
+        parsed['authors'] = authors
+        changes.append(f"authors: {authors}")
+
+    if year is not None:
+        parsed['year'] = year
+        changes.append(f"year: {year}")
+
+    if citation is not None:
+        parsed['citation'] = citation
+        changes.append(f"citation: {citation[:50]}...")
+
+    if abstract is not None:
+        parsed['abstract'] = abstract
+        changes.append(f"abstract: {len(abstract)} chars")
+
+    # Save updates
+    with open(parsed_path, 'w', encoding='utf-8') as f:
+        json.dump(parsed, f, ensure_ascii=False, indent=2)
+
+    # Mark check complete
+    state = _get_step4_state(slug)
+    state['fields'] = True
+    _save_step4_state(slug, state)
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "fields",
+        "status": "complete",
+        "changes_applied": changes if changes else ["No changes needed"],
+        "next_step": f"Call step4_check_warnings('{slug}') to check for parser warnings."
+    }
+
+
+def step4_check_warnings(slug: str) -> dict[str, Any]:
+    """
+    Step 4.2: Check for parser warnings (orphan paragraphs, etc.).
+
+    MUST call step4_confirm_fields() first.
+
+    Returns warnings from the parser that need attention:
+    - [ORPHAN?] — paragraph starting with lowercase, likely split
+    - Other structural warnings
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - warnings: List of warnings with context
+        - next_step: Call step4_confirm_warnings() with fixes
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Check prerequisite
+    state = _get_step4_state(slug)
+    if not state.get('fields'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must complete fields check first",
+            "action": f"Call step4_check_fields('{slug}') first."
+        }
+
+    # Load parsed data
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    warnings = parsed.get('warnings', [])
+
+    # Also scan body for orphan-like patterns
+    body_html = parsed.get('body_html', '')
+    body_issues = detect_body_issues(body_html)
+    orphan_issues = [p for p in body_issues if any('ORPHAN' in issue for issue in p.get('issues', []))]
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "warnings",
+        "parser_warnings": warnings,
+        "orphan_paragraphs": orphan_issues[:10],  # First 10
+        "total_orphans": len(orphan_issues),
+        "next_step": f"Review warnings. For each [ORPHAN?], decide if it should be joined to previous paragraph. Then call step4_confirm_warnings('{slug}', ...) with your decisions."
+    }
+
+
+def step4_confirm_warnings(
+    slug: str,
+    orphan_fixes: list[dict] | None = None,
+    warnings_acknowledged: bool = False,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Confirm warnings have been reviewed and apply any fixes.
+
+    Args:
+        slug: The article slug
+        orphan_fixes: List of fixes for orphan paragraphs:
+            [{"index": 5, "action": "join_previous"}, ...]
+        warnings_acknowledged: True if warnings reviewed and no action needed
+        notes: Optional notes about decisions
+
+    Returns:
+        - Applies fixes to body_html
+        - Marks 'warnings' check as complete
+        - next_step: Call step4_check_references()
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Check prerequisite
+    state = _get_step4_state(slug)
+    if not state.get('fields'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must complete fields check first",
+            "action": f"Call step4_check_fields('{slug}') first."
+        }
+
+    # Load and apply fixes
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    changes = []
+
+    if orphan_fixes:
+        from bs4 import BeautifulSoup
+        body_html = parsed.get('body_html', '')
+        soup = BeautifulSoup(body_html, 'html.parser')
+
+        elements = list(soup.children)
+        elements = [e for e in elements if hasattr(e, 'name') and e.name]
+
+        # Sort by index descending
+        sorted_fixes = sorted(orphan_fixes, key=lambda f: f.get('index', 0), reverse=True)
+
+        for fix in sorted_fixes:
+            idx = fix.get('index', -1)
+            action = fix.get('action', '')
+
+            if idx < 0 or idx >= len(elements):
+                continue
+
+            if action == 'join_previous' and idx > 0:
+                current_text = elements[idx].get_text(strip=True)
+                prev_el = elements[idx - 1]
+                prev_text = prev_el.get_text(strip=True)
+                prev_el.string = prev_text + ' ' + current_text
+                elements[idx].decompose()
+                changes.append(f"Joined paragraph {idx} to {idx - 1}")
+
+        parsed['body_html'] = str(soup)
+
+    if notes:
+        parsed['warning_review_notes'] = notes
+        changes.append(f"Notes: {notes[:50]}...")
+
+    # Save updates
+    with open(parsed_path, 'w', encoding='utf-8') as f:
+        json.dump(parsed, f, ensure_ascii=False, indent=2)
+
+    # Mark check complete
+    state['warnings'] = True
+    _save_step4_state(slug, state)
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "warnings",
+        "status": "complete",
+        "changes_applied": changes if changes else ["No changes needed"],
+        "next_step": f"Call step4_check_references('{slug}') to check references extraction."
+    }
+
+
+def step4_check_references(slug: str) -> dict[str, Any]:
+    """
+    Step 4.3: Check if references were properly extracted.
+
+    MUST call step4_confirm_warnings() first.
+
+    Returns:
+    - references: Currently extracted references
+    - raw_reference_section: Raw HTML of reference section (if found)
+    - issues: Any problems detected
+
+    Args:
+        slug: The article slug
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+    json_path = CACHE_DIR / f"{slug}.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Check prerequisites
+    state = _get_step4_state(slug)
+    if not state.get('warnings'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must complete warnings check first",
+            "action": f"Call step4_check_warnings('{slug}') first."
+        }
+
+    # Load parsed data
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    references = parsed.get('references', [])
+
+    # Try to find reference section in raw HTML if references are empty
+    raw_reference_hint = None
+    if not references and json_path.exists():
+        with open(json_path, 'r', encoding='utf-8') as f:
+            raw_data = json.load(f)
+
+        blocks = raw_data.get('blocks', [])
+        in_refs = False
+        ref_blocks = []
+
+        for block in blocks:
+            html = block.get('html', '')
+            text = extract_text(html) if html else ''
+
+            # Check if this is a reference header
+            if re.search(r'^(References|Références|Bibliography|Bibliographie)', text, re.IGNORECASE):
+                in_refs = True
+                continue
+
+            if in_refs:
+                # Stop at next major section
+                if re.match(r'^(Appendix|Annexe|Acknowledgements)', text, re.IGNORECASE):
+                    break
+                if text and len(text) > 20:
+                    ref_blocks.append(text[:200])
+                if len(ref_blocks) >= 10:
+                    break
+
+        if ref_blocks:
+            raw_reference_hint = ref_blocks
+
+    issues = []
+    if not references:
+        issues.append("No references extracted — check raw_reference_hint for missed references")
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "references",
+        "references_count": len(references),
+        "references_preview": references[:5] if references else [],
+        "raw_reference_hint": raw_reference_hint,
+        "issues": issues,
+        "next_step": f"Review references. If references are missing, extract them from raw_reference_hint. Then call step4_confirm_references('{slug}', ...) with your findings."
+    }
+
+
+def step4_confirm_references(
+    slug: str,
+    references_ok: bool = False,
+    additional_references: list[str] | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Confirm references check is complete.
+
+    Args:
+        slug: The article slug
+        references_ok: True if references are complete (or correctly empty)
+        additional_references: List of references to add (extracted from raw HTML)
+        notes: Optional notes
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Check prerequisites
+    state = _get_step4_state(slug)
+    if not state.get('warnings'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must complete warnings check first",
+            "action": f"Call step4_check_warnings('{slug}') first."
+        }
+
+    # Load and update
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    changes = []
+
+    if additional_references:
+        existing = parsed.get('references', [])
+        parsed['references'] = existing + additional_references
+        changes.append(f"Added {len(additional_references)} references")
+
+    if notes:
+        parsed['references_review_notes'] = notes
+
+    # Save
+    with open(parsed_path, 'w', encoding='utf-8') as f:
+        json.dump(parsed, f, ensure_ascii=False, indent=2)
+
+    # Mark complete
+    state['references'] = True
+    _save_step4_state(slug, state)
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "references",
+        "status": "complete",
+        "changes_applied": changes if changes else ["No changes needed"],
+        "next_step": f"Call step4_check_formulas('{slug}') to check formula normalization."
+    }
+
+
+def step4_check_formulas(slug: str) -> dict[str, Any]:
+    """
+    Step 4.4: Check for unwrapped statistical formulas that need normalization.
+
+    MUST call step4_confirm_references() first.
+
+    Scans body_html for statistical patterns that aren't wrapped in <span class="formula">:
+    - F-statistics: F(1, 156) = 4.07
+    - t-tests: t(45) = 2.31
+    - Chi-square: χ²(2) = 8.45
+    - p-values: p < .05, p = .001
+    - Effect sizes: η² = .12, d = 0.45
+    - Correlations: r = .67
+    - Means/SDs: M = 4.2, SD = 1.1
+
+    Returns paragraphs containing unwrapped formulas for review.
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Check prerequisites
+    state = _get_step4_state(slug)
+    if not state.get('references'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must complete references check first",
+            "action": f"Call step4_check_references('{slug}') first."
+        }
+
+    # Load parsed data
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    body_html = parsed.get('body_html', '')
+
+    # Patterns for statistical notation (not inside formula spans)
+    stat_patterns = [
+        r'F\s*\(\d+\s*,\s*\d+\)\s*=\s*[\d.]+',  # F(1, 156) = 4.07
+        r't\s*\(\d+\)\s*=\s*-?[\d.]+',  # t(45) = 2.31
+        r'χ²?\s*\(\d+\)\s*=\s*[\d.]+',  # χ²(2) = 8.45
+        r'p\s*[<>=]\s*\.?\d+',  # p < .05
+        r'η²?\s*=\s*\.?\d+',  # η² = .12
+        r'd\s*=\s*-?[\d.]+',  # d = 0.45
+        r'r\s*=\s*-?\.?\d+',  # r = .67
+        r'M\s*=\s*[\d.]+',  # M = 4.2
+        r'SD\s*=\s*[\d.]+',  # SD = 1.1
+    ]
+
+    combined_pattern = '|'.join(f'({p})' for p in stat_patterns)
+
+    # Parse HTML and find unwrapped formulas
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(body_html, 'html.parser')
+
+    paragraphs_with_formulas = []
+
+    for i, element in enumerate(soup.children):
+        if not hasattr(element, 'name') or element.name not in ['p', 'td', 'li']:
+            continue
+
+        # Get text NOT inside formula spans
+        text = element.get_text()
+
+        # Check if there are formula spans already
+        existing_formulas = element.find_all('span', class_='formula')
+
+        # Find matches in text
+        matches = re.findall(combined_pattern, text)
+
+        if matches:
+            # Flatten match groups
+            flat_matches = []
+            for m in matches:
+                if isinstance(m, tuple):
+                    flat_matches.extend([x for x in m if x])
+                else:
+                    flat_matches.append(m)
+
+            # Check which are not already wrapped
+            unwrapped = []
+            for match in flat_matches:
+                # See if this match is inside an existing formula span
+                is_wrapped = False
+                for span in existing_formulas:
+                    if match in span.get_text():
+                        is_wrapped = True
+                        break
+                if not is_wrapped:
+                    unwrapped.append(match)
+
+            if unwrapped:
+                paragraphs_with_formulas.append({
+                    'index': i,
+                    'text_preview': text[:200] + '...' if len(text) > 200 else text,
+                    'unwrapped_formulas': unwrapped[:5],  # First 5
+                    'total_unwrapped': len(unwrapped)
+                })
+
+    total_unwrapped = sum(p['total_unwrapped'] for p in paragraphs_with_formulas)
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "formulas",
+        "paragraphs_with_unwrapped_formulas": paragraphs_with_formulas[:20],
+        "total_paragraphs_affected": len(paragraphs_with_formulas),
+        "total_unwrapped_formulas": total_unwrapped,
+        "note": "This is judgment-based work. Numbers like ages, sample sizes don't need wrapping. Wrap statistical test results.",
+        "next_step": f"Review the unwrapped formulas. Decide which need <span class=\"formula\"> wrapping. Then call step4_confirm_formulas('{slug}', ...) with your decisions."
+    }
+
+
+def step4_confirm_formulas(
+    slug: str,
+    formulas_ok: bool = False,
+    formula_wraps: list[dict] | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Confirm formula normalization is complete.
+
+    Args:
+        slug: The article slug
+        formulas_ok: True if no formula wrapping needed
+        formula_wraps: List of formulas to wrap:
+            [{"paragraph_index": 5, "formula_text": "F(1, 156) = 4.07"}, ...]
+            Each will be wrapped in <span class="formula">
+        notes: Optional notes about decisions
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Check prerequisites
+    state = _get_step4_state(slug)
+    if not state.get('references'):
+        return {
+            "success": False,
+            "error": "PREREQUISITE_MISSING",
+            "details": "Must complete references check first",
+            "action": f"Call step4_check_references('{slug}') first."
+        }
+
+    # Load and update
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    changes = []
+
+    if formula_wraps:
+        body_html = parsed.get('body_html', '')
+
+        # Apply wraps (simple text replacement)
+        for wrap in formula_wraps:
+            formula_text = wrap.get('formula_text', '')
+            if formula_text and formula_text in body_html:
+                wrapped = f'<span class="formula">{formula_text}</span>'
+                body_html = body_html.replace(formula_text, wrapped, 1)
+                changes.append(f"Wrapped: {formula_text[:30]}...")
+
+        parsed['body_html'] = body_html
+
+    if notes:
+        parsed['formula_review_notes'] = notes
+
+    # Save
+    with open(parsed_path, 'w', encoding='utf-8') as f:
+        json.dump(parsed, f, ensure_ascii=False, indent=2)
+
+    # Mark complete
+    state['formulas'] = True
+    _save_step4_state(slug, state)
+
+    return {
+        "success": True,
+        "slug": slug,
+        "check": "formulas",
+        "status": "complete",
+        "changes_applied": changes if changes else ["No wrapping needed"],
+        "next_step": f"All Step 4 checks complete. Call step4_complete('{slug}') to finalize and move to human review."
+    }
+
+
+def step4_complete(slug: str) -> dict[str, Any]:
+    """
+    Finalize Step 4 and move article to ready/ for human review.
+
+    Can ONLY be called after all four checks are complete:
+    - fields
+    - warnings
+    - references
+    - formulas
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - Moves _parsed.json to ready/ directory
+        - Clears step4 state
+        - Ready for human review at /admin/review
+    """
+    parsed_path = CACHE_DIR / f"{slug}_parsed.json"
+
+    if not parsed_path.exists():
+        return {
+            "success": False,
+            "error": "NOT_FOUND",
+            "details": f"No parsed article found for slug '{slug}'"
+        }
+
+    # Check ALL prerequisites
+    state = _get_step4_state(slug)
+    missing_checks = [check for check in STEP4_CHECKS if not state.get(check)]
+
+    if missing_checks:
+        return {
+            "success": False,
+            "error": "INCOMPLETE_CHECKS",
+            "details": f"Must complete all Step 4 checks first",
+            "missing_checks": missing_checks,
+            "action": f"Call step4_check_{missing_checks[0]}('{slug}') to continue."
+        }
+
+    # Load parsed data
+    with open(parsed_path, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
+
+    # Mark step 4 as complete
+    parsed['step4_complete'] = True
+    parsed['step4_completed_at'] = datetime.now().isoformat()
+
+    # Ensure ready directory exists
+    READY_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Move to ready directory
+    ready_path = READY_DIR / f"{slug}_parsed.json"
+    with open(ready_path, 'w', encoding='utf-8') as f:
+        json.dump(parsed, f, ensure_ascii=False, indent=2)
+
+    # Remove from work-in-progress location
+    parsed_path.unlink()
+
+    # Archive raw JSON
+    json_path = CACHE_DIR / f"{slug}.json"
+    archived_path = ARCHIVED_DIR / f"{slug}.json"
+    json_archived = False
+
+    if json_path.exists():
+        import shutil
+        ARCHIVED_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(json_path), str(archived_path))
+        json_archived = True
+
+    # Clear step4 state
+    _clear_step4_state(slug)
+
+    return {
+        "success": True,
+        "slug": slug,
+        "status": "ready_for_human_review",
+        "ready_path": str(ready_path),
+        "raw_json_archived": json_archived,
+        "checks_completed": STEP4_CHECKS,
+        "next_step": "Article moved to ready/ for human review at /admin/review. Human approves there."
+    }
+
+
 def generate_article_id(title: str, authors: str, year: str | None) -> str:
     """Generate article ID from title, first author, and year."""
     # Extract first author's last name

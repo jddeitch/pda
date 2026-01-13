@@ -585,6 +585,263 @@ def get_preprocessing_status() -> dict[str, Any]:
     return preprocessing.get_preprocessing_status()
 
 
+# --- Step 4: AI Enhancement Tools ---
+# These enforce sequential checking. Cannot skip steps.
+
+@mcp.tool()
+@log_tool_call
+def step4_check_fields(slug: str) -> dict[str, Any]:
+    """
+    Step 4.1: Check for missing or empty metadata fields.
+
+    MUST be called first in Step 4 sequence. Returns fields that need attention.
+
+    Claude must review each field and either:
+    - Confirm the field is correctly empty (not in source document)
+    - Provide the missing value extracted from raw HTML
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - fields_status: Dict of field -> status (ok/missing/empty) + value
+        - raw_blocks_hint: First 2 pages for extraction
+        - next_step: Call step4_confirm_fields()
+    """
+    return preprocessing.step4_check_fields(slug)
+
+
+@mcp.tool()
+@log_tool_call
+def step4_confirm_fields(
+    slug: str,
+    title: str | None = None,
+    authors: str | None = None,
+    year: str | None = None,
+    citation: str | None = None,
+    abstract: str | None = None,
+    all_fields_ok: bool = False,
+) -> dict[str, Any]:
+    """
+    Confirm or provide missing field values (Step 4.1 completion).
+
+    If step4_check_fields() showed issues, provide the corrected values.
+    If all fields were ok, set all_fields_ok=True.
+
+    Args:
+        slug: The article slug
+        title: Corrected title if missing/empty
+        authors: Corrected authors if missing/empty
+        year: Corrected year if missing/empty
+        citation: Corrected citation if missing/empty
+        abstract: Corrected abstract if missing/empty
+        all_fields_ok: True if step4_check_fields showed no issues
+
+    Returns:
+        - Updates _parsed.json with corrections
+        - Marks 'fields' check complete
+        - next_step: Call step4_check_warnings()
+    """
+    return preprocessing.step4_confirm_fields(
+        slug=slug,
+        title=title,
+        authors=authors,
+        year=year,
+        citation=citation,
+        abstract=abstract,
+        all_fields_ok=all_fields_ok,
+    )
+
+
+@mcp.tool()
+@log_tool_call
+def step4_check_warnings(slug: str) -> dict[str, Any]:
+    """
+    Step 4.2: Check for parser warnings (orphan paragraphs, etc.).
+
+    MUST call step4_confirm_fields() first.
+
+    Returns warnings from the parser that need attention:
+    - [ORPHAN?] — paragraph starting with lowercase, likely split
+    - Other structural warnings
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - parser_warnings: Warnings from parsing
+        - orphan_paragraphs: Body paragraphs flagged as orphans
+        - next_step: Call step4_confirm_warnings()
+    """
+    return preprocessing.step4_check_warnings(slug)
+
+
+@mcp.tool()
+@log_tool_call
+def step4_confirm_warnings(
+    slug: str,
+    orphan_fixes: list[dict] | None = None,
+    warnings_acknowledged: bool = False,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Confirm warnings reviewed and apply fixes (Step 4.2 completion).
+
+    Args:
+        slug: The article slug
+        orphan_fixes: Fixes for orphan paragraphs:
+            [{"index": 5, "action": "join_previous"}, ...]
+        warnings_acknowledged: True if warnings reviewed, no action needed
+        notes: Optional notes about decisions
+
+    Returns:
+        - Applies fixes to body_html
+        - Marks 'warnings' check complete
+        - next_step: Call step4_check_references()
+    """
+    return preprocessing.step4_confirm_warnings(
+        slug=slug,
+        orphan_fixes=orphan_fixes,
+        warnings_acknowledged=warnings_acknowledged,
+        notes=notes,
+    )
+
+
+@mcp.tool()
+@log_tool_call
+def step4_check_references(slug: str) -> dict[str, Any]:
+    """
+    Step 4.3: Check if references were properly extracted.
+
+    MUST call step4_confirm_warnings() first.
+
+    Returns:
+    - references_count: Number currently extracted
+    - references_preview: First 5 references
+    - raw_reference_hint: Raw HTML of reference section (if refs empty)
+    - issues: Any problems detected
+
+    Args:
+        slug: The article slug
+    """
+    return preprocessing.step4_check_references(slug)
+
+
+@mcp.tool()
+@log_tool_call
+def step4_confirm_references(
+    slug: str,
+    references_ok: bool = False,
+    additional_references: list[str] | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Confirm references check complete (Step 4.3 completion).
+
+    Args:
+        slug: The article slug
+        references_ok: True if references are complete/correctly empty
+        additional_references: References to add (if extracted from raw HTML)
+        notes: Optional notes
+
+    Returns:
+        - Adds any additional references
+        - Marks 'references' check complete
+        - next_step: Call step4_check_formulas()
+    """
+    return preprocessing.step4_confirm_references(
+        slug=slug,
+        references_ok=references_ok,
+        additional_references=additional_references,
+        notes=notes,
+    )
+
+
+@mcp.tool()
+@log_tool_call
+def step4_check_formulas(slug: str) -> dict[str, Any]:
+    """
+    Step 4.4: Check for unwrapped statistical formulas needing normalization.
+
+    MUST call step4_confirm_references() first.
+
+    Scans body_html for statistical patterns NOT wrapped in <span class="formula">:
+    - F-statistics: F(1, 156) = 4.07
+    - t-tests: t(45) = 2.31
+    - Chi-square: χ²(2) = 8.45
+    - p-values: p < .05, p = .001
+    - Effect sizes: η² = .12, d = 0.45
+    - Correlations: r = .67
+    - Means/SDs: M = 4.2, SD = 1.1
+
+    Note: This is judgment-based. Ages, sample sizes don't need wrapping.
+    Wrap statistical test results and their parameters.
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - paragraphs_with_unwrapped_formulas: Paragraphs + formulas found
+        - total_unwrapped_formulas: Count
+        - next_step: Call step4_confirm_formulas()
+    """
+    return preprocessing.step4_check_formulas(slug)
+
+
+@mcp.tool()
+@log_tool_call
+def step4_confirm_formulas(
+    slug: str,
+    formulas_ok: bool = False,
+    formula_wraps: list[dict] | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Confirm formula normalization complete (Step 4.4 completion).
+
+    Args:
+        slug: The article slug
+        formulas_ok: True if no formula wrapping needed
+        formula_wraps: Formulas to wrap:
+            [{"paragraph_index": 5, "formula_text": "F(1, 156) = 4.07"}, ...]
+        notes: Optional notes about decisions
+
+    Returns:
+        - Wraps specified formulas in <span class="formula">
+        - Marks 'formulas' check complete
+        - next_step: Call step4_complete()
+    """
+    return preprocessing.step4_confirm_formulas(
+        slug=slug,
+        formulas_ok=formulas_ok,
+        formula_wraps=formula_wraps,
+        notes=notes,
+    )
+
+
+@mcp.tool()
+@log_tool_call
+def step4_complete(slug: str) -> dict[str, Any]:
+    """
+    Finalize Step 4 and move article to ready/ for human review.
+
+    Can ONLY be called after all four checks are complete:
+    - fields (step4_confirm_fields)
+    - warnings (step4_confirm_warnings)
+    - references (step4_confirm_references)
+    - formulas (step4_confirm_formulas)
+
+    Args:
+        slug: The article slug
+
+    Returns:
+        - Moves _parsed.json to ready/ directory
+        - Clears step4 state
+        - next_step: Human reviews at /admin/review
+    """
+    return preprocessing.step4_complete(slug)
+
+
 @mcp.tool()
 @log_tool_call
 def start_preprocessing(

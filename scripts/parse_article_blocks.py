@@ -24,41 +24,117 @@ Datalab block types we handle:
 import re
 import json
 import sys
+import yaml
+import base64
 from pathlib import Path
 from bs4 import BeautifulSoup
 from collections import defaultdict
 
 
-# --- Section detection patterns (multilingual) ---
+# --- Load section patterns from YAML ---
 
-SECTION_PATTERNS = {
-    'abstract': ['abstract', 'summary', 'résumé', 'resume'],
-    'keywords': ['keywords', 'mots-clés', 'mots clés', 'key words'],
-    'references': ['references', 'bibliography', 'références', 'bibliographie', 'literature cited'],
-    'acknowledgements': ['acknowledgements', 'acknowledgments', 'remerciements'],
-    'appendix': ['appendix', 'appendices', 'annexe', 'annexes', 'supplementary', 'supplemental', 'supporting information'],
-    'conflict_of_interest': ['conflict of interest', 'conflicts of interest', 'competing interests', 'déclaration', 'disclosure'],
-    'author_contributions': ['author contributions', 'contributions', 'contributorship'],
-    'funding': ['funding', 'financial support', 'financement'],
-    'data_availability': ['data availability', 'data statement'],
-}
+def load_section_headings():
+    """Load section heading patterns from data/section_headings.yaml"""
+    yaml_path = Path(__file__).parent.parent / 'data' / 'section_headings.yaml'
+    with open(yaml_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
 
-# Body section names - these are all part of main content
-BODY_SECTIONS = [
-    'introduction', 'background', 'literature review', 'theoretical background',
-    'methods', 'method', 'methodology', 'materials and methods', 'participants', 'procedure',
-    'results', 'findings',
-    'discussion', 'conclusions', 'conclusion', 'summary and conclusions',
-    'limitations', 'future directions', 'implications',
-    # French
-    'contexte', 'méthodes', 'méthodologie', 'résultats', 'discussion', 'conclusions',
-]
+    # Build SECTION_PATTERNS: flatten all language variants into single list per section
+    section_patterns = {}
+    for section_name in ['abstract', 'keywords', 'references', 'acknowledgements',
+                         'appendix', 'conflict_of_interest', 'author_contributions',
+                         'funding', 'data_availability', 'corresponding_author']:
+        if section_name in data:
+            patterns = []
+            for lang_patterns in data[section_name].values():
+                patterns.extend(lang_patterns)
+            section_patterns[section_name] = patterns
+
+    # Build BODY_SECTIONS: flatten all language variants
+    body_sections = []
+    if 'body_sections' in data:
+        for lang_patterns in data['body_sections'].values():
+            body_sections.extend(lang_patterns)
+
+    # Build METADATA_SECTIONS: flatten all language variants
+    metadata_sections = set()
+    if 'metadata_sections' in data:
+        for lang_patterns in data['metadata_sections'].values():
+            metadata_sections.update(lang_patterns)
+
+    return section_patterns, body_sections, metadata_sections
 
 
-def extract_text(html: str) -> str:
-    """Extract plain text from HTML."""
+SECTION_PATTERNS, BODY_SECTIONS, METADATA_SECTIONS = load_section_headings()
+
+
+def convert_math_tags(html: str) -> str:
+    """
+    Convert <math> tags to displayable content.
+
+    Datalab wraps formulas in <math> tags, but browsers expect proper MathML
+    inside them. Since these are simple inline formulas (not complex equations),
+    we convert LaTeX to Unicode and wrap in a styled span instead.
+    """
+    # Common LaTeX symbols that appear in academic papers
+    latex_to_unicode = {
+        r'\times': '×',
+        r'\div': '÷',
+        r'\pm': '±',
+        r'\leq': '≤',
+        r'\geq': '≥',
+        r'\neq': '≠',
+        r'\approx': '≈',
+        r'\alpha': 'α',
+        r'\beta': 'β',
+        r'\gamma': 'γ',
+        r'\delta': 'δ',
+        r'\chi': 'χ',
+        r'\eta': 'η',
+        r'\mu': 'μ',
+        r'\sigma': 'σ',
+        r'\sum': 'Σ',
+        r'\infty': '∞',
+    }
+
+    def replace_math(match):
+        content = match.group(1)
+        # Convert any LaTeX commands to Unicode
+        for latex, unicode_char in latex_to_unicode.items():
+            content = content.replace(latex, unicode_char)
+        # Use a span with class for styling - browsers can't render plain text in <math>
+        return f'<span class="formula">{content}</span>'
+
+    return re.sub(r'<math>(.*?)</math>', replace_math, html)
+
+
+def extract_text(html: str, preserve_math: bool = False) -> str:
+    """
+    Extract plain text from HTML.
+
+    Args:
+        html: HTML string to extract text from
+        preserve_math: If True, preserve <math>...</math> tags inline
+    """
     if not html:
         return ''
+
+    if preserve_math:
+        # Preserve math tags by replacing them with placeholders, then restoring
+        math_tags = []
+        def save_math(match):
+            math_tags.append(match.group(0))
+            return f'__MATH_{len(math_tags) - 1}__'
+
+        html_with_placeholders = re.sub(r'<math>.*?</math>', save_math, html)
+        soup = BeautifulSoup(html_with_placeholders, 'html.parser')
+        text = soup.get_text(strip=True)
+
+        # Restore math tags
+        for i, math_tag in enumerate(math_tags):
+            text = text.replace(f'__MATH_{i}__', math_tag)
+        return text
+
     soup = BeautifulSoup(html, 'html.parser')
     return soup.get_text(strip=True)
 
@@ -120,9 +196,21 @@ def is_article_type_label(text: str) -> bool:
 
 
 def is_sentence_continuation(text: str) -> bool:
-    """Check if text appears to be a continuation (starts with lowercase)."""
+    """Check if text appears to be a continuation (starts with lowercase).
+
+    Skips leading punctuation like quotes/apostrophes since academic text
+    often has quoted terms at sentence boundaries (e.g., "'atypical' range").
+    """
     text = text.strip()
-    return bool(text) and text[0].islower()
+    if not text:
+        return False
+    # Skip leading quotes/apostrophes to find the first letter
+    for char in text:
+        if char.isalpha():
+            return char.islower()
+        if char not in '\'"\u2018\u2019\u201C\u201D':  # Straight and curly quotes
+            break
+    return False
 
 
 def is_incomplete_sentence(text: str) -> bool:
@@ -135,7 +223,17 @@ def join_split_sentences(blocks: list[dict]) -> list[dict]:
     """
     Join sentences that were split across page/column breaks.
     Returns a new list of blocks with split sentences joined.
+
+    Key insight: Datalab correctly tags page chrome (PageHeader, PageFooter),
+    footnotes, figures, tables, and captions. When looking for a continuation
+    of an incomplete sentence, we skip over these non-content blocks BUT
+    stop if we hit a SectionHeader (which marks a new section boundary).
     """
+    # Block types to skip when looking for continuation
+    SKIP_BLOCK_TYPES = {'PageHeader', 'PageFooter', 'Figure', 'Picture', 'Caption', 'Footnote', 'Table'}
+
+    # METADATA_SECTIONS loaded from data/section_headings.yaml at module level
+
     result = []
     i = 0
     consumed = set()
@@ -149,62 +247,161 @@ def join_split_sentences(blocks: list[dict]) -> list[dict]:
         bt = block.get('block_type', '')
 
         if bt in ['Text', 'Caption']:
-            text = extract_text(block.get('html', ''))
+            text = extract_text(block.get('html', ''), preserve_math=True)
             current_incomplete = is_incomplete_sentence(text)
 
             # Look ahead for a continuation
             j = i + 1
             continuation_idx = None
             crossed_page = False
+            crossed_section = False  # Stop if we hit a new section
+
+            in_metadata_section = False  # Track if we're inside a metadata section
 
             while j < len(blocks):
                 next_block = blocks[j]
                 next_bt = next_block.get('block_type', '')
 
-                if next_bt in ['PageFooter', 'PageHeader']:
-                    crossed_page = True
+                # SectionHeader marks a section boundary
+                if next_bt == 'SectionHeader':
+                    next_text = extract_text(next_block.get('html', ''))
+                    next_text_lower = next_text.lower().strip()
+
+                    # Metadata sections (like "Corresponding author") can be skipped
+                    # because they're not body content
+                    if any(meta in next_text_lower for meta in METADATA_SECTIONS):
+                        in_metadata_section = True
+                        j += 1
+                        continue
+
+                    # Other SectionHeaders mark real section boundaries - don't join across
+                    in_metadata_section = False
+                    crossed_section = True
                     j += 1
                     continue
 
-                if next_bt == 'Table':
+                # Skip over non-content blocks (page chrome, figures, footnotes, etc.)
+                if next_bt in SKIP_BLOCK_TYPES:
+                    if next_bt in ['PageHeader', 'PageFooter']:
+                        crossed_page = True
+                        in_metadata_section = False  # Reset on page change
                     j += 1
                     continue
-
-                if next_bt in ['Figure', 'Picture']:
-                    break
 
                 if next_bt in ['Text', 'Caption']:
-                    next_text = extract_text(next_block.get('html', ''))
+                    # Skip blocks already consumed by an earlier join
+                    if j in consumed:
+                        j += 1
+                        continue
 
-                    # Skip obvious table/figure captions
+                    # Skip text blocks inside metadata sections (like author address/email)
+                    if in_metadata_section:
+                        j += 1
+                        continue
+
+                    # Don't join across section boundaries
+                    if crossed_section:
+                        break
+
+                    next_text = extract_text(next_block.get('html', ''), preserve_math=True)
+
+                    # Skip obvious table/figure captions that start with "Table 1" etc.
                     if next_bt == 'Caption' and re.match(r'^(Table|Fig\.?|Figure)\s*\d', next_text, re.IGNORECASE):
                         j += 1
                         continue
 
+                    # Found a continuation if it starts with lowercase
                     if is_sentence_continuation(next_text):
                         continuation_idx = j
                         break
 
+                    # Or if current is incomplete and we're on the same page (column break)
                     if current_incomplete and not crossed_page and block.get('page') == next_block.get('page'):
                         continuation_idx = j
                         break
 
+                    # If we crossed a page, keep looking (the continuation might be after more chrome)
                     if crossed_page:
                         j += 1
                         continue
 
+                    # Not a continuation, stop looking
                     break
 
+                # Unknown block type, stop looking
                 break
 
             if continuation_idx is not None:
-                continuation_text = extract_text(blocks[continuation_idx].get('html', ''))
+                continuation_text = extract_text(blocks[continuation_idx].get('html', ''), preserve_math=True)
                 joined_text = text + ' ' + continuation_text
+                consumed.add(continuation_idx)
+
+                # Keep joining if the result is still incomplete and there are more continuations
+                # This handles chains like: "text," + "more text with a" + "continuation."
+                while is_incomplete_sentence(joined_text):
+                    # Look for another continuation starting after the last one we consumed
+                    next_j = continuation_idx + 1
+                    next_continuation_idx = None
+                    next_crossed_page = crossed_page
+                    next_in_metadata_section = in_metadata_section
+
+                    while next_j < len(blocks):
+                        next_block = blocks[next_j]
+                        next_bt = next_block.get('block_type', '')
+
+                        if next_bt == 'SectionHeader':
+                            next_text_check = extract_text(next_block.get('html', ''))
+                            if any(meta in next_text_check.lower().strip() for meta in METADATA_SECTIONS):
+                                next_in_metadata_section = True
+                                next_j += 1
+                                continue
+                            # Hit a real section boundary, stop
+                            break
+
+                        if next_bt in SKIP_BLOCK_TYPES:
+                            if next_bt in ['PageHeader', 'PageFooter']:
+                                next_crossed_page = True
+                                next_in_metadata_section = False
+                            next_j += 1
+                            continue
+
+                        if next_bt in ['Text', 'Caption']:
+                            # Skip blocks already consumed
+                            if next_j in consumed:
+                                next_j += 1
+                                continue
+
+                            if next_in_metadata_section:
+                                next_j += 1
+                                continue
+
+                            next_text_candidate = extract_text(next_block.get('html', ''), preserve_math=True)
+
+                            if is_sentence_continuation(next_text_candidate):
+                                next_continuation_idx = next_j
+                                break
+
+                            # Not a continuation, stop looking
+                            break
+
+                        # Unknown block type
+                        break
+
+                    if next_continuation_idx is not None:
+                        next_continuation_text = extract_text(blocks[next_continuation_idx].get('html', ''), preserve_math=True)
+                        joined_text = joined_text + ' ' + next_continuation_text
+                        consumed.add(next_continuation_idx)
+                        continuation_idx = next_continuation_idx
+                        crossed_page = next_crossed_page
+                        in_metadata_section = next_in_metadata_section
+                    else:
+                        # No more continuations found
+                        break
+
                 new_block = block.copy()
                 new_block['html'] = f'<p>{joined_text}</p>'
                 new_block['_joined'] = True
                 result.append(new_block)
-                consumed.add(continuation_idx)
                 i += 1
                 continue
 
@@ -214,7 +411,7 @@ def join_split_sentences(blocks: list[dict]) -> list[dict]:
     return result
 
 
-def parse_blocks(json_path: Path) -> dict:
+def parse_blocks(json_path: Path, images_dir: Path | None = None) -> dict:
     """
     Parse Datalab JSON blocks into structured article components.
 
@@ -222,6 +419,10 @@ def parse_blocks(json_path: Path) -> dict:
     1. Classify each block by section
     2. Clean up (join sentences, associate captions, remove cruft)
     3. Reassemble in document order
+
+    Args:
+        json_path: Path to Datalab JSON file
+        images_dir: Directory to save extracted images (created if needed)
     """
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -257,6 +458,10 @@ def parse_blocks(json_path: Path) -> dict:
 
     # Track references separately
     references = []
+
+    # Track footnotes separately (author affiliations, emails, etc.)
+    # These become endnotes in the output, not mixed into body_html
+    footnotes = []
 
     # Pending caption (to associate with next table/figure)
     pending_caption = None
@@ -339,17 +544,63 @@ def parse_blocks(json_path: Path) -> dict:
             sections[current_section].append(block)
             continue
 
-        # Handle figures
+        # Handle figures - extract images to files
         if bt in ('Figure', 'Picture'):
+            figure_id = f"fig_{len(figures) + 1}"
             figure_entry = {
-                'html': html[:500] if len(html) > 500 else html,  # Truncate large base64
+                'id': figure_id,
                 'page': page,
                 'section': current_section,
-                'caption': pending_caption['text'] if pending_caption else None
+                'caption': pending_caption['text'] if pending_caption else None,
+                'alt': None,
+                'description_html': None,  # Full description including tables
+                'images': [],  # List of saved image filenames
             }
+
+            # Parse the figure HTML
+            soup = BeautifulSoup(html, 'html.parser')
+
+            # Extract alt text from img tag
+            img_tag = soup.find('img')
+            if img_tag and img_tag.get('alt'):
+                figure_entry['alt'] = img_tag.get('alt')
+
+            # Extract the description div - contains paragraphs AND data tables
+            # This is valuable content that explains the figure
+            desc_div = soup.find('div', class_='img-description')
+            if desc_div:
+                figure_entry['description_html'] = str(desc_div)
+
+            # Extract and save images from the block's 'images' dict
+            block_images = block.get('images', {})
+            for img_filename, img_base64 in block_images.items():
+                if images_dir:
+                    images_dir.mkdir(parents=True, exist_ok=True)
+                    # Use figure_id prefix for cleaner filenames
+                    ext = Path(img_filename).suffix or '.jpg'
+                    saved_filename = f"{figure_id}{ext}"
+                    img_path = images_dir / saved_filename
+                    try:
+                        img_data = base64.b64decode(img_base64)
+                        with open(img_path, 'wb') as img_file:
+                            img_file.write(img_data)
+                        figure_entry['images'].append(saved_filename)
+                    except Exception as e:
+                        warnings.append(f"[IMAGE] Failed to save {img_filename}: {e}")
+                else:
+                    # No output dir - just note the filename
+                    figure_entry['images'].append(img_filename)
+
             figures.append(figure_entry)
             pending_caption = None
-            sections[current_section].append(block)
+
+            # Add placeholder to section for document order
+            placeholder_block = {
+                'block_type': 'FigurePlaceholder',
+                'figure_id': figure_id,
+                'page': page,
+            }
+            sections[current_section].append(placeholder_block)
             continue
 
         # Handle list groups (often references)
@@ -396,13 +647,19 @@ def parse_blocks(json_path: Path) -> dict:
             sections[current_section].append(block)
             continue
 
-        # Handle footnotes
+        # Handle footnotes - collect separately, don't add to sections
+        # These are author affiliations, corresponding author info, etc.
+        # They'll be converted to endnotes in the output
         if bt == 'Footnote':
             if '@' in text and not metadata['author_email']:
                 email_match = re.search(r'[\w.-]+@[\w.-]+\.\w+', text)
                 if email_match:
                     metadata['author_email'] = email_match.group(0)
-            sections[current_section].append(block)
+            footnotes.append({
+                'text': text,
+                'html': html,
+                'page': page,
+            })
             continue
 
         # Any other block type - add to current section
@@ -411,8 +668,20 @@ def parse_blocks(json_path: Path) -> dict:
     # --- Pass 3: Reassemble document ---
 
     def blocks_to_html(block_list: list[dict]) -> str:
-        """Convert list of blocks to HTML string."""
-        return '\n'.join(b.get('html', '') for b in block_list)
+        """Convert list of blocks to HTML string, with figure placeholders."""
+        parts = []
+        for b in block_list:
+            bt = b.get('block_type', '')
+            if bt == 'FigurePlaceholder':
+                # Insert a placeholder div that can be replaced with actual figure
+                fig_id = b.get('figure_id', 'unknown')
+                parts.append(f'<div class="figure-placeholder" data-figure-id="{fig_id}"></div>')
+            else:
+                html = b.get('html', '')
+                # Convert math tags to styled spans with Unicode
+                html = convert_math_tags(html)
+                parts.append(html)
+        return '\n'.join(parts)
 
     def extract_abstract(block_list: list[dict]) -> tuple[str, str | None]:
         """Extract abstract text and detect language."""
@@ -542,6 +811,9 @@ def parse_blocks(json_path: Path) -> dict:
         'tables': tables,
         'figures': figures,
 
+        # Footnotes (author affiliations, emails) - kept separate for endnotes
+        'footnotes': footnotes,
+
         # Section inventory (for debugging)
         'sections_found': {k: len(v) for k, v in sections.items()},
 
@@ -554,6 +826,7 @@ def parse_blocks(json_path: Path) -> dict:
             'after_join': len(blocks),
             'classified': classified_count,
             'skipped_chrome': skipped_count,
+            'footnotes_extracted': len(footnotes),
         },
 
         'warnings': warnings,
@@ -568,7 +841,12 @@ def main():
         sys.exit(1)
 
     json_path = Path(sys.argv[1])
-    result = parse_blocks(json_path)
+
+    # Create images directory alongside the JSON file
+    slug = json_path.stem.replace('_parsed', '')
+    images_dir = json_path.parent / 'images' / slug
+
+    result = parse_blocks(json_path, images_dir=images_dir)
 
     # Print summary
     print(f"=== {result['source_file']} ===\n")
@@ -591,6 +869,9 @@ def main():
     print(f"References: {len(result['references'])}")
     print(f"Tables: {len(result['tables'])}")
     print(f"Figures: {len(result['figures'])}")
+    for fig in result['figures']:
+        print(f"  - {fig['id']}: {len(fig['images'])} image(s), caption: {fig['caption'][:50] if fig['caption'] else 'None'}...")
+    print(f"Footnotes: {len(result['footnotes'])}")
 
     print(f"\n--- Sections Found ---")
     for sec, count in sorted(result['sections_found'].items()):

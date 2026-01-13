@@ -146,6 +146,34 @@ Never silently choose the workaround. JD decides whether to accept technical deb
 
 ---
 
+## No Hardcoded Strings
+
+**Language-specific strings belong in YAML, not code.**
+
+This project handles multilingual content (English, French, potentially more). Any string used for pattern matching, section detection, or language-specific logic must be in a YAML config file, not hardcoded in Python.
+
+**Config files:**
+- `data/section_headings.yaml` — section header patterns (abstract, references, etc.)
+- `data/glossary.yaml` — terminology translations
+- `data/taxonomy.yaml` — classification terms
+
+**Anti-pattern:**
+```python
+# BAD - hardcoded strings
+SECTIONS = ['abstract', 'résumé', 'references', 'références']
+```
+
+**Correct pattern:**
+```python
+# GOOD - load from YAML
+with open('data/section_headings.yaml') as f:
+    config = yaml.safe_load(f)
+```
+
+When adding new pattern-matching logic, check if an appropriate YAML file exists. If not, create one.
+
+---
+
 ## Project Overview
 
 This project creates an authoritative French-language resource on Pathological Demand Avoidance (PDA), a behavioral profile within autism that is virtually unknown in France. The goal is to make the English-language research literature accessible to French clinicians (psychiatrists, pediatricians, psychologists) who would otherwise never encounter it.
@@ -598,50 +626,52 @@ SQLite translations                ← Translated content saved
 /admin/articles                    ← Human review of flagged translations
 ```
 
-### Step 4: AI Enhancement Procedure
+### Step 4: AI Enhancement (Tool-Enforced)
 
-When asked to enhance a parsed article, follow this checklist:
+Step 4 is enforced by MCP tools. You MUST call them in sequence — each tool blocks until the previous step is complete.
 
-**1. Read both files:**
-```bash
-# Read the parsed JSON (has warnings, extracted fields)
-Read: cache/articles/{slug}.json
+**The tools enforce this order:**
 
-# Read the raw HTML (source for anything parser missed)
-Read: cache/articles/{slug}.html
+```
+step4_check_fields(slug)       → Returns missing/empty fields
+step4_confirm_fields(slug, ...) → You provide corrections or confirm OK
+                                  ↓ Cannot proceed until complete
+step4_check_warnings(slug)      → Returns orphan paragraphs, parser warnings
+step4_confirm_warnings(slug, ...)→ You provide fixes or acknowledge
+                                  ↓ Cannot proceed until complete
+step4_check_references(slug)    → Returns reference extraction status
+step4_confirm_references(slug, ...)→ You add missing refs or confirm OK
+                                  ↓ Cannot proceed until complete
+step4_check_formulas(slug)      → Returns unwrapped statistical formulas
+step4_confirm_formulas(slug, ...)→ You wrap formulas or confirm none needed
+                                  ↓ Cannot proceed until complete
+step4_complete(slug)            → Moves article to ready/ for human review
 ```
 
-**2. Check for missing/empty fields:**
-- `title` — Should be present; if not, look for `<h1>` or document title in HTML
-- `authors` — Often missing for non-English. Look for byline near title, "by" patterns, affiliation blocks
-- `citation` — Journal name, volume, year, pages. Often in footer or header metadata
-- `abstract` — Look for "Abstract", "Résumé", "Summary" sections
-- `year` — Extract from citation or publication date
+**What each check looks for:**
 
-**3. Check warnings:**
-- `[ORPHAN?]` — Paragraph starting with lowercase, likely split by table/figure
-  - Find the preceding paragraph in body_html
-  - Determine if they should be joined
-  - If yes, report the fix needed
+1. **Fields** — title, authors, year, citation, abstract (missing or empty?)
+2. **Warnings** — [ORPHAN?] paragraphs starting with lowercase (split from previous?)
+3. **References** — Were they extracted? French articles use "Références" or "Bibliographie"
+4. **Formulas** — Unwrapped statistical notation:
+   - F-statistics: `F(1, 156) = 4.07`
+   - t-tests: `t(45) = 2.31`
+   - Chi-square: `χ²(2) = 8.45`
+   - p-values: `p < .05`, `p = .001`
+   - Effect sizes: `η² = .12`, `d = 0.45`
+   - Correlations: `r = .67`
+   - Means/SDs: `M = 4.2, SD = 1.1`
 
-**4. Check references:**
-- If `references` is empty but article clearly has them
-- Look for "References", "Références", "Bibliography" sections
-- French articles often use "Références" or "Bibliographie"
+**Formula normalization is judgment-based:** Ages, sample sizes in prose don't need wrapping. Wrap statistical test results and their parameters.
 
-**5. Apply fixes:**
-```bash
-# Update the JSON with corrections
-/opt/homebrew/bin/python3.11 scripts/enhance_parsed_article.py cache/articles/{slug}.json \
-  --authors "A. Philippe, Y. Contejean" \
-  --year "2018" \
-  --citation "Neuropsychiatrie de l'enfance et de l'adolescence 66 (2018) 103-108"
+**Example formula wrapping:**
+```html
+<!-- Before -->
+There was no significant difference, F(1, 156) = 2.31, p = .13.
+
+<!-- After -->
+There was no significant difference, <span class="formula">F(1, 156) = 2.31, p = .13</span>.
 ```
-
-**6. Report to user:**
-- List what was found/fixed
-- Note any issues that need manual attention
-- Confirm the article is ready for review
 
 ### Key Scripts
 
