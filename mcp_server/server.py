@@ -967,19 +967,9 @@ def start_preprocessing(
                     "next_step": f"Call get_body_for_review('{slug}') to continue body review.",
                 }
 
-    # Check for articles ready for human review
-    if status["preprocessing"]["ready_for_review"] > 0:
-        return {
-            "status": "HUMAN_REVIEW_REQUIRED",
-            "progress": {
-                "step": "5/5",
-                "step_name": "Ready for Approval",
-                "article_progress": f"{session['completed_count'] + 1}/{session['target_count']}",
-            },
-            "message": f"{status['preprocessing']['ready_for_review']} article(s) waiting for human approval.",
-            "ready_files": status["preprocessing"]["ready_files"],
-            "next_step": "Human must approve at /admin/review. After approval, call start_preprocessing() again to continue.",
-        }
+    # Note pending reviews but don't block — user can review whenever
+    pending_reviews = status["preprocessing"]["ready_for_review"]
+    pending_review_files = status["preprocessing"]["ready_files"] if pending_reviews > 0 else []
 
     # Check if session complete
     if session["completed_count"] >= session["target_count"]:
@@ -1017,7 +1007,7 @@ def start_preprocessing(
                 "next_step": "Add PDFs to intake/articles/ folder, or manually download from Datalab website.",
             }
 
-        return {
+        response = {
             "status": "CHOOSE_SOURCE",
             "progress": {
                 "article_progress": f"{session['completed_count'] + 1}/{session['target_count']}",
@@ -1029,6 +1019,13 @@ def start_preprocessing(
             "pdf_count": len(intake["available"]),
             "next_step": "Choose one: parse_datalab_file('<filename>') for already-extracted files, or extract_pdf('<filename>') for new PDFs.",
         }
+
+        # Add pending review info (non-blocking)
+        if pending_reviews > 0:
+            response["pending_reviews"] = pending_reviews
+            response["pending_review_files"] = pending_review_files
+
+        return response
 
     # Filename provided - check if it's a datalab file or a PDF
     if filename.startswith("datalab-output-") or filename.endswith(".json"):
