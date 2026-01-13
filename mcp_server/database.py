@@ -128,6 +128,10 @@ class Database:
             ("extraction_method", "ALTER TABLE articles ADD COLUMN extraction_method TEXT"),
             ("extraction_problems", "ALTER TABLE articles ADD COLUMN extraction_problems TEXT DEFAULT '[]'"),
             ("glossary_version", "ALTER TABLE articles ADD COLUMN glossary_version TEXT"),
+            ("processing_flags", "ALTER TABLE articles ADD COLUMN processing_flags TEXT DEFAULT '[]'"),
+            ("processing_notes", "ALTER TABLE articles ADD COLUMN processing_notes TEXT"),
+            ("processed_at", "ALTER TABLE articles ADD COLUMN processed_at TEXT"),
+            ("summary_original", "ALTER TABLE articles ADD COLUMN summary_original TEXT"),
         ]
 
         for col_name, sql in migrations:

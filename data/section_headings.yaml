@@ -2,39 +2,88 @@
 #
 # Each section type has patterns that match common heading variations.
 # Patterns are matched case-insensitively against heading text.
-# Use partial strings that will match variations (e.g., "REFERENCE" matches "References")
+# Use partial strings that will match variations (e.g., "reference" matches "References")
+
+# --- Major sections (extract separately, not part of body) ---
 
 abstract:
   en: ["abstract", "summary"]
   fr: ["résumé", "resume"]
-  es: ["resumen"]
-  de: ["zusammenfassung", "kurzfassung"]
-  it: ["sommario", "riassunto"]
-  pt: ["resumo"]
-
-references:
-  en: ["reference", "bibliography", "works cited", "literature cited"]
-  fr: ["référence", "bibliographie"]
-  es: ["referencia", "bibliografía", "literatura citada"]
-  de: ["literatur", "quellenverzeichnis", "literaturverzeichnis"]
-  it: ["riferiment", "bibliografia"]
-  pt: ["referência", "bibliografia"]
-
-acknowledgements:
-  en: ["acknowledgement", "acknowledgment", "funding"]
-  fr: ["remerciement"]
-  es: ["agradecimiento", "reconocimiento"]
-  de: ["danksagung", "dank"]
-  it: ["ringraziament"]
-  pt: ["agradecimento"]
 
 keywords:
-  en: ["keyword", "key word", "index term"]
-  fr: ["mots clé", "mot-clé", "mots-clés"]
-  es: ["palabra clave", "palabras clave"]
-  de: ["schlüsselwort", "schlagwort"]
-  it: ["parole chiave"]
-  pt: ["palavra-chave", "palavras-chave"]
+  en: ["keywords", "key words"]
+  fr: ["mots-clés", "mots clés"]
 
-# Future sections can be added here:
-# introduction, methods, results, discussion, conclusion, etc.
+references:
+  en: ["references", "bibliography", "literature cited"]
+  fr: ["références", "bibliographie"]
+
+acknowledgements:
+  en: ["acknowledgements", "acknowledgments"]
+  fr: ["remerciements"]
+
+appendix:
+  en: ["appendix", "appendices", "supplementary", "supplemental", "supporting information"]
+  fr: ["annexe", "annexes"]
+
+conflict_of_interest:
+  en: ["conflict of interest", "conflicts of interest", "competing interests", "disclosure"]
+  fr: ["déclaration", "conflit d'intérêt"]
+
+author_contributions:
+  en: ["author contributions", "contributions", "contributorship"]
+  fr: ["contributions des auteurs"]
+
+funding:
+  en: ["funding", "financial support"]
+  fr: ["financement"]
+
+data_availability:
+  en: ["data availability", "data statement"]
+  fr: ["disponibilité des données"]
+
+corresponding_author:
+  en: ["corresponding author", "correspondence"]
+  fr: ["auteur correspondant", "correspondance"]
+
+# --- Body sections (all become part of body_html) ---
+
+body_sections:
+  en:
+    - "introduction"
+    - "background"
+    - "literature review"
+    - "theoretical background"
+    - "methods"
+    - "method"
+    - "methodology"
+    - "materials and methods"
+    - "participants"
+    - "procedure"
+    - "results"
+    - "findings"
+    - "discussion"
+    - "conclusions"
+    - "conclusion"
+    - "summary and conclusions"
+    - "limitations"
+    - "future directions"
+    - "implications"
+  fr:
+    - "introduction"
+    - "contexte"
+    - "méthodes"
+    - "méthodologie"
+    - "résultats"
+    - "discussion"
+    - "conclusions"
+    - "conclusion"
+    - "limites"
+    - "implications"
+
+# --- Metadata sections (skip when joining split sentences) ---
+# These appear between body content but aren't part of the main text flow
+
+metadata_sections:
+  en: ["corresponding author", "correspondence"]
+  fr: ["auteur correspondant", "correspondance"]

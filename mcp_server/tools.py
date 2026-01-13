@@ -37,9 +37,9 @@ from .pdf_extraction import (
     extract_pymupdf,
 )
 from pathlib import Path
-import re
 import shutil
 from .quality_checks import run_quality_checks
+from .utils import slugify
 
 logger = logging.getLogger(__name__)
 
@@ -1061,23 +1061,8 @@ def _extract_summary_from_text(text: str, max_words: int = 150) -> str | None:
     return combined
 
 
-def _slugify(text: str) -> str:
-    """
-    Convert text to URL-safe slug.
-
-    Lowercase, replace spaces with hyphens, remove special chars.
-    """
-    # Lowercase
-    slug = text.lower()
-    # Replace spaces and underscores with hyphens
-    slug = re.sub(r'[\s_]+', '-', slug)
-    # Remove anything that isn't alphanumeric or hyphen
-    slug = re.sub(r'[^a-z0-9-]', '', slug)
-    # Collapse multiple hyphens
-    slug = re.sub(r'-+', '-', slug)
-    # Strip leading/trailing hyphens
-    slug = slug.strip('-')
-    return slug
+# _slugify is now imported from utils.py as slugify
+_slugify = slugify
 
 
 def _generate_article_id(title: str, author: str | None, doi: str | None) -> str:
